@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { SparklesIcon, MicIcon, ClockIcon } from './icons';
+import { SparklesIcon, MicIcon, ClockIcon, ImageIcon, VideoIcon } from './icons';
 import { MobileSheetType } from './MobileOverlays';
 
 interface MobileComposerProps {
@@ -47,6 +47,10 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     avatarUrl,
     mode = 'faceless',
     duration = 30,
+    hasScript,
+    hasAssets,
+    hasStoryboard,
+    hasVideo,
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -179,6 +183,33 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                             Generate →
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Workflow Tiles - Matches Desktop */}
+            <div className="px-4 mt-3">
+                <div className="flex justify-between gap-2">
+                    {[
+                        { id: 'script', label: 'Script', icon: SparklesIcon, active: hasScript },
+                        { id: 'assets', label: 'Assets', icon: ImageIcon, active: hasAssets },
+                        { id: 'storyboard', label: 'Scenes', icon: ClockIcon, active: hasStoryboard },
+                        { id: 'video', label: 'Video', icon: VideoIcon, active: hasVideo },
+                    ].map((step) => (
+                        <button
+                            key={step.id}
+                            onClick={() => step.active && onOpenSheet(step.id as MobileSheetType)}
+                            disabled={!step.active}
+                            className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-xl border-2 transition-all ${step.active
+                                ? 'bg-white border-black shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_var(--brand-primary)]'
+                                : 'bg-gray-50 border-gray-100 opacity-40'
+                                }`}
+                        >
+                            <step.icon className={`w-5 h-5 ${step.active ? 'text-black' : 'text-gray-300'}`} />
+                            <span className={`text-[9px] font-bold uppercase tracking-wider ${step.active ? 'text-black' : 'text-gray-300'}`}>
+                                {step.label}
+                            </span>
+                        </button>
+                    ))}
                 </div>
             </div>
         </div>
