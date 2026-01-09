@@ -172,34 +172,41 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 {/* Top Nav Bar with Hamburger */}
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
-                {/* Main Content Area */}
-                <div className="flex-1 overflow-y-auto pt-[180px] pb-8">
-                    {/* Subtle Topic Suggestions */}
-                    <div className="px-5">
-                        <p className="text-xs text-gray-300 mb-4">Try a topic</p>
+                {/* Main Content Area - Premium */}
+                <div className="flex-1 overflow-y-auto pt-[220px] pb-8 bg-[#FAFAFA]">
+                    <div className="px-5 pt-4">
+                        {/* Section Header */}
+                        <p className="text-xs font-medium uppercase tracking-wider text-gray-300 mb-4">Inspiration</p>
 
-                        {/* Horizontal scrollable chips */}
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {['AI & Technology', 'Crypto Update', 'Fitness Tips', 'Life Hacks', 'Movie Reviews', 'Travel Guide'].map((topic, i) => (
+                        {/* Topic Pills - Ghost Style */}
+                        <div className="flex flex-wrap gap-2 mb-8">
+                            {['AI & Tech', 'Crypto', 'Fitness', 'Life Hacks', 'Movies', 'Travel'].map((topic, i) => (
                                 <button
                                     key={i}
                                     onClick={() => setInputText(topic)}
-                                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-full text-sm text-gray-600 transition-colors"
+                                    className="px-4 py-2.5 bg-white/60 hover:bg-white border border-gray-200/60 hover:border-gray-300 rounded-full text-sm text-gray-600 hover:text-gray-900 shadow-sm hover:shadow transition-all duration-200"
                                 >
                                     {topic}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Quick ideas */}
-                        <div className="flex flex-wrap gap-2">
-                            {['Morning routine', 'Money tips', 'Fun facts', 'DIY ideas'].map((idea, i) => (
+                        {/* Quick Ideas - Text Links */}
+                        <p className="text-xs font-medium uppercase tracking-wider text-gray-300 mb-3">Quick Ideas</p>
+                        <div className="space-y-2">
+                            {[
+                                { text: 'Morning productivity routine', icon: '☀️' },
+                                { text: '5 money saving tips', icon: '💰' },
+                                { text: 'Interesting facts about space', icon: '🚀' },
+                                { text: 'Simple DIY home projects', icon: '🔨' },
+                            ].map((idea, i) => (
                                 <button
                                     key={i}
-                                    onClick={() => setInputText(idea)}
-                                    className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                                    onClick={() => setInputText(idea.text)}
+                                    className="flex items-center gap-3 w-full px-4 py-3 bg-white/40 hover:bg-white rounded-2xl text-left text-sm text-gray-600 hover:text-gray-900 border border-transparent hover:border-gray-200/60 transition-all duration-200 group"
                                 >
-                                    {idea}
+                                    <span className="text-lg opacity-60 group-hover:opacity-100 transition-opacity">{idea.icon}</span>
+                                    <span>{idea.text}</span>
                                 </button>
                             ))}
                         </div>

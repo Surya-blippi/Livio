@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { SparklesIcon, MicIcon, ClockIcon } from './icons';
 import { MobileSheetType } from './MobileOverlays';
 
@@ -49,125 +49,136 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     duration = 30,
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [showSettings, setShowSettings] = useState(false);
 
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 180) + 'px';
         }
     }, [inputText]);
 
-    // Processing state - clean overlay
+    // Processing state - premium glass overlay
     if (isProcessing) {
         return (
-            <div className="fixed top-14 left-0 right-0 bg-white/95 backdrop-blur-sm px-6 py-5 z-40">
-                <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-black animate-spin" />
-                    <p className="text-sm text-gray-600">{processingMessage}</p>
+            <div className="fixed top-14 left-0 right-0 z-40 px-4 pt-4">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white/60">
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 opacity-20 animate-ping absolute" />
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+                                <SparklesIcon className="w-5 h-5 text-white" />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="font-semibold text-gray-900">Creating your video</p>
+                            <p className="text-sm text-gray-500">{processingMessage}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="fixed top-14 left-0 right-0 z-40 bg-white">
-            {/* Main Input Area - Clean & Spacious */}
-            <div className="px-5 pt-5 pb-4">
-                <textarea
-                    ref={textareaRef}
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="What's your video about?"
-                    className="w-full px-0 py-0 bg-transparent text-lg font-medium placeholder:text-gray-300 focus:outline-none resize-none leading-relaxed border-none"
-                    rows={3}
-                />
+        <div className="fixed top-14 left-0 right-0 z-40">
+            {/* Subtle gradient glow background */}
+            <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 via-transparent to-transparent pointer-events-none" />
 
-                {/* Action Row */}
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
-                    {/* AI Enhance - Subtle */}
-                    <button
-                        onClick={onEnhance}
-                        disabled={!inputText.trim() || isEnhancing}
-                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-colors"
-                    >
-                        <SparklesIcon className="w-4 h-4" />
-                        <span>{isEnhancing ? 'Writing...' : 'AI Write'}</span>
-                    </button>
+            {/* Main Content */}
+            <div className="relative px-4 pt-4 pb-2">
+                {/* Glass Input Card */}
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-gray-100/80">
+                    {/* Textarea */}
+                    <textarea
+                        ref={textareaRef}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="What's your video about?"
+                        className="w-full bg-transparent text-xl font-light placeholder:text-gray-300 focus:outline-none resize-none leading-relaxed tracking-tight"
+                        rows={3}
+                    />
 
-                    <div className="flex-1" />
+                    {/* Action Row */}
+                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100/60">
+                        {/* AI Enhance */}
+                        <button
+                            onClick={onEnhance}
+                            disabled={!inputText.trim() || isEnhancing}
+                            className="flex items-center gap-2 text-sm text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-all duration-200"
+                        >
+                            <div className="w-7 h-7 rounded-full bg-purple-50 flex items-center justify-center">
+                                <SparklesIcon className="w-3.5 h-3.5 text-purple-500" />
+                            </div>
+                            <span className="font-medium">{isEnhancing ? 'Writing...' : 'Enhance'}</span>
+                        </button>
 
-                    {/* Generate Button - Full Focus */}
-                    <button
-                        onClick={onGenerate}
-                        disabled={!inputText.trim()}
-                        className="px-6 py-2.5 bg-black text-white rounded-full text-sm font-semibold disabled:opacity-30 active:scale-95 transition-all"
-                    >
-                        Generate Video
-                    </button>
+                        <div className="flex-1" />
+
+                        {/* Generate Button - Premium */}
+                        <button
+                            onClick={onGenerate}
+                            disabled={!inputText.trim()}
+                            className="group px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-semibold text-sm disabled:opacity-30 hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] active:scale-[0.98] transition-all duration-200"
+                        >
+                            Generate
+                            <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {/* Minimal Settings Bar */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50 bg-gray-50/50">
-                {/* Left: Key Settings */}
-                <div className="flex items-center gap-4">
+                {/* Settings Bar - Minimal */}
+                <div className="flex items-center justify-center gap-1 mt-4 px-2">
                     <button
                         onClick={() => onOpenSheet('face')}
-                        className="flex items-center gap-1.5 text-xs text-gray-500"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-500 hover:bg-gray-100/80 transition-colors"
                     >
                         {mode === 'face' && avatarUrl ? (
-                            <img src={avatarUrl} className="w-5 h-5 rounded-full" />
+                            <img src={avatarUrl} className="w-5 h-5 rounded-full object-cover ring-1 ring-gray-200" />
                         ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px]">👤</div>
+                            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center">
+                                <span className="text-[10px]">👤</span>
+                            </div>
                         )}
-                        <span>{mode === 'face' ? 'Avatar' : 'No Face'}</span>
+                        <span>{mode === 'face' ? 'Face' : 'None'}</span>
                     </button>
+
+                    <div className="w-px h-4 bg-gray-200" />
 
                     <button
                         onClick={() => onOpenSheet('voice')}
-                        className="flex items-center gap-1.5 text-xs text-gray-500"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-500 hover:bg-gray-100/80 transition-colors"
                     >
                         <MicIcon className="w-4 h-4" />
                         <span className="max-w-[50px] truncate">{voiceName}</span>
                     </button>
 
+                    <div className="w-px h-4 bg-gray-200" />
+
                     <button
                         onClick={() => onOpenSheet('duration')}
-                        className="flex items-center gap-1.5 text-xs text-gray-500"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-500 hover:bg-gray-100/80 transition-colors"
                     >
                         <ClockIcon className="w-4 h-4" />
                         <span>{duration}s</span>
                     </button>
-                </div>
 
-                {/* Right: Toggles */}
-                <div className="flex items-center gap-2">
+                    <div className="w-px h-4 bg-gray-200" />
+
                     <button
                         onClick={() => setEnableCaptions(!enableCaptions)}
-                        className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${enableCaptions ? 'bg-black text-white' : 'text-gray-400'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${enableCaptions ? 'bg-purple-100 text-purple-700' : 'text-gray-400 hover:bg-gray-100/80'}`}
                     >
                         CC
                     </button>
+
                     <button
                         onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
-                        className={`px-2 py-1 rounded text-xs transition-all ${enableBackgroundMusic ? 'bg-black text-white' : 'text-gray-400'}`}
+                        className={`px-3 py-2 rounded-xl text-xs transition-all ${enableBackgroundMusic ? 'bg-purple-100 text-purple-700' : 'text-gray-400 hover:bg-gray-100/80'}`}
                     >
                         ♫
                     </button>
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className="p-1.5 rounded text-gray-400 hover:text-black transition-colors"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
                 </div>
             </div>
-
-            {/* Subtle bottom line */}
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
         </div>
     );
 };
