@@ -38,6 +38,7 @@ import {
     deleteVoice,
     saveDraft,
     updateDraft,
+    uploadVoiceSample,
     DbUser,
     DbVideo,
     DbVoice,
@@ -69,6 +70,7 @@ export const useDashboardState = () => {
 
     // Voice state
     const [voiceFile, setVoiceFile] = useState<File | null>(null);
+    const [isConfirmingVoice, setIsConfirmingVoice] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [audioRecorder, setAudioRecorder] = useState<MediaRecorder | null>(null);
 
@@ -378,6 +380,46 @@ export const useDashboardState = () => {
         setPreviewMode('video');
     };
 
+
+
+    const handleConfirmVoice = async () => {
+        if (!voiceFile || !dbUser) return;
+
+        try {
+            setIsConfirmingVoice(true);
+
+            // 1. Upload the voice sample
+            const storageUrl = await uploadVoiceSample(dbUser.id, voiceFile);
+            if (!storageUrl) throw new Error('Failed to upload voice sample');
+
+            // 2. Save explicitly to DB as "pending"
+            // Generate a unique name
+            const voiceCount = allVoices.length + 1;
+            const voiceName = `Custom Voice ${voiceCount}`;
+
+            const newVoice = await saveVoice(
+                dbUser.id,
+                'pending', // Mark as pending cloning
+                storageUrl,
+                voiceName,
+                storageUrl // Use sample as preview
+            );
+
+            if (newVoice) {
+                // 3. Select it and clear pending file
+                await setActiveVoice(dbUser.id, newVoice.id);
+                setSavedVoice(newVoice);
+                setAllVoices(prev => [newVoice, ...prev]);
+                setVoiceFile(null); // Clear pending file as it is now saved
+            }
+        } catch (error) {
+            console.error('Failed to confirm voice:', error);
+            setError('Failed to save voice. Please try again.');
+        } finally {
+            setIsConfirmingVoice(false);
+        }
+    };
+
     const onVoiceSelect = async (voice: DbVoice) => {
         if (dbUser) {
             await setActiveVoice(dbUser.id, voice.id);
@@ -423,8 +465,39 @@ export const useDashboardState = () => {
                     setProcessingMessage('Generating speech...');
                 }
                 // 2. If user has a saved cloned voice, use that
-                else if (savedVoice?.voice_id) {
-                    voiceIdToUse = savedVoice.voice_id;
+                else if (savedVoice) {
+                    // Check if the voice is "pending" (deferred cloning)
+                    if (savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
+                        setProcessingMessage('Cloning your new voice...');
+                        console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
+
+                        try {
+                            // Fetch the file from storage
+                            const response = await fetch(savedVoice.voice_sample_url);
+                            const blob = await response.blob();
+                            const file = new File([blob], 'recording.webm', { type: blob.type }); // Filename doesn't matter much for conversion
+
+                            // Clone it
+                            const voiceData = await cloneVoice(file);
+                            voiceIdToUse = voiceData.voiceId;
+
+                            // Update the voice record with the real ID
+                            const updatedVoice = await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
+
+                            // Update local state
+                            if (updatedVoice) {
+                                setSavedVoice(updatedVoice);
+                                setAllVoices(prev => prev.map(v => v.id === updatedVoice.id ? updatedVoice : v));
+                            }
+                        } catch (err) {
+                            console.error('Error cloning pending voice:', err);
+                            setError('Failed to process your voice. Please record again.');
+                            setIsProcessing(false);
+                            return;
+                        }
+                    } else {
+                        voiceIdToUse = savedVoice.voice_id;
+                    }
                 }
                 // 3. No voice - will use default preset (may error if preset not accessible)
 
@@ -706,6 +779,8 @@ export const useDashboardState = () => {
         handleSelectVideo,
         selectedVideo, setSelectedVideo,
         onVoiceSelect,
+        handleConfirmVoice,
+        isConfirmingVoice,
         previewMode, setPreviewMode
     };
 };

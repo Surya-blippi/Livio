@@ -34,6 +34,10 @@ interface StudioLayoutProps {
     onUploadVoice: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onDeleteVoice: (voiceDbId: string) => void;
     voiceFile?: File | null;
+    onConfirmVoice: () => void;
+    onClearVoice: () => void;
+    isConfirmingVoice: boolean;
+    hasClonedVoice?: boolean;
 
     duration: number;
     setDuration: (d: number) => void;
@@ -97,6 +101,10 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     onUploadVoice,
     onDeleteVoice,
     voiceFile,
+    onConfirmVoice,
+    onClearVoice,
+    isConfirmingVoice,
+    hasClonedVoice,
     duration,
     setDuration,
     aspectRatio,
@@ -228,6 +236,10 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                     onUploadVoice={onUploadVoice}
                     onDeleteVoice={onDeleteVoice}
                     voiceFile={voiceFile}
+                    onConfirmVoice={onConfirmVoice}
+                    onClearVoice={onClearVoice}
+                    isConfirmingVoice={isConfirmingVoice}
+                    hasClonedVoice={hasClonedVoice}
                     duration={duration}
                     setDuration={setDuration}
                     aspectRatio={aspectRatio}

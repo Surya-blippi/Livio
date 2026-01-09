@@ -183,6 +183,8 @@ export default function Dashboard() {
                         hasClonedVoice={state.hasClonedVoice}
                         voiceFile={state.voiceFile}
                         onClearVoice={() => state.setVoiceFile(null)}
+                        onConfirmVoice={state.handleConfirmVoice}
+                        isConfirmingVoice={state.isConfirmingVoice}
                         collectedAssets={state.collectedAssets}
                         onUploadAsset={handleUploadAsset}
                         onRemoveAsset={(index) => state.setCollectedAssets(prev => prev.filter((_, i) => i !== index))}
@@ -217,6 +219,9 @@ export default function Dashboard() {
                 onUploadVoice={state.handleVoiceUpload}
                 onDeleteVoice={state.handleDeleteVoice}
                 voiceFile={state.voiceFile}
+                onConfirmVoice={state.handleConfirmVoice}
+                onClearVoice={() => state.setVoiceFile(null)}
+                isConfirmingVoice={state.isConfirmingVoice}
                 duration={state.duration}
                 setDuration={state.setDuration}
                 aspectRatio={state.aspectRatio}

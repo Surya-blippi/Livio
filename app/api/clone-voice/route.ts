@@ -68,14 +68,20 @@ export async function POST(request: NextRequest) {
         // Read converted file
         const convertedBuffer = await readFile(tempOutputPath);
         const base64 = convertedBuffer.toString('base64');
-        const audioUrl = `data:audio/mp3;base64,${base64}`;
 
         console.log('Conversion successful. New size:', convertedBuffer.length);
+        console.log('Uploading audio to Fal storage...');
 
-        // Call MiniMax voice cloning API with the converted MP3
+        // Upload to Fal storage to get a public URL (Data URLs often fail validation)
+        const storageUrl = await fal.storage.upload(
+            new Blob([convertedBuffer], { type: 'audio/mpeg' })
+        );
+        console.log('Audio uploaded to:', storageUrl);
+
+        // Call MiniMax voice cloning API with the converted MP3 URL
         const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
             input: {
-                audio_url: audioUrl,
+                audio_url: storageUrl,
                 model: 'speech-02-hd',
                 noise_reduction: true,
                 need_volume_normalization: true
@@ -106,6 +112,7 @@ export async function POST(request: NextRequest) {
             errorMessage = error.message;
             if ('body' in error) {
                 errorDetails = (error as { body?: unknown }).body;
+                console.error('Fal AI Error Body:', JSON.stringify(errorDetails, null, 2));
             }
         }
 

@@ -197,9 +197,27 @@ export async function deleteVideo(videoId: string): Promise<void> {
 // VOICE FUNCTIONS
 // ==========================================
 
+export async function uploadVoiceSample(userId: string, file: File): Promise<string | null> {
+    const fileExt = file.name.split('.').pop() || 'webm';
+    const fileName = `${userId}_${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('voices')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading voice sample:', uploadError);
+        return null;
+    }
+
+    const { data } = supabase.storage.from('voices').getPublicUrl(filePath);
+    return data.publicUrl;
+}
+
 export async function saveVoice(
     userId: string,
-    voiceId: string,
+    voiceId: string | null,
     voiceSampleUrl: string,
     name?: string,
     previewUrl?: string
@@ -215,7 +233,7 @@ export async function saveVoice(
         .from('voices')
         .insert({
             user_id: userId,
-            voice_id: voiceId,
+            voice_id: voiceId || 'pending',
             voice_sample_url: voiceSampleUrl,
             preview_url: previewUrl,
             name: name || 'My Voice',

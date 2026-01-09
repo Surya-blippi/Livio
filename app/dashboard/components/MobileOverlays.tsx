@@ -83,6 +83,9 @@ interface MobileOverlaysProps {
     onUploadVoice: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onDeleteVoice: (voiceDbId: string) => void;
     voiceFile?: File | null;
+    onConfirmVoice: () => void;
+    onClearVoice: () => void;
+    isConfirmingVoice: boolean;
     hasClonedVoice?: boolean;
 
     // Duration
@@ -138,6 +141,9 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     onUploadVoice,
     onDeleteVoice,
     voiceFile,
+    onConfirmVoice,
+    onClearVoice,
+    isConfirmingVoice,
     hasClonedVoice,
     duration,
     setDuration,
@@ -328,34 +334,54 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
 
                                         {/* Recorded/Uploaded Voice Preview */}
                                         {voiceFile && (
-                                            <div className="mb-4 p-3 rounded-xl border-2 border-purple-300 bg-purple-50 relative">
+                                            <div className="mb-4 p-3 rounded-xl border-2 border-purple-300 bg-purple-50">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                                                         <MicIcon className="w-4 h-4 text-white" />
                                                     </div>
-                                                    <div className="flex-1">
+                                                    <div className="flex-1 min-w-0">
                                                         <p className="font-bold text-sm">Your Voice</p>
-                                                        <p className="text-xs text-purple-600">{voiceFile.name}</p>
+                                                        <p className="text-xs text-purple-600 truncate">{voiceFile.name}</p>
                                                     </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            const url = URL.createObjectURL(voiceFile);
-                                                            handlePlayVoice('uploaded', url);
-                                                        }}
-                                                        className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white"
-                                                    >
-                                                        {playingVoiceId === 'uploaded' ? (
-                                                            <span className="text-sm">⏹</span>
-                                                        ) : (
-                                                            <span className="text-sm">▶</span>
-                                                        )}
-                                                    </button>
-                                                </div>
-                                                {/* Selection Indicator */}
-                                                <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 shadow-md">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                                                    </svg>
+
+                                                    {/* Controls: Play, Cancel, Confirm */}
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Play Button */}
+                                                        <button
+                                                            onClick={() => {
+                                                                const url = URL.createObjectURL(voiceFile);
+                                                                handlePlayVoice('uploaded', url);
+                                                            }}
+                                                            className="w-8 h-8 rounded-full bg-white border border-purple-200 text-purple-600 flex items-center justify-center hover:bg-purple-100"
+                                                        >
+                                                            {playingVoiceId === 'uploaded' ? (
+                                                                <span className="text-sm">⏹</span>
+                                                            ) : (
+                                                                <span className="text-sm">▶</span>
+                                                            )}
+                                                        </button>
+
+                                                        {/* Cancel Button */}
+                                                        <button
+                                                            onClick={onClearVoice}
+                                                            className="w-8 h-8 rounded-full bg-white border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+
+                                                        {/* Confirm (Tick) Button */}
+                                                        <button
+                                                            onClick={onConfirmVoice}
+                                                            disabled={isConfirmingVoice}
+                                                            className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md hover:bg-green-600 disabled:opacity-50"
+                                                        >
+                                                            {isConfirmingVoice ? (
+                                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -383,7 +409,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                         <div className="space-y-2 max-h-[200px] overflow-y-auto">
                                             {voices.map((voice) => (
                                                 <div
-                                                    key={voice.voice_id}
+                                                    key={voice.id || voice.voice_id}
                                                     className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-all relative group ${selectedVoice?.voice_id === voice.voice_id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
                                                 >
                                                     {/* Play Button */}
@@ -407,7 +433,11 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                         className="flex-1 text-left"
                                                     >
                                                         <p className="font-bold">{voice.name}</p>
-                                                        {voice.labels?.accent && <p className="text-xs text-gray-500">{voice.labels.accent}</p>}
+                                                        {voice.id ? (
+                                                            <p className="text-xs text-gray-400">Custom Voice</p>
+                                                        ) : (
+                                                            voice.labels?.accent && <p className="text-xs text-gray-500">{voice.labels.accent}</p>
+                                                        )}
                                                     </button>
 
                                                     {/* Checkmark */}
