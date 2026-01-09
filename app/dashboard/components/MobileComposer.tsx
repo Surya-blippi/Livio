@@ -41,7 +41,9 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     enableBackgroundMusic,
     setEnableBackgroundMusic,
     onEnhance,
+    onCollectAssets,
     isEnhancing,
+    isCollectingAssets,
     onOpenSheet,
     voiceName = 'Voice',
     avatarUrl,
@@ -166,10 +168,20 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                         <button
                             onClick={onEnhance}
                             disabled={!inputText.trim() || isEnhancing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-black hover:text-black disabled:opacity-30 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-purple-500 hover:text-purple-600 disabled:opacity-30 transition-all"
                         >
                             <SparklesIcon className="w-3 h-3" />
                             {isEnhancing ? 'Writing...' : 'AI Write'}
+                        </button>
+
+                        {/* Find Assets */}
+                        <button
+                            onClick={onCollectAssets}
+                            disabled={!inputText.trim() || isCollectingAssets}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                        >
+                            <ImageIcon className="w-3 h-3" />
+                            {isCollectingAssets ? 'Finding...' : 'Find Assets'}
                         </button>
 
                         <div className="flex-1" />
@@ -200,8 +212,8 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                             onClick={() => step.active && onOpenSheet(step.id as MobileSheetType)}
                             disabled={!step.active}
                             className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all ${step.active
-                                    ? `bg-gradient-to-br ${step.color} border-black shadow-[3px_3px_0px_#000] hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#000]`
-                                    : 'bg-gray-50 border-gray-100 opacity-40'
+                                ? `bg-gradient-to-br ${step.color} border-black shadow-[3px_3px_0px_#000] hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#000]`
+                                : 'bg-gray-50 border-gray-100 opacity-40'
                                 }`}
                         >
                             <step.icon className={`w-5 h-5 ${step.active ? 'text-white' : 'text-gray-300'}`} />
