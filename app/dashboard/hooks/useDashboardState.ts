@@ -13,8 +13,9 @@ import {
     addBackgroundMusic,
     facePostProcess,
     generateOptimizedFaceVideo,
-    generateSceneFaceVideo,
-    SceneInput,
+    startFaceVideoJob,
+    pollFaceVideoJob,
+    FaceVideoSceneInput,
     WordTiming,
     collectAssets,
     CollectedAsset,
@@ -634,7 +635,7 @@ export const useDashboardState = () => {
 
                 // Build scenes from script - alternate face/asset
                 // If we have scene timings from enhance, use those; otherwise split the script
-                const sceneInputs: SceneInput[] = [];
+                const sceneInputs: FaceVideoSceneInput[] = [];
 
                 if (sceneTimings && sceneTimings.length > 0) {
                     // Use scene data from enhanced script
@@ -679,13 +680,25 @@ export const useDashboardState = () => {
                     throw new Error('No voice ID available for scene generation. Please record or clone a voice first.');
                 }
 
-                // Call scene-based API
-                const sceneResult = await generateSceneFaceVideo(
+                // Call job-based face video API (works on Vercel)
+                const { jobId } = await startFaceVideoJob(
                     sceneInputs,
                     faceImageUrl,
                     voiceIdForScenes,
                     enableBackgroundMusic,
-                    enableCaptions
+                    enableCaptions,
+                    dbUser?.id
+                );
+
+                setProcessingMessage('Processing video (this may take a few minutes)...');
+
+                // Poll for job completion with progress updates
+                const sceneResult = await pollFaceVideoJob(
+                    jobId,
+                    (progress, message) => {
+                        setProcessingStep(Math.floor(4 + (progress / 100) * 2)); // Steps 4-6
+                        setProcessingMessage(message);
+                    }
                 );
 
                 setVideoUrl(sceneResult.videoUrl);

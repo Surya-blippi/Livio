@@ -775,3 +775,103 @@ export const createCaptionVideoCloud = async (
         backgroundMusicUrl, // Pass background music URL
     }, onProgress);
 };
+
+/**
+ * Scene input for face video job
+ */
+export interface FaceVideoSceneInput {
+    text: string;
+    type: 'face' | 'asset';
+    assetUrl?: string;
+}
+
+/**
+ * Job status response
+ */
+export interface FaceVideoJobStatus {
+    jobId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    progressMessage: string;
+    result?: {
+        videoUrl: string;
+        duration: number;
+        clipAssets: { url: string; source: string }[];
+    };
+    error?: string;
+}
+
+/**
+ * Start a face video generation job (returns immediately)
+ */
+export const startFaceVideoJob = async (
+    scenes: FaceVideoSceneInput[],
+    faceImageUrl: string,
+    voiceId: string,
+    enableBackgroundMusic: boolean = false,
+    enableCaptions: boolean = true,
+    userId?: string
+): Promise<{ jobId: string }> => {
+    const response = await axios.post('/api/face-video/start', {
+        scenes,
+        faceImageUrl,
+        voiceId,
+        enableBackgroundMusic,
+        enableCaptions,
+        userId
+    });
+
+    return { jobId: response.data.jobId };
+};
+
+/**
+ * Get the status of a face video job
+ */
+export const getFaceVideoJobStatus = async (jobId: string): Promise<FaceVideoJobStatus> => {
+    const response = await axios.get(`/api/face-video/status/${jobId}`);
+    return response.data;
+};
+
+/**
+ * Poll for face video job completion with progress callback
+ */
+export const pollFaceVideoJob = async (
+    jobId: string,
+    onProgress?: (progress: number, message: string) => void,
+    pollIntervalMs: number = 3000,
+    maxPollTimeMs: number = 600000 // 10 minutes max
+): Promise<{
+    videoUrl: string;
+    duration: number;
+    clipAssets: { url: string; source: string }[];
+}> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxPollTimeMs) {
+        const status = await getFaceVideoJobStatus(jobId);
+
+        // Report progress
+        if (onProgress) {
+            onProgress(status.progress, status.progressMessage);
+        }
+
+        // Check for completion
+        if (status.status === 'completed' && status.result) {
+            return {
+                videoUrl: status.result.videoUrl,
+                duration: status.result.duration,
+                clipAssets: status.result.clipAssets || []
+            };
+        }
+
+        // Check for failure
+        if (status.status === 'failed') {
+            throw new Error(status.error || 'Video generation failed');
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    }
+
+    throw new Error('Video generation timed out');
+};

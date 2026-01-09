@@ -34,3 +34,32 @@ create policy "Public Delete Voices"
   on storage.objects for delete
   to public
   using ( bucket_id = 'voices' );
+
+-- ============================================
+-- VIDEO JOBS TABLE (for queue-based processing)
+-- ============================================
+
+-- Create video_jobs table for tracking video generation jobs
+CREATE TABLE IF NOT EXISTS video_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    input_data JSONB NOT NULL,
+    result_data JSONB,
+    error TEXT,
+    progress INTEGER DEFAULT 0,
+    progress_message TEXT DEFAULT 'Initializing...',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for efficient polling
+CREATE INDEX IF NOT EXISTS idx_video_jobs_status ON video_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_video_jobs_user ON video_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_video_jobs_created ON video_jobs(created_at DESC);
+
+-- Enable RLS
+ALTER TABLE video_jobs ENABLE ROW LEVEL SECURITY;
+
+-- Allow public access for now (using Clerk for auth)
+CREATE POLICY "Public Access Video Jobs" ON video_jobs FOR ALL TO public USING (true) WITH CHECK (true);
