@@ -205,7 +205,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
                             {/* 2. Active Voice Input Card (when voiceFile exists) */}
                             {voiceFile && (
-                                <div className="p-3 bg-[var(--surface-2)] rounded-lg border border-[var(--brand-primary)] animate-in slide-in-from-top-2 duration-300">
+                                <div className="p-3 bg-[var(--surface-2)] rounded-lg border border-[var(--brand-primary)] animate-in slide-in-from-top-2 duration-300 relative">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-[var(--brand-primary)] text-black flex items-center justify-center shadow-sm flex-shrink-0">
                                             <MicIcon className="w-5 h-5" />
@@ -236,6 +236,13 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                             </button>
                                         </div>
+                                    </div>
+
+                                    {/* Selection Indicator */}
+                                    <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 shadow-md z-10">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </div>
                                 </div>
                             )}
