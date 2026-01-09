@@ -1,7 +1,7 @@
 import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+// import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'; // Dynamic import used instead
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import os from 'os';
@@ -15,8 +15,10 @@ export async function POST(request: NextRequest) {
     let tempOutputPath = '';
 
     try {
-        // Initialize ffmpeg path inside handler
+        // Initialize ffmpeg path inside handler using dynamic require to avoid build-time resolution
         try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
             const ffmpegPath = ffmpegInstaller.path;
             if (ffmpegPath) {
                 ffmpeg.setFfmpegPath(ffmpegPath);
