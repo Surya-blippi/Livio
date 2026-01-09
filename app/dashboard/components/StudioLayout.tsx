@@ -202,7 +202,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         hasVideo={hasVideo}
                     />
                     {/* Workflow Tiles - Compact gaps */}
-                    <div className="flex-1 flex flex-col gap-2 px-4 pb-4 bg-[var(--surface-1)]">
+                    <div className="flex-1 flex flex-col gap-2 px-4 pt-4 pb-4 bg-[var(--surface-1)]">
                         {[
                             { id: 'script', label: 'Script', desc: 'AI-generated script', icon: '✨', active: hasScript, color: 'from-purple-500 to-purple-600' },
                             { id: 'assets', label: 'Assets', desc: 'Images and media', icon: '🖼️', active: hasAssets, color: 'from-blue-500 to-blue-600' },
