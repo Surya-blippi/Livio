@@ -16,6 +16,7 @@ interface StudioLayoutProps {
     savedAvatars: any[];
     onSelectAvatar: (avatar: any) => void;
     onUploadAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onDeleteAvatar: (avatarId: string) => void;
 
     // Studio Ready
     useStudioImage: boolean;
@@ -31,6 +32,7 @@ interface StudioLayoutProps {
     onStartRecording: () => void;
     onStopRecording: () => void;
     onUploadVoice: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onDeleteVoice: (voiceDbId: string) => void;
     voiceFile?: File | null;
 
     duration: number;
@@ -80,6 +82,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     savedAvatars,
     onSelectAvatar,
     onUploadAvatar,
+    onDeleteAvatar,
     useStudioImage,
     studioReadyUrl,
     isGeneratingStudio,
@@ -92,6 +95,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     onStartRecording,
     onStopRecording,
     onUploadVoice,
+    onDeleteVoice,
     voiceFile,
     duration,
     setDuration,
@@ -209,6 +213,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                     savedAvatars={savedAvatars}
                     onSelectAvatar={onSelectAvatar}
                     onUploadAvatar={onUploadAvatar}
+                    onDeleteAvatar={onDeleteAvatar}
                     useStudioImage={useStudioImage}
                     studioReadyUrl={studioReadyUrl}
                     isGeneratingStudio={isGeneratingStudio}
@@ -221,6 +226,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                     onStartRecording={onStartRecording}
                     onStopRecording={onStopRecording}
                     onUploadVoice={onUploadVoice}
+                    onDeleteVoice={onDeleteVoice}
                     voiceFile={voiceFile}
                     duration={duration}
                     setDuration={setDuration}

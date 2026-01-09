@@ -34,6 +34,8 @@ import {
     deleteVideo,
     saveAvatar,
     getAvatars,
+    deleteAvatar,
+    deleteVoice,
     saveDraft,
     updateDraft,
     DbUser,
@@ -287,6 +289,27 @@ export const useDashboardState = () => {
         // Clear selected video if it was deleted
         if (selectedVideo?.id === videoId) {
             setSelectedVideo(null);
+        }
+    };
+
+    // Delete avatar handler
+    const handleDeleteAvatar = async (avatarId: string) => {
+        await deleteAvatar(avatarId);
+        setSavedAvatars(prev => prev.filter(a => a.id !== avatarId));
+        // Clear photo preview if the deleted avatar was selected
+        const deletedAvatar = savedAvatars.find(a => a.id === avatarId);
+        if (deletedAvatar && photoPreview === deletedAvatar.image_url) {
+            setPhotoPreview('');
+        }
+    };
+
+    // Delete voice handler
+    const handleDeleteVoice = async (voiceDbId: string) => {
+        await deleteVoice(voiceDbId);
+        setAllVoices(prev => prev.filter(v => v.id !== voiceDbId));
+        // Clear selected voice if it was deleted
+        if (savedVoice?.id === voiceDbId) {
+            setSavedVoice(null);
         }
     };
 
@@ -672,6 +695,8 @@ export const useDashboardState = () => {
         handleMakeStudioReady,
         handleCollectAssets,
         handleDeleteVideo,
+        handleDeleteAvatar,
+        handleDeleteVoice,
         handleCreateVideo,
         handleSelectVideo,
         selectedVideo, setSelectedVideo,

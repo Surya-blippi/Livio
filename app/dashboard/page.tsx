@@ -202,6 +202,7 @@ export default function Dashboard() {
                 savedAvatars={state.savedAvatars}
                 onSelectAvatar={handleSelectAvatar}
                 onUploadAvatar={state.handlePhotoUpload}
+                onDeleteAvatar={state.handleDeleteAvatar}
                 useStudioImage={state.useStudioImage}
                 studioReadyUrl={state.studioReadyUrl}
                 isGeneratingStudio={state.isGeneratingStudio}
@@ -214,6 +215,7 @@ export default function Dashboard() {
                 onStartRecording={state.startRecording}
                 onStopRecording={state.stopRecording}
                 onUploadVoice={state.handleVoiceUpload}
+                onDeleteVoice={state.handleDeleteVoice}
                 voiceFile={state.voiceFile}
                 duration={state.duration}
                 setDuration={state.setDuration}

@@ -25,6 +25,7 @@ interface Avatar {
 }
 
 interface Voice {
+    id?: string;  // DB id for user's cloned voices
     voice_id: string;
     name: string;
     preview_url?: string;
@@ -63,6 +64,7 @@ interface MobileOverlaysProps {
     savedAvatars: Avatar[];
     onSelectAvatar: (avatar: Avatar) => void;
     onUploadAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onDeleteAvatar: (avatarId: string) => void;
 
     // Studio Ready
     useStudioImage: boolean;
@@ -79,6 +81,7 @@ interface MobileOverlaysProps {
     onStartRecording: () => void;
     onStopRecording: () => void;
     onUploadVoice: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onDeleteVoice: (voiceDbId: string) => void;
     voiceFile?: File | null;
     hasClonedVoice?: boolean;
 
@@ -120,6 +123,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     savedAvatars,
     onSelectAvatar,
     onUploadAvatar,
+    onDeleteAvatar,
     useStudioImage,
     studioReadyUrl,
     isGeneratingStudio,
@@ -132,6 +136,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     onStartRecording,
     onStopRecording,
     onUploadVoice,
+    onDeleteVoice,
     voiceFile,
     hasClonedVoice,
     duration,
@@ -220,18 +225,26 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
 
                                             {/* Unique Avatars */}
                                             {uniqueAvatars.map((avatar) => (
-                                                <button
-                                                    key={avatar.id}
-                                                    onClick={() => { onSelectAvatar(avatar); setMode('face'); onClose(); }}
-                                                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200 hover:border-gray-300'}`}
-                                                >
-                                                    <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
-                                                    {avatar.is_default && (
-                                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
-                                                            <span className="text-[8px] text-white font-bold">✨ Studio</span>
-                                                        </div>
-                                                    )}
-                                                </button>
+                                                <div key={avatar.id} className="relative group">
+                                                    <button
+                                                        onClick={() => { onSelectAvatar(avatar); setMode('face'); onClose(); }}
+                                                        className={`w-full aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200 hover:border-gray-300'}`}
+                                                    >
+                                                        <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
+                                                        {avatar.is_default && (
+                                                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
+                                                                <span className="text-[8px] text-white font-bold">✨ Studio</span>
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); onDeleteAvatar(avatar.id); }}
+                                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
 
@@ -365,7 +378,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                             {voices.map((voice) => (
                                                 <div
                                                     key={voice.voice_id}
-                                                    className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-all ${selectedVoice?.voice_id === voice.voice_id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
+                                                    className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-all relative group ${selectedVoice?.voice_id === voice.voice_id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
                                                 >
                                                     {/* Play Button */}
                                                     <button
@@ -394,6 +407,16 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                     {/* Checkmark */}
                                                     {selectedVoice?.voice_id === voice.voice_id && (
                                                         <span className="text-[var(--brand-primary)] text-xl">✓</span>
+                                                    )}
+
+                                                    {/* Delete Button - only for user's cloned voices (have DB id) */}
+                                                    {voice.id && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onDeleteVoice(voice.id!); }}
+                                                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                        >
+                                                            ×
+                                                        </button>
                                                     )}
                                                 </div>
                                             ))}
