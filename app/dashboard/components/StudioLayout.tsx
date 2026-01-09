@@ -173,43 +173,31 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
                 {/* Main Content Area */}
-                <div className="flex-1 overflow-y-auto pt-[240px] pb-6">
-                    {/* Topic Suggestion Tiles */}
-                    <div className="px-4">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Trending Topics</p>
-                        <div className="grid grid-cols-2 gap-2">
-                            {[
-                                { emoji: '🤖', title: 'AI Trends', desc: 'Latest in artificial intelligence' },
-                                { emoji: '💰', title: 'Crypto News', desc: 'Bitcoin & blockchain updates' },
-                                { emoji: '🎬', title: 'Movie Reviews', desc: 'Latest film breakdowns' },
-                                { emoji: '🏋️', title: 'Fitness Tips', desc: 'Workout & health advice' },
-                                { emoji: '🍳', title: 'Cooking Hacks', desc: 'Quick recipe ideas' },
-                                { emoji: '🎮', title: 'Gaming News', desc: 'Latest game releases' },
-                                { emoji: '📱', title: 'Tech Gadgets', desc: 'New product reviews' },
-                                { emoji: '✈️', title: 'Travel Guide', desc: 'Destination highlights' },
-                            ].map((topic, i) => (
+                <div className="flex-1 overflow-y-auto pt-[180px] pb-8">
+                    {/* Subtle Topic Suggestions */}
+                    <div className="px-5">
+                        <p className="text-xs text-gray-300 mb-4">Try a topic</p>
+
+                        {/* Horizontal scrollable chips */}
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {['AI & Technology', 'Crypto Update', 'Fitness Tips', 'Life Hacks', 'Movie Reviews', 'Travel Guide'].map((topic, i) => (
                                 <button
                                     key={i}
-                                    onClick={() => setInputText(topic.title + ': ' + topic.desc)}
-                                    className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-[var(--brand-primary)] hover:shadow-md transition-all text-left group"
+                                    onClick={() => setInputText(topic)}
+                                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-full text-sm text-gray-600 transition-colors"
                                 >
-                                    <span className="text-2xl">{topic.emoji}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-sm text-black group-hover:text-[var(--brand-primary)] transition-colors">{topic.title}</p>
-                                        <p className="text-[10px] text-gray-400 truncate">{topic.desc}</p>
-                                    </div>
+                                    {topic}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Recent/Popular Section */}
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-3">Quick Ideas</p>
+                        {/* Quick ideas */}
                         <div className="flex flex-wrap gap-2">
-                            {['5 Life Hacks', 'Morning Routine', 'Money Tips', 'Motivation', 'Fun Facts', 'DIY Projects'].map((idea, i) => (
+                            {['Morning routine', 'Money tips', 'Fun facts', 'DIY ideas'].map((idea, i) => (
                                 <button
                                     key={i}
                                     onClick={() => setInputText(idea)}
-                                    className="px-3 py-1.5 bg-gray-100 hover:bg-[var(--brand-primary)] hover:text-black rounded-full text-xs font-medium transition-all"
+                                    className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
                                 >
                                     {idea}
                                 </button>
