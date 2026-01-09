@@ -172,14 +172,39 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 {/* Top Nav Bar with Hamburger */}
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
-                {/* Main Content Area - Clean */}
-                <div className="flex-1 overflow-y-auto pt-[280px] pb-8 bg-[var(--surface-1)]">
-                    <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary)] to-lime-400 flex items-center justify-center mb-4 shadow-lg border-2 border-black">
-                            <span className="text-3xl">✨</span>
-                        </div>
-                        <h2 className="text-lg font-black text-black mb-1">Create something amazing</h2>
-                        <p className="text-sm text-[var(--text-secondary)]">Enter a topic above to get started</p>
+                {/* Main Content Area - Vertical Workflow Tiles */}
+                <div className="flex-1 overflow-y-auto pt-[260px] pb-6 px-4 bg-[var(--surface-1)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Workflow</p>
+                    <div className="space-y-3">
+                        {[
+                            { id: 'script', label: 'Script', desc: 'AI-generated script', icon: '✨', active: hasScript, color: 'from-purple-500 to-purple-600' },
+                            { id: 'assets', label: 'Assets', desc: 'Images and media', icon: '🖼️', active: hasAssets, color: 'from-blue-500 to-blue-600' },
+                            { id: 'storyboard', label: 'Scenes', desc: 'Video storyboard', icon: '🎬', active: hasStoryboard, color: 'from-orange-500 to-orange-600' },
+                            { id: 'video', label: 'Video', desc: 'Final output', icon: '🎥', active: hasVideo, color: 'from-[var(--brand-primary)] to-lime-400' },
+                        ].map((step) => (
+                            <button
+                                key={step.id}
+                                onClick={() => step.active && setActiveSheet(step.id as MobileSheetType)}
+                                disabled={!step.active}
+                                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${step.active
+                                        ? `bg-gradient-to-r ${step.color} border-black shadow-[4px_4px_0px_#000] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000]`
+                                        : 'bg-white border-gray-100 opacity-50'
+                                    }`}
+                            >
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${step.active ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                    {step.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`font-black text-sm ${step.active ? 'text-white' : 'text-gray-400'}`}>{step.label}</p>
+                                    <p className={`text-xs ${step.active ? 'text-white/80' : 'text-gray-300'}`}>{step.desc}</p>
+                                </div>
+                                {step.active && (
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
