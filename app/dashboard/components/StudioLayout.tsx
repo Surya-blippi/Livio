@@ -173,7 +173,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
                 {/* Main Content Area - Vertical Workflow Tiles */}
-                <div className="flex-1 overflow-y-auto pt-[260px] pb-6 px-4 bg-[var(--surface-1)]">
+                <div className="flex-1 overflow-y-auto pt-[220px] pb-6 px-4 bg-[var(--surface-1)]">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Workflow</p>
                     <div className="space-y-3">
                         {[
@@ -187,8 +187,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                                 onClick={() => step.active && setActiveSheet(step.id as MobileSheetType)}
                                 disabled={!step.active}
                                 className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${step.active
-                                        ? `bg-gradient-to-r ${step.color} border-black shadow-[4px_4px_0px_#000] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000]`
-                                        : 'bg-white border-gray-100 opacity-50'
+                                    ? `bg-gradient-to-r ${step.color} border-black shadow-[4px_4px_0px_#000] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000]`
+                                    : 'bg-white border-gray-100 opacity-50'
                                     }`}
                             >
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${step.active ? 'bg-white/20' : 'bg-gray-100'}`}>

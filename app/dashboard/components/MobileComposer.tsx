@@ -152,14 +152,14 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                 </div>
 
                 {/* Input Area */}
-                <div className="p-4">
+                <div className="px-4 py-3">
                     <textarea
                         ref={textareaRef}
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder="What's your video about?"
-                        className="w-full bg-transparent text-base font-medium placeholder:text-gray-300 focus:outline-none resize-none leading-relaxed"
-                        rows={3}
+                        className="w-full bg-transparent text-base font-medium placeholder:text-gray-300 focus:outline-none resize-none leading-snug"
+                        rows={2}
                     />
 
                     {/* Actions Row */}
