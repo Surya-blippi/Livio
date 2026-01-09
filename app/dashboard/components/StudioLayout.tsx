@@ -172,42 +172,14 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 {/* Top Nav Bar with Hamburger */}
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
-                {/* Main Content Area - Matches Desktop */}
-                <div className="flex-1 overflow-y-auto pt-[240px] pb-8 bg-[var(--surface-1)]">
-                    <div className="px-4 pt-2">
-                        {/* Topic Pills */}
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Quick Topics</p>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {['AI & Tech', 'Crypto', 'Fitness', 'Life Hacks', 'Movies', 'Travel'].map((topic, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setInputText(topic)}
-                                    className="px-3 py-1.5 bg-white border-2 border-black rounded-full text-xs font-bold hover:bg-[var(--brand-primary)] hover:shadow-[2px_2px_0px_#000] active:shadow-none transition-all"
-                                >
-                                    {topic}
-                                </button>
-                            ))}
+                {/* Main Content Area - Clean */}
+                <div className="flex-1 overflow-y-auto pt-[280px] pb-8 bg-[var(--surface-1)]">
+                    <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary)] to-lime-400 flex items-center justify-center mb-4 shadow-lg border-2 border-black">
+                            <span className="text-3xl">✨</span>
                         </div>
-
-                        {/* Idea Cards */}
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Ideas</p>
-                        <div className="space-y-2">
-                            {[
-                                { text: 'Morning productivity routine', icon: '☀️' },
-                                { text: '5 money saving tips', icon: '💰' },
-                                { text: 'Interesting facts about space', icon: '🚀' },
-                                { text: 'Simple DIY home projects', icon: '🔨' },
-                            ].map((idea, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setInputText(idea.text)}
-                                    className="flex items-center gap-3 w-full px-4 py-3 bg-white border-2 border-gray-100 hover:border-black rounded-xl text-left text-sm font-medium hover:shadow-[3px_3px_0px_var(--brand-primary)] transition-all"
-                                >
-                                    <span className="text-lg">{idea.icon}</span>
-                                    <span>{idea.text}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <h2 className="text-lg font-black text-black mb-1">Create something amazing</h2>
+                        <p className="text-sm text-[var(--text-secondary)]">Enter a topic above to get started</p>
                     </div>
                 </div>
 

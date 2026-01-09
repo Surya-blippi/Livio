@@ -186,26 +186,26 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                 </div>
             </div>
 
-            {/* Workflow Tiles - Matches Desktop */}
+            {/* Workflow Tiles - Colored when active */}
             <div className="px-4 mt-3">
                 <div className="flex justify-between gap-2">
                     {[
-                        { id: 'script', label: 'Script', icon: SparklesIcon, active: hasScript },
-                        { id: 'assets', label: 'Assets', icon: ImageIcon, active: hasAssets },
-                        { id: 'storyboard', label: 'Scenes', icon: ClockIcon, active: hasStoryboard },
-                        { id: 'video', label: 'Video', icon: VideoIcon, active: hasVideo },
+                        { id: 'script', label: 'Script', icon: SparklesIcon, active: hasScript, color: 'from-purple-500 to-purple-600', iconColor: 'text-purple-500' },
+                        { id: 'assets', label: 'Assets', icon: ImageIcon, active: hasAssets, color: 'from-blue-500 to-blue-600', iconColor: 'text-blue-500' },
+                        { id: 'storyboard', label: 'Scenes', icon: ClockIcon, active: hasStoryboard, color: 'from-orange-500 to-orange-600', iconColor: 'text-orange-500' },
+                        { id: 'video', label: 'Video', icon: VideoIcon, active: hasVideo, color: 'from-[var(--brand-primary)] to-lime-400', iconColor: 'text-[var(--brand-primary)]' },
                     ].map((step) => (
                         <button
                             key={step.id}
                             onClick={() => step.active && onOpenSheet(step.id as MobileSheetType)}
                             disabled={!step.active}
-                            className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-xl border-2 transition-all ${step.active
-                                ? 'bg-white border-black shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_var(--brand-primary)]'
-                                : 'bg-gray-50 border-gray-100 opacity-40'
+                            className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all ${step.active
+                                    ? `bg-gradient-to-br ${step.color} border-black shadow-[3px_3px_0px_#000] hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#000]`
+                                    : 'bg-gray-50 border-gray-100 opacity-40'
                                 }`}
                         >
-                            <step.icon className={`w-5 h-5 ${step.active ? 'text-black' : 'text-gray-300'}`} />
-                            <span className={`text-[9px] font-bold uppercase tracking-wider ${step.active ? 'text-black' : 'text-gray-300'}`}>
+                            <step.icon className={`w-5 h-5 ${step.active ? 'text-white' : 'text-gray-300'}`} />
+                            <span className={`text-[9px] font-bold uppercase tracking-wider ${step.active ? 'text-white' : 'text-gray-300'}`}>
                                 {step.label}
                             </span>
                         </button>
