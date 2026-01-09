@@ -1,8 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { SparklesIcon, MicIcon, ImageIcon, ClockIcon, VideoIcon } from '../icons';
-import { MobileComposer } from '../MobileComposer';
-import { MobileSettingsSheet } from '../MobileSettingsSheet';
 
 interface EditorPanelProps {
     // Core
@@ -80,7 +78,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     const [showAspectMenu, setShowAspectMenu] = useState(false);
     const [showEditingModeMenu, setShowEditingModeMenu] = useState(false);
     const [editingMode, setEditingMode] = useState<'raw' | 'minimal' | 'polished'>('polished');
-    const [showMobileSettings, setShowMobileSettings] = useState(false);
 
     // Auto-resize textarea with max height
     useEffect(() => {
@@ -341,80 +338,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     </div>
                 </div>
             </div>
-
-            {/* ========== MOBILE LAYOUT ========== */}
-            <div className="lg:hidden flex flex-col h-full bg-[var(--surface-1)] relative">
-                {/* Mobile Workflow Steps */}
-                {!isProcessing && (
-                    <div className="p-4 pt-6">
-                        <h2 className="text-lg font-black mb-4 text-center">Create Your Video</h2>
-                        <div className="flex justify-around items-center max-w-xs mx-auto">
-                            {steps.slice(0, 3).map((step) => {
-                                const isReady = step.active;
-                                return (
-                                    <button
-                                        key={step.id}
-                                        onClick={() => isReady && setPreviewMode(step.id as any)}
-                                        disabled={!isReady}
-                                        className={`flex flex-col items-center gap-2 transition-all ${isReady ? '' : 'opacity-40'}`}
-                                    >
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isReady
-                                                ? 'bg-[var(--brand-primary)] border-2 border-black shadow-[2px_2px_0px_#000]'
-                                                : 'bg-gray-100 border-2 border-gray-200'
-                                            }`}>
-                                            <step.icon className={`w-5 h-5 ${isReady ? 'text-black' : 'text-gray-400'}`} />
-                                        </div>
-                                        <span className={`text-[10px] font-bold uppercase ${isReady ? 'text-black' : 'text-gray-400'}`}>
-                                            {step.label}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Spacer */}
-                <div className="flex-1" />
-
-                {/* Mobile Composer (Fixed at bottom) */}
-                <MobileComposer
-                    inputText={inputText}
-                    setInputText={setInputText}
-                    onGenerate={handleCreateVideo}
-                    isProcessing={isProcessing}
-                    processingMessage={processingMessage}
-                    enableCaptions={enableCaptions}
-                    setEnableCaptions={setEnableCaptions}
-                    enableBackgroundMusic={enableBackgroundMusic}
-                    setEnableBackgroundMusic={setEnableBackgroundMusic}
-                    onEnhance={onEnhance}
-                    onCollectAssets={onCollectAssets}
-                    isEnhancing={isEnhancing}
-                    isCollectingAssets={isCollectingAssets}
-                    onOpenSettings={() => setShowMobileSettings(true)}
-                    voiceName={voiceName}
-                    avatarUrl={avatarUrl}
-                    mode={mode}
-                    duration={duration}
-                />
-            </div>
-
-            {/* Mobile Settings Sheet */}
-            <MobileSettingsSheet
-                isOpen={showMobileSettings}
-                onClose={() => setShowMobileSettings(false)}
-                mode={mode}
-                setMode={setMode || (() => { })}
-                avatarUrl={avatarUrl}
-                onSelectFace={() => { setShowMobileSettings(false); setPreviewMode('face'); }}
-                voiceName={voiceName}
-                onSelectVoice={() => { setShowMobileSettings(false); setPreviewMode('voice'); }}
-                duration={duration}
-                setDuration={setDuration}
-                aspectRatio={aspectRatio}
-                setAspectRatio={setAspectRatio}
-            />
         </>
     );
 };
