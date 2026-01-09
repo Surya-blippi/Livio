@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef, useEffect } from 'react';
 import { SparklesIcon, MicIcon, ImageIcon, ClockIcon, VideoIcon } from './icons';
 import { MobileSheetType } from './MobileOverlays';
 
@@ -68,24 +67,23 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Auto-resize textarea
+    // Auto-resize textarea (max 2 lines for compact design)
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
-            const maxHeight = 120;
+            const maxHeight = 56; // ~2 lines
             textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, maxHeight) + 'px';
         }
     }, [inputText]);
 
-    // Processing state view
+    // Processing state view - compact top bar
     if (isProcessing) {
         return (
-            <div className="fixed top-14 left-0 right-0 bg-white border-b-2 border-black p-6 z-40 shadow-md">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-[var(--brand-primary)] animate-spin flex-shrink-0" />
+            <div className="fixed top-14 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 z-40 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full border-3 border-gray-200 border-t-[var(--brand-primary)] animate-spin flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-black">Generating...</p>
-                        <p className="text-sm text-gray-500 truncate">{processingMessage}</p>
+                        <p className="text-sm font-bold text-black truncate">{processingMessage}</p>
                     </div>
                 </div>
             </div>
@@ -99,23 +97,130 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
         { id: 'video', label: 'Video', icon: VideoIcon, active: hasVideo, color: 'from-green-500 to-emerald-500' },
     ];
 
+    const hasActiveWorkflow = hasScript || hasAssets || hasStoryboard || hasVideo;
+
     return (
-        <div className="fixed top-14 left-0 right-0 z-40 flex flex-col">
-            {/* Workflow Steps (below composer now) */}
-            <div className="bg-white/95 backdrop-blur-lg border-b border-gray-100 px-4 py-3 order-last">
-                <div className="flex justify-around max-w-sm mx-auto">
+        <div className="fixed top-14 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+            {/* Compact Input Row */}
+            <div className="flex items-center gap-2 px-3 py-2">
+                {/* Input */}
+                <div className="flex-1 relative">
+                    <textarea
+                        ref={textareaRef}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="What's your video about?"
+                        className="w-full px-3 py-2 bg-gray-100 rounded-xl text-sm font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] resize-none leading-snug"
+                        rows={1}
+                    />
+                </div>
+
+                {/* AI Write - Compact */}
+                <button
+                    onClick={onEnhance}
+                    disabled={!inputText.trim() || isEnhancing}
+                    className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all flex-shrink-0"
+                    title="AI Write"
+                >
+                    <SparklesIcon className="w-4 h-4" />
+                </button>
+
+                {/* Generate Button */}
+                <button
+                    onClick={onGenerate}
+                    disabled={!inputText.trim()}
+                    className="h-9 px-4 bg-[var(--brand-primary)] rounded-xl flex items-center justify-center gap-1.5 font-bold text-sm text-black disabled:opacity-50 active:scale-95 transition-all flex-shrink-0"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                    Go
+                </button>
+            </div>
+
+            {/* Quick Settings Row - Ultra Compact */}
+            <div className="flex items-center gap-1.5 px-3 pb-2 overflow-x-auto no-scrollbar">
+                {/* Mode Pill */}
+                <button
+                    onClick={() => onOpenSheet('face')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 text-xs font-medium"
+                >
+                    {mode === 'face' && avatarUrl ? (
+                        <img src={avatarUrl} className="w-4 h-4 rounded-full object-cover" />
+                    ) : (
+                        <span className="text-[10px]">👤</span>
+                    )}
+                    <span>{mode === 'face' ? 'Face' : 'None'}</span>
+                </button>
+
+                {/* Voice Pill */}
+                <button
+                    onClick={() => onOpenSheet('voice')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 text-xs font-medium"
+                >
+                    <MicIcon className="w-3 h-3" />
+                    <span className="truncate max-w-[60px]">{voiceName}</span>
+                </button>
+
+                {/* Duration */}
+                <button
+                    onClick={() => onOpenSheet('duration')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 text-xs font-medium"
+                >
+                    <ClockIcon className="w-3 h-3" />
+                    <span>{duration}s</span>
+                </button>
+
+                {/* Aspect */}
+                <button
+                    onClick={() => onOpenSheet('aspect')}
+                    className="px-2 py-1 rounded-lg bg-gray-100 text-xs font-medium"
+                >
+                    {aspectRatio}
+                </button>
+
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* CC Toggle */}
+                <button
+                    onClick={() => setEnableCaptions(!enableCaptions)}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${enableCaptions ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-100 text-gray-500'}`}
+                >
+                    CC
+                </button>
+
+                {/* Music Toggle */}
+                <button
+                    onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
+                    className={`px-2 py-1 rounded-lg text-xs transition-all ${enableBackgroundMusic ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-100 text-gray-500'}`}
+                >
+                    ♫
+                </button>
+
+                {/* Find Images */}
+                <button
+                    onClick={onCollectAssets}
+                    disabled={!inputText.trim() || isCollectingAssets}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-100 text-blue-600 text-xs font-medium disabled:opacity-40"
+                >
+                    <ImageIcon className="w-3 h-3" />
+                    {isCollectingAssets ? '...' : 'Find'}
+                </button>
+            </div>
+
+            {/* Workflow Steps - Only show if there's progress */}
+            {hasActiveWorkflow && (
+                <div className="flex items-center justify-around px-4 py-2 border-t border-gray-100 bg-gray-50/50">
                     {workflowSteps.map((step) => (
                         <button
                             key={step.id}
                             onClick={() => step.active && onOpenSheet(step.id as MobileSheetType)}
                             disabled={!step.active}
-                            className={`flex flex-col items-center gap-1 transition-all ${step.active ? '' : 'opacity-30'}`}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all ${step.active ? 'bg-white shadow-sm' : 'opacity-30'}`}
                         >
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active
-                                ? `bg-gradient-to-br ${step.color} shadow-lg`
-                                : 'bg-gray-200'
-                                }`}>
-                                <step.icon className={`w-4 h-4 ${step.active ? 'text-white' : 'text-gray-400'}`} />
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center ${step.active ? `bg-gradient-to-br ${step.color}` : 'bg-gray-200'}`}>
+                                <step.icon className={`w-3 h-3 ${step.active ? 'text-white' : 'text-gray-400'}`} />
                             </div>
                             <span className={`text-[10px] font-bold ${step.active ? 'text-black' : 'text-gray-400'}`}>
                                 {step.label}
@@ -123,122 +228,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                         </button>
                     ))}
                 </div>
-            </div>
-
-            {/* Main Composer */}
-            <div className="bg-white border-b-2 border-black safe-area-top shadow-sm">
-                {/* Settings Pills Row */}
-                <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto no-scrollbar border-b border-gray-100">
-                    {/* Face/Mode Pill */}
-                    <button
-                        onClick={() => onOpenSheet('face')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                        {mode === 'face' && avatarUrl ? (
-                            <img src={avatarUrl} className="w-5 h-5 rounded-full object-cover" />
-                        ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center">
-                                <span className="text-white text-[8px]">∅</span>
-                            </div>
-                        )}
-                        <span className="text-xs font-bold">{mode === 'face' ? 'Face' : 'Faceless'}</span>
-                    </button>
-
-                    {/* Voice Pill */}
-                    <button
-                        onClick={() => onOpenSheet('voice')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                        <MicIcon className="w-4 h-4 text-gray-600" />
-                        <span className="text-xs font-bold truncate max-w-[80px]">{voiceName}</span>
-                    </button>
-
-                    {/* Duration Pill */}
-                    <button
-                        onClick={() => onOpenSheet('duration')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                        <ClockIcon className="w-4 h-4 text-gray-600" />
-                        <span className="text-xs font-bold">{duration}s</span>
-                    </button>
-
-                    {/* Aspect Pill */}
-                    <button
-                        onClick={() => onOpenSheet('aspect')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                        <span className="text-xs font-bold">{aspectRatio}</span>
-                    </button>
-
-                    {/* Spacer */}
-                    <div className="flex-1" />
-
-                    {/* Quick Toggles */}
-                    <button
-                        onClick={() => setEnableCaptions(!enableCaptions)}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${enableCaptions ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-200 text-gray-500'
-                            }`}
-                    >
-                        CC
-                    </button>
-                    <button
-                        onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${enableBackgroundMusic ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-200 text-gray-500'
-                            }`}
-                    >
-                        ♫
-                    </button>
-                </div>
-
-                {/* Input Area */}
-                <div className="p-4">
-                    <div className="flex items-end gap-3">
-                        {/* Text Input */}
-                        <div className="flex-1 relative">
-                            <textarea
-                                ref={textareaRef}
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                                placeholder="What's your video about?"
-                                className="w-full px-4 py-3 bg-gray-100 rounded-2xl text-base font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] resize-none leading-relaxed"
-                                rows={1}
-                            />
-                        </div>
-
-                        {/* Generate Button */}
-                        <button
-                            onClick={onGenerate}
-                            disabled={!inputText.trim()}
-                            className="w-14 h-14 bg-[var(--brand-primary)] rounded-2xl flex items-center justify-center border-2 border-black shadow-[3px_3px_0px_#000] active:shadow-none active:translate-x-[3px] active:translate-y-[3px] disabled:opacity-50 disabled:active:shadow-[3px_3px_0px_#000] disabled:active:translate-x-0 disabled:active:translate-y-0 transition-all flex-shrink-0"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* AI Action Buttons */}
-                    <div className="flex items-center gap-2 mt-3">
-                        <button
-                            onClick={onEnhance}
-                            disabled={!inputText.trim() || isEnhancing}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold disabled:opacity-50 active:scale-95 transition-all"
-                        >
-                            <SparklesIcon className="w-3.5 h-3.5" />
-                            {isEnhancing ? 'Writing...' : 'AI Write'}
-                        </button>
-
-                        <button
-                            onClick={onCollectAssets}
-                            disabled={!inputText.trim() || isCollectingAssets}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold disabled:opacity-50 active:scale-95 transition-all"
-                        >
-                            <ImageIcon className="w-3.5 h-3.5" />
-                            {isCollectingAssets ? 'Finding...' : 'Find Images'}
-                        </button>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 };

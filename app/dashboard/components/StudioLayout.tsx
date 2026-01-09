@@ -173,14 +173,48 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
                 {/* Main Content Area */}
-                <div className="flex-1 overflow-y-auto pt-[280px]">
-                    {/* Empty state or content can go here */}
-                    <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[var(--brand-primary)] to-lime-400 flex items-center justify-center mb-6 shadow-lg">
-                            <span className="text-4xl">✨</span>
+                <div className="flex-1 overflow-y-auto pt-[140px] pb-6">
+                    {/* Topic Suggestion Tiles */}
+                    <div className="px-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Trending Topics</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { emoji: '🤖', title: 'AI Trends', desc: 'Latest in artificial intelligence' },
+                                { emoji: '💰', title: 'Crypto News', desc: 'Bitcoin & blockchain updates' },
+                                { emoji: '🎬', title: 'Movie Reviews', desc: 'Latest film breakdowns' },
+                                { emoji: '🏋️', title: 'Fitness Tips', desc: 'Workout & health advice' },
+                                { emoji: '🍳', title: 'Cooking Hacks', desc: 'Quick recipe ideas' },
+                                { emoji: '🎮', title: 'Gaming News', desc: 'Latest game releases' },
+                                { emoji: '📱', title: 'Tech Gadgets', desc: 'New product reviews' },
+                                { emoji: '✈️', title: 'Travel Guide', desc: 'Destination highlights' },
+                            ].map((topic, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setInputText(topic.title + ': ' + topic.desc)}
+                                    className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-[var(--brand-primary)] hover:shadow-md transition-all text-left group"
+                                >
+                                    <span className="text-2xl">{topic.emoji}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-sm text-black group-hover:text-[var(--brand-primary)] transition-colors">{topic.title}</p>
+                                        <p className="text-[10px] text-gray-400 truncate">{topic.desc}</p>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
-                        <h1 className="text-2xl font-black mb-2">What will you create?</h1>
-                        <p className="text-gray-500 max-w-xs">Enter a topic above and let AI generate an amazing video for you.</p>
+
+                        {/* Recent/Popular Section */}
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-3">Quick Ideas</p>
+                        <div className="flex flex-wrap gap-2">
+                            {['5 Life Hacks', 'Morning Routine', 'Money Tips', 'Motivation', 'Fun Facts', 'DIY Projects'].map((idea, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setInputText(idea)}
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-[var(--brand-primary)] hover:text-black rounded-full text-xs font-medium transition-all"
+                                >
+                                    {idea}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
