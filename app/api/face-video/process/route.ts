@@ -4,8 +4,8 @@ import { fal } from '@fal-ai/client';
 import { supabase } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 
-// Configure for long-running on Vercel Pro
-export const maxDuration = 300; // 5 minutes
+// Configure for reasonable timeout - we only process ONE scene per call
+export const maxDuration = 120; // 2 minutes max per scene
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -21,59 +21,27 @@ interface SceneInput {
     assetUrl?: string;
 }
 
-// Update job progress in Supabase
-async function updateJobProgress(jobId: string, progress: number, message: string) {
+interface ProcessedScene {
+    index: number;
+    type: 'face' | 'asset';
+    clipUrl: string;
+    audioUrl?: string;
+    duration: number;
+    text: string;
+}
+
+// Update job in Supabase
+async function updateJob(jobId: string, updates: Record<string, unknown>) {
     await supabase
         .from('video_jobs')
         .update({
-            progress,
-            progress_message: message,
+            ...updates,
             updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
 }
 
-// Update job status to processing
-async function setJobProcessing(jobId: string) {
-    await supabase
-        .from('video_jobs')
-        .update({
-            status: 'processing',
-            progress: 5,
-            progress_message: 'Processing started...',
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-}
-
-// Mark job as completed
-async function setJobCompleted(jobId: string, resultData: Record<string, unknown>) {
-    await supabase
-        .from('video_jobs')
-        .update({
-            status: 'completed',
-            progress: 100,
-            progress_message: 'Video ready!',
-            result_data: resultData,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-}
-
-// Mark job as failed
-async function setJobFailed(jobId: string, error: string) {
-    await supabase
-        .from('video_jobs')
-        .update({
-            status: 'failed',
-            error,
-            progress_message: 'Failed',
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-}
-
-// Generate TTS for a single scene using fal.ai
+// Generate TTS for a single scene
 async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioUrl: string; duration: number }> {
     const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
         input: {
@@ -93,14 +61,13 @@ async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioU
         throw new Error('No audio URL returned from TTS API');
     }
 
-    const durationMs = result.data.duration_ms || 5000;
     return {
         audioUrl: result.data.audio.url,
-        duration: durationMs / 1000
+        duration: (result.data.duration_ms || 5000) / 1000
     };
 }
 
-// Generate WaveSpeed face video
+// Generate WaveSpeed face video - with timeout protection
 async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Promise<string> {
     // Download audio and convert to base64
     const audioResponse = await axios.get(audioUrl, { responseType: 'arraybuffer' });
@@ -121,16 +88,16 @@ async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Pr
                 'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
                 'Content-Type': 'application/json'
             },
-            timeout: 180000
+            timeout: 30000
         }
     );
 
     const responseData = response.data.data || response.data;
     const predictionId = responseData.id;
 
-    // Poll for completion
+    // Poll for completion - limited to ~90 seconds
     let videoUrl: string | null = null;
-    const maxAttempts = 60;
+    const maxAttempts = 18; // 18 * 5s = 90s
 
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -139,7 +106,7 @@ async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Pr
             const pollUrl = `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`;
             const pollResponse = await axios.get(pollUrl, {
                 headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
-                timeout: 15000
+                timeout: 10000
             });
 
             const pollData = pollResponse.data.data || pollResponse.data;
@@ -163,26 +130,30 @@ async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Pr
 
 // Upload video to Supabase Storage
 async function uploadClipToSupabase(videoUrl: string, fileName: string): Promise<string> {
-    const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
-    const videoBuffer = Buffer.from(response.data);
+    try {
+        const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const videoBuffer = Buffer.from(response.data);
 
-    const { error } = await supabase.storage
-        .from('videos')
-        .upload(`clips/${fileName}`, videoBuffer, {
-            contentType: 'video/mp4',
-            upsert: true
-        });
+        const { error } = await supabase.storage
+            .from('videos')
+            .upload(`clips/${fileName}`, videoBuffer, {
+                contentType: 'video/mp4',
+                upsert: true
+            });
 
-    if (error) {
-        console.warn('Supabase upload warning:', error);
+        if (error) {
+            console.warn('Supabase upload warning:', error);
+            return videoUrl;
+        }
+
+        const { data: publicUrl } = supabase.storage
+            .from('videos')
+            .getPublicUrl(`clips/${fileName}`);
+
+        return publicUrl.publicUrl;
+    } catch {
         return videoUrl; // Fallback to original URL
     }
-
-    const { data: publicUrl } = supabase.storage
-        .from('videos')
-        .getPublicUrl(`clips/${fileName}`);
-
-    return publicUrl.publicUrl;
 }
 
 // Render with JSON2Video
@@ -199,7 +170,7 @@ async function renderWithJson2Video(moviePayload: Record<string, unknown>): Prom
     );
 
     const projectId = response.data.project;
-    const maxPolls = 60;
+    const maxPolls = 24; // 24 * 5s = 2 minutes
 
     for (let i = 0; i < maxPolls; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -242,16 +213,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Job not found' }, { status: 404 });
         }
 
-        // Skip if already processing or completed
-        if (job.status !== 'pending') {
+        // Skip if already completed or failed
+        if (job.status === 'completed' || job.status === 'failed') {
             return NextResponse.json({
                 message: `Job already ${job.status}`,
                 status: job.status
             });
         }
-
-        // Mark as processing
-        await setJobProcessing(jobId);
 
         const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions } = job.input_data as {
             scenes: SceneInput[];
@@ -261,100 +229,156 @@ export async function POST(request: NextRequest) {
             enableCaptions: boolean;
         };
 
-        console.log('🎬 Processing face video job:', jobId);
-
-        // Prepare face image as data URL
-        let imageDataUrl: string;
-        if (faceImageUrl.startsWith('data:')) {
-            imageDataUrl = faceImageUrl;
-        } else {
-            const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer' });
-            const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
-            const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
-            imageDataUrl = `data:${mimeType};base64,${imgBase64}`;
-        }
-
-        await updateJobProgress(jobId, 10, 'Preparing scenes...');
-
-        // Process each scene
-        const faceScenes: FaceSceneInput[] = [];
-        const clipAssets: { url: string; source: string }[] = [];
-        const timestamp = Date.now();
         const totalScenes = scenes.length;
+        const currentIndex = job.current_scene_index || 0;
+        const processedScenes: ProcessedScene[] = job.processed_scenes || [];
 
-        for (let i = 0; i < scenes.length; i++) {
-            const scene = scenes[i];
-            const sceneProgress = 10 + Math.floor((i / totalScenes) * 60); // 10-70%
+        console.log(`🎬 Processing job ${jobId}: scene ${currentIndex + 1}/${totalScenes}`);
 
-            await updateJobProgress(jobId, sceneProgress, `Processing scene ${i + 1}/${totalScenes}...`);
+        // Check if all scenes are already processed
+        if (currentIndex >= totalScenes) {
+            // Move to composition phase
+            await updateJob(jobId, {
+                status: 'processing',
+                progress: 80,
+                progress_message: 'Composing final video...'
+            });
 
-            // Generate TTS
-            const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
+            // Build JSON2Video payload from processed scenes
+            const faceScenes: FaceSceneInput[] = processedScenes.map(ps => ({
+                url: ps.clipUrl,
+                duration: ps.duration,
+                text: ps.text,
+                sceneType: ps.type,
+                audioUrl: ps.audioUrl
+            }));
 
-            let clipUrl: string;
-            let sceneAudioUrl: string | undefined;
+            const moviePayload = convertFaceVideoToJson2VideoFormat({
+                scenes: faceScenes,
+                enableCaptions: enableCaptions ?? true,
+                captionStyle: 'bold-classic',
+                enableBackgroundMusic: enableBackgroundMusic ?? false,
+            });
 
-            if (scene.type === 'face') {
-                await updateJobProgress(jobId, sceneProgress + 5, `Generating face video ${i + 1}/${totalScenes}...`);
+            await updateJob(jobId, {
+                progress: 85,
+                progress_message: 'Rendering with JSON2Video...'
+            });
 
-                const wavespeedUrl = await generateFaceVideoClip(imageDataUrl, audioUrl);
-                const fileName = `clip_${timestamp}_scene_${i}.mp4`;
-                clipUrl = await uploadClipToSupabase(wavespeedUrl, fileName);
-                clipAssets.push({ url: clipUrl, source: 'wavespeed' });
-            } else {
-                clipUrl = scene.assetUrl || faceImageUrl;
-                sceneAudioUrl = audioUrl;
-            }
+            const { videoUrl, duration } = await renderWithJson2Video(moviePayload);
 
-            faceScenes.push({
-                url: clipUrl,
-                duration,
-                text: scene.text,
-                sceneType: scene.type,
-                audioUrl: sceneAudioUrl
+            // Mark as completed
+            const clipAssets = processedScenes
+                .filter(ps => ps.type === 'face')
+                .map(ps => ({ url: ps.clipUrl, source: 'wavespeed' }));
+
+            await updateJob(jobId, {
+                status: 'completed',
+                progress: 100,
+                progress_message: 'Video ready!',
+                result_data: { videoUrl, duration, clipAssets }
+            });
+
+            console.log(`✅ Job ${jobId} completed!`);
+
+            return NextResponse.json({
+                success: true,
+                completed: true,
+                videoUrl,
+                duration
             });
         }
 
-        await updateJobProgress(jobId, 75, 'Composing final video...');
-
-        // Build JSON2Video payload
-        const moviePayload = convertFaceVideoToJson2VideoFormat({
-            scenes: faceScenes,
-            enableCaptions: enableCaptions ?? true,
-            captionStyle: 'bold-classic',
-            enableBackgroundMusic: enableBackgroundMusic ?? false,
+        // Mark as processing
+        await updateJob(jobId, {
+            status: 'processing',
+            progress: Math.floor(10 + (currentIndex / totalScenes) * 70),
+            progress_message: `Processing scene ${currentIndex + 1}/${totalScenes}...`
         });
 
-        await updateJobProgress(jobId, 80, 'Rendering with JSON2Video...');
+        // Get current scene to process
+        const scene = scenes[currentIndex];
+        console.log(`📍 Scene ${currentIndex + 1}: ${scene.type.toUpperCase()} - "${scene.text.substring(0, 40)}..."`);
 
-        // Render with JSON2Video
-        const { videoUrl, duration } = await renderWithJson2Video(moviePayload);
+        // Prepare face image as data URL (only once, for face scenes)
+        let imageDataUrl: string | null = null;
+        if (scene.type === 'face') {
+            if (faceImageUrl.startsWith('data:')) {
+                imageDataUrl = faceImageUrl;
+            } else {
+                const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer' });
+                const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
+                const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
+                imageDataUrl = `data:${mimeType};base64,${imgBase64}`;
+            }
+        }
 
-        // Mark as completed
-        await setJobCompleted(jobId, {
-            videoUrl,
+        // Generate TTS for this scene
+        const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
+
+        let clipUrl: string;
+        let sceneAudioUrl: string | undefined;
+
+        if (scene.type === 'face' && imageDataUrl) {
+            await updateJob(jobId, {
+                progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`
+            });
+
+            const wavespeedUrl = await generateFaceVideoClip(imageDataUrl, audioUrl);
+            const fileName = `clip_${jobId}_scene_${currentIndex}.mp4`;
+            clipUrl = await uploadClipToSupabase(wavespeedUrl, fileName);
+            // No separate audio for face scenes (audio baked in)
+        } else {
+            // Asset scene - use the asset URL directly
+            clipUrl = scene.assetUrl || faceImageUrl;
+            sceneAudioUrl = audioUrl; // Asset scenes need separate audio
+        }
+
+        // Add to processed scenes
+        const newProcessedScene: ProcessedScene = {
+            index: currentIndex,
+            type: scene.type,
+            clipUrl,
+            audioUrl: sceneAudioUrl,
             duration,
-            clipAssets
+            text: scene.text
+        };
+
+        processedScenes.push(newProcessedScene);
+
+        // Update job with new scene and increment index
+        await updateJob(jobId, {
+            current_scene_index: currentIndex + 1,
+            processed_scenes: processedScenes,
+            progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
+            progress_message: currentIndex + 1 >= totalScenes
+                ? 'All scenes processed, composing...'
+                : `Scene ${currentIndex + 1}/${totalScenes} complete`
         });
 
-        console.log('✅ Job completed:', jobId);
+        console.log(`✅ Scene ${currentIndex + 1} complete. Next: ${currentIndex + 2}/${totalScenes}`);
 
         return NextResponse.json({
             success: true,
-            jobId,
-            videoUrl,
-            duration
+            completed: false,
+            currentScene: currentIndex + 1,
+            totalScenes,
+            message: `Scene ${currentIndex + 1}/${totalScenes} processed`
         });
 
     } catch (error) {
-        console.error('Error processing job:', error);
+        console.error('Error processing scene:', error);
 
         if (jobId) {
-            await setJobFailed(jobId, error instanceof Error ? error.message : 'Unknown error');
+            await updateJob(jobId, {
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                progress_message: 'Failed'
+            });
         }
 
         return NextResponse.json(
-            { error: `Failed to process job: ${error instanceof Error ? error.message : 'Unknown error'}` },
+            { error: `Failed to process scene: ${error instanceof Error ? error.message : 'Unknown error'}` },
             { status: 500 }
         );
     }

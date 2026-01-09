@@ -860,22 +860,17 @@ export const pollFaceVideoJob = async (
     duration: number;
     clipAssets: { url: string; source: string }[];
 }> => {
-    // Trigger processing from client-side (required for Vercel)
+    // Initial trigger to start processing
     await triggerFaceVideoProcess(jobId);
 
     // Wait a moment for the process to start
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const startTime = Date.now();
+    let lastTriggerTime = Date.now();
 
     while (Date.now() - startTime < maxPollTimeMs) {
         const status = await getFaceVideoJobStatus(jobId);
-
-        // Re-trigger if still pending (process might not have started)
-        if (status.status === 'pending' && Date.now() - startTime > 10000) {
-            await triggerFaceVideoProcess(jobId);
-        }
-
 
         // Report progress
         if (onProgress) {
@@ -894,6 +889,14 @@ export const pollFaceVideoJob = async (
         // Check for failure
         if (status.status === 'failed') {
             throw new Error(status.error || 'Video generation failed');
+        }
+
+        // Re-trigger processing if still pending or processing (drives scene-by-scene)
+        // Only trigger every 5+ seconds to avoid overwhelming
+        if ((status.status === 'pending' || status.status === 'processing') &&
+            Date.now() - lastTriggerTime > 5000) {
+            await triggerFaceVideoProcess(jobId);
+            lastTriggerTime = Date.now();
         }
 
         // Wait before next poll
