@@ -205,6 +205,7 @@ export const useDashboardState = () => {
             recorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
                 setVoiceFile(new File([blob], 'recording.webm', { type: 'audio/webm' }));
+                setSavedVoice(null); // Deselect saved voice to show recorded voice is active
             };
             recorder.start();
             setAudioRecorder(recorder);
@@ -218,7 +219,10 @@ export const useDashboardState = () => {
 
     const handleVoiceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) setVoiceFile(file);
+        if (file) {
+            setVoiceFile(file);
+            setSavedVoice(null); // Deselect saved voice to show uploaded voice is active
+        }
     };
 
     const handleReset = () => {
@@ -378,6 +382,7 @@ export const useDashboardState = () => {
         if (dbUser) {
             await setActiveVoice(dbUser.id, voice.id);
             setSavedVoice(voice);
+            setVoiceFile(null); // Clear recorded/uploaded voice to ensure this selection is used
             setAllVoices(prev => prev.map(v => ({ ...v, is_active: v.id === voice.id })));
         }
     };

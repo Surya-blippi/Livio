@@ -328,7 +328,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
 
                                         {/* Recorded/Uploaded Voice Preview */}
                                         {voiceFile && (
-                                            <div className="mb-4 p-3 rounded-xl border-2 border-purple-300 bg-purple-50">
+                                            <div className="mb-4 p-3 rounded-xl border-2 border-purple-300 bg-purple-50 relative">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                                                         <MicIcon className="w-4 h-4 text-white" />
@@ -350,6 +350,12 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                             <span className="text-sm">▶</span>
                                                         )}
                                                     </button>
+                                                </div>
+                                                {/* Selection Indicator */}
+                                                <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 shadow-md">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                                    </svg>
                                                 </div>
                                             </div>
                                         )}
