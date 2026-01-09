@@ -80,7 +80,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     // Processing state view
     if (isProcessing) {
         return (
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-black p-6 z-40 safe-area-bottom">
+            <div className="fixed top-14 left-0 right-0 bg-white border-b-2 border-black p-6 z-40 shadow-md">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-[var(--brand-primary)] animate-spin flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -100,9 +100,9 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-            {/* Workflow Steps (above composer) */}
-            <div className="bg-white/95 backdrop-blur-lg border-t border-gray-100 px-4 py-3">
+        <div className="fixed top-14 left-0 right-0 z-40 flex flex-col">
+            {/* Workflow Steps (below composer now) */}
+            <div className="bg-white/95 backdrop-blur-lg border-b border-gray-100 px-4 py-3 order-last">
                 <div className="flex justify-around max-w-sm mx-auto">
                     {workflowSteps.map((step) => (
                         <button
@@ -112,8 +112,8 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                             className={`flex flex-col items-center gap-1 transition-all ${step.active ? '' : 'opacity-30'}`}
                         >
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active
-                                    ? `bg-gradient-to-br ${step.color} shadow-lg`
-                                    : 'bg-gray-200'
+                                ? `bg-gradient-to-br ${step.color} shadow-lg`
+                                : 'bg-gray-200'
                                 }`}>
                                 <step.icon className={`w-4 h-4 ${step.active ? 'text-white' : 'text-gray-400'}`} />
                             </div>
@@ -126,7 +126,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
             </div>
 
             {/* Main Composer */}
-            <div className="bg-white border-t-2 border-black safe-area-bottom">
+            <div className="bg-white border-b-2 border-black safe-area-top shadow-sm">
                 {/* Settings Pills Row */}
                 <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto no-scrollbar border-b border-gray-100">
                     {/* Face/Mode Pill */}

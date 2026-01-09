@@ -173,18 +173,18 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
                 {/* Main Content Area */}
-                <div className="flex-1 pt-14 pb-[280px] overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pt-[280px]">
                     {/* Empty state or content can go here */}
                     <div className="flex flex-col items-center justify-center h-full px-6 text-center">
                         <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[var(--brand-primary)] to-lime-400 flex items-center justify-center mb-6 shadow-lg">
                             <span className="text-4xl">✨</span>
                         </div>
                         <h1 className="text-2xl font-black mb-2">What will you create?</h1>
-                        <p className="text-gray-500 max-w-xs">Enter a topic below and let AI generate an amazing video for you.</p>
+                        <p className="text-gray-500 max-w-xs">Enter a topic above and let AI generate an amazing video for you.</p>
                     </div>
                 </div>
 
-                {/* Mobile Composer (Fixed at bottom) */}
+                {/* Mobile Composer (Fixed at top) */}
                 <MobileComposer
                     inputText={inputText}
                     setInputText={setInputText}
