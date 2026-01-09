@@ -173,7 +173,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
                 {/* Main Content Area */}
-                <div className="flex-1 overflow-y-auto pt-[140px] pb-6">
+                <div className="flex-1 overflow-y-auto pt-[240px] pb-6">
                     {/* Topic Suggestion Tiles */}
                     <div className="px-4">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Trending Topics</p>
