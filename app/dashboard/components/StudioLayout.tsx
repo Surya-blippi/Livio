@@ -168,68 +168,71 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                Visible only on < lg screens
                ========================================= */}
 
-            <div className="lg:hidden flex-1 flex flex-col relative w-full h-full bg-[var(--surface-1)]">
+            <div className="lg:hidden flex flex-col w-full h-screen overflow-hidden bg-[var(--surface-1)]">
                 {/* Top Nav Bar with Hamburger */}
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
-                {/* Mobile Composer */}
-                <MobileComposer
-                    inputText={inputText}
-                    setInputText={setInputText}
-                    onGenerate={onGenerate}
-                    isProcessing={isProcessing}
-                    processingMessage={processingMessage}
-                    enableCaptions={enableCaptions}
-                    setEnableCaptions={setEnableCaptions}
-                    enableBackgroundMusic={enableBackgroundMusic}
-                    setEnableBackgroundMusic={setEnableBackgroundMusic}
-                    onEnhance={onEnhance}
-                    onCollectAssets={onCollectAssets}
-                    isEnhancing={isEnhancing}
-                    isCollectingAssets={isCollectingAssets}
-                    onOpenSheet={setActiveSheet}
-                    voiceName={voiceName}
-                    avatarUrl={avatarUrl}
-                    mode={mode}
-                    duration={duration}
-                    aspectRatio={aspectRatio}
-                    hasScript={hasScript}
-                    hasAssets={hasAssets}
-                    hasStoryboard={hasStoryboard}
-                    hasVideo={hasVideo}
-                />
+                {/* Content below nav bar */}
+                <div className="flex-1 flex flex-col pt-14">
 
-                {/* Workflow Tiles - Stacked with equal spacing */}
-                <div className="flex-1 flex flex-col justify-evenly px-4 pb-4 bg-[var(--surface-1)]">
-                    {[
-                        { id: 'script', label: 'Script', desc: 'AI-generated script', icon: '✨', active: hasScript, color: 'from-purple-500 to-purple-600' },
-                        { id: 'assets', label: 'Assets', desc: 'Images and media', icon: '🖼️', active: hasAssets, color: 'from-blue-500 to-blue-600' },
-                        { id: 'storyboard', label: 'Scenes', desc: 'Video storyboard', icon: '🎬', active: hasStoryboard, color: 'from-orange-500 to-orange-600' },
-                        { id: 'video', label: 'Video', desc: 'Final output', icon: '🎥', active: hasVideo, color: 'from-[var(--brand-primary)] to-lime-400' },
-                    ].map((step) => (
-                        <button
-                            key={step.id}
-                            onClick={() => step.active && setActiveSheet(step.id as MobileSheetType)}
-                            disabled={!step.active}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${step.active
+                    {/* Mobile Composer */}
+                    <MobileComposer
+                        inputText={inputText}
+                        setInputText={setInputText}
+                        onGenerate={onGenerate}
+                        isProcessing={isProcessing}
+                        processingMessage={processingMessage}
+                        enableCaptions={enableCaptions}
+                        setEnableCaptions={setEnableCaptions}
+                        enableBackgroundMusic={enableBackgroundMusic}
+                        setEnableBackgroundMusic={setEnableBackgroundMusic}
+                        onEnhance={onEnhance}
+                        onCollectAssets={onCollectAssets}
+                        isEnhancing={isEnhancing}
+                        isCollectingAssets={isCollectingAssets}
+                        onOpenSheet={setActiveSheet}
+                        voiceName={voiceName}
+                        avatarUrl={avatarUrl}
+                        mode={mode}
+                        duration={duration}
+                        aspectRatio={aspectRatio}
+                        hasScript={hasScript}
+                        hasAssets={hasAssets}
+                        hasStoryboard={hasStoryboard}
+                        hasVideo={hasVideo}
+                    />
+                    {/* Workflow Tiles - Compact gaps */}
+                    <div className="flex-1 flex flex-col gap-2 px-4 pb-4 bg-[var(--surface-1)]">
+                        {[
+                            { id: 'script', label: 'Script', desc: 'AI-generated script', icon: '✨', active: hasScript, color: 'from-purple-500 to-purple-600' },
+                            { id: 'assets', label: 'Assets', desc: 'Images and media', icon: '🖼️', active: hasAssets, color: 'from-blue-500 to-blue-600' },
+                            { id: 'storyboard', label: 'Scenes', desc: 'Video storyboard', icon: '🎬', active: hasStoryboard, color: 'from-orange-500 to-orange-600' },
+                            { id: 'video', label: 'Video', desc: 'Final output', icon: '🎥', active: hasVideo, color: 'from-[var(--brand-primary)] to-lime-400' },
+                        ].map((step) => (
+                            <button
+                                key={step.id}
+                                onClick={() => step.active && setActiveSheet(step.id as MobileSheetType)}
+                                disabled={!step.active}
+                                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${step.active
                                     ? `bg-gradient-to-r ${step.color} border-black shadow-[3px_3px_0px_#000]`
                                     : 'bg-white border-gray-100 opacity-50'
-                                }`}
-                        >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${step.active ? 'bg-white/20' : 'bg-gray-100'}`}>
-                                {step.icon}
-                            </div>
-                            <div className="flex-1">
-                                <p className={`font-black text-sm ${step.active ? 'text-white' : 'text-gray-400'}`}>{step.label}</p>
-                                <p className={`text-xs ${step.active ? 'text-white/80' : 'text-gray-300'}`}>{step.desc}</p>
-                            </div>
-                            {step.active && (
-                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                            )}
-                        </button>
-                    ))}
+                                    }`}
+                            >
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${step.active ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                    {step.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`font-black text-sm ${step.active ? 'text-white' : 'text-gray-400'}`}>{step.label}</p>
+                                    <p className={`text-xs ${step.active ? 'text-white/80' : 'text-gray-300'}`}>{step.desc}</p>
+                                </div>
+                                {step.active && (
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Mobile Overlays */}
