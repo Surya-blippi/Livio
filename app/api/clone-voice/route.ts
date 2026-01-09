@@ -7,14 +7,27 @@ import { writeFile, readFile, unlink } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Don't set path at top level to avoid build-time errors with platform binaries
+// ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 export async function POST(request: NextRequest) {
     let tempInputPath = '';
     let tempOutputPath = '';
 
     try {
+        // Initialize ffmpeg path inside handler
+        try {
+            const ffmpegPath = ffmpegInstaller.path;
+            if (ffmpegPath) {
+                ffmpeg.setFfmpegPath(ffmpegPath);
+            } else {
+                console.warn('FFmpeg path not found in installer, using default system path');
+            }
+        } catch (e) {
+            console.warn('Failed to set ffmpeg path from installer:', e);
+            // Continue, hoping ffmpeg is in global path or conversion isn't strictly fatal
+        }
+
         const formData = await request.formData();
         const audioFile = formData.get('audio') as File;
 
