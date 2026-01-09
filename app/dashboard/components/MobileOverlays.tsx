@@ -1,0 +1,582 @@
+'use client';
+
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CloseIcon, MicIcon, ImageIcon, ClockIcon, VideoIcon, SparklesIcon } from './icons';
+
+// ========== TYPES ==========
+export type MobileSheetType =
+    | 'face'
+    | 'voice'
+    | 'duration'
+    | 'aspect'
+    | 'script'
+    | 'assets'
+    | 'storyboard'
+    | 'video'
+    | 'history'
+    | null;
+
+interface Avatar {
+    id: string;
+    image_url: string;
+    name?: string;
+    is_default?: boolean;
+}
+
+interface Voice {
+    voice_id: string;
+    name: string;
+    preview_url?: string;
+    labels?: { accent?: string };
+}
+
+interface Asset {
+    url: string;
+    thumbnail: string;
+    title: string;
+    source: string;
+}
+
+interface Scene {
+    text: string;
+    keywords?: string[];
+    assetUrl?: string;
+}
+
+interface VideoHistory {
+    id: string;
+    video_url: string;
+    created_at: string;
+    topic?: string;
+}
+
+// ========== PROPS ==========
+interface MobileOverlaysProps {
+    activeSheet: MobileSheetType;
+    onClose: () => void;
+
+    // Face
+    mode: 'face' | 'faceless';
+    setMode: (m: 'face' | 'faceless') => void;
+    avatarUrl?: string;
+    savedAvatars: Avatar[];
+    onSelectAvatar: (avatar: Avatar) => void;
+    onUploadAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
+
+    // Studio Ready
+    useStudioImage: boolean;
+    studioReadyUrl?: string;
+    isGeneratingStudio: boolean;
+    onMakeStudioReady: () => void;
+    toggleStudioImage: () => void;
+
+    // Voice
+    voices: Voice[];
+    selectedVoice?: Voice;
+    onSelectVoice: (voice: Voice) => void;
+    isRecording: boolean;
+    onStartRecording: () => void;
+    onStopRecording: () => void;
+    onUploadVoice: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    voiceFile?: File | null;
+    hasClonedVoice?: boolean;
+
+    // Duration
+    duration: number;
+    setDuration: (d: number) => void;
+
+    // Aspect
+    aspectRatio: string;
+    setAspectRatio: (r: string) => void;
+
+    // Script
+    script: string;
+
+    // Assets
+    assets: Asset[];
+    onUploadAsset: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onRemoveAsset: (index: number) => void;
+
+    // Storyboard
+    scenes: Scene[];
+
+    // Video
+    videoUrl?: string;
+
+    // History
+    videoHistory: VideoHistory[];
+    onSelectVideo: (video: VideoHistory) => void;
+    onDeleteVideo: (id: string) => void;
+}
+
+// ========== COMPONENT ==========
+export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
+    activeSheet,
+    onClose,
+    mode,
+    setMode,
+    avatarUrl,
+    savedAvatars,
+    onSelectAvatar,
+    onUploadAvatar,
+    useStudioImage,
+    studioReadyUrl,
+    isGeneratingStudio,
+    onMakeStudioReady,
+    toggleStudioImage,
+    voices,
+    selectedVoice,
+    onSelectVoice,
+    isRecording,
+    onStartRecording,
+    onStopRecording,
+    onUploadVoice,
+    voiceFile,
+    hasClonedVoice,
+    duration,
+    setDuration,
+    aspectRatio,
+    setAspectRatio,
+    script,
+    assets,
+    onUploadAsset,
+    onRemoveAsset,
+    scenes,
+    videoUrl,
+    videoHistory,
+    onSelectVideo,
+    onDeleteVideo
+}) => {
+    const isDropUp = ['face', 'voice', 'duration', 'aspect'].includes(activeSheet || '');
+    const isFullScreen = ['script', 'assets', 'storyboard', 'video', 'history'].includes(activeSheet || '');
+
+    return (
+        <AnimatePresence>
+            {activeSheet && (
+                <>
+                    {/* Backdrop */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                    />
+
+                    {/* Drop-Up Sheets (small, from bottom) */}
+                    {isDropUp && (
+                        <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 30, stiffness: 400 }}
+                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[28px] z-50 max-h-[70vh] overflow-hidden"
+                        >
+                            {/* Handle */}
+                            <div className="flex justify-center py-2">
+                                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+                            </div>
+
+                            {/* Face Selection */}
+                            {activeSheet === 'face' && (() => {
+                                // Filter out duplicate avatars by image_url
+                                const uniqueAvatars = savedAvatars.filter((avatar, index, self) =>
+                                    index === self.findIndex((a) => a.image_url === avatar.image_url)
+                                );
+                                return (
+                                    <div className="p-4 pb-8">
+                                        <h3 className="text-lg font-black mb-4 text-center">Video Style</h3>
+
+                                        {/* Faceless Block */}
+                                        <button
+                                            onClick={() => { setMode('faceless'); onClose(); }}
+                                            className={`w-full p-4 rounded-2xl border-2 mb-4 flex items-center gap-4 transition-all ${mode === 'faceless' ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200 hover:border-gray-300'}`}
+                                        >
+                                            <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-6 h-6 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="font-bold">Faceless</p>
+                                                <p className="text-xs text-gray-500">Images only, no avatar</p>
+                                            </div>
+                                            {mode === 'faceless' && <span className="text-[var(--brand-primary)] text-xl">✓</span>}
+                                        </button>
+
+                                        {/* With Face Label */}
+                                        <p className="text-sm font-bold text-gray-500 mb-3">Or choose a face:</p>
+
+                                        {/* Avatar Grid with Upload First */}
+                                        <div className="grid grid-cols-4 gap-3 max-h-[160px] overflow-y-auto mb-4">
+                                            {/* Upload Button - First */}
+                                            <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-[var(--brand-primary)] hover:bg-gray-50 transition-all">
+                                                <span className="text-2xl text-gray-400">+</span>
+                                                <span className="text-[8px] text-gray-400 mt-1">Upload</span>
+                                                <input type="file" accept="image/*" onChange={(e) => { onUploadAvatar(e); setMode('face'); }} className="hidden" />
+                                            </label>
+
+                                            {/* Unique Avatars */}
+                                            {uniqueAvatars.map((avatar) => (
+                                                <button
+                                                    key={avatar.id}
+                                                    onClick={() => { onSelectAvatar(avatar); setMode('face'); onClose(); }}
+                                                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200 hover:border-gray-300'}`}
+                                                >
+                                                    <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
+                                                    {avatar.is_default && (
+                                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
+                                                            <span className="text-[8px] text-white font-bold">✨ Studio</span>
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Studio Ready Section - shown when face mode with non-studio image */}
+                                        {mode === 'face' && avatarUrl && !useStudioImage && (
+                                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border-2 border-purple-300">
+                                                        <img src={avatarUrl} className="w-full h-full object-cover" alt="" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold text-sm text-purple-900">Transform to Studio Ready</p>
+                                                        <p className="text-[10px] text-purple-600">Optimize for AI video</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={onMakeStudioReady}
+                                                        disabled={isGeneratingStudio}
+                                                        className="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 flex items-center gap-1"
+                                                    >
+                                                        {isGeneratingStudio ? (
+                                                            <>
+                                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                                <span>...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span>✨</span>
+                                                                <span>Enhance</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Studio Ready Toggle - shown when both original and studio images exist */}
+                                        {mode === 'face' && avatarUrl && studioReadyUrl && (
+                                            <button
+                                                onClick={toggleStudioImage}
+                                                className="w-full mt-3 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between"
+                                            >
+                                                <span className="text-sm font-medium text-purple-900">
+                                                    {useStudioImage ? '✨ Using Studio Ready' : 'Use Studio Ready version'}
+                                                </span>
+                                                <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useStudioImage ? 'bg-purple-600' : 'bg-gray-300'}`}>
+                                                    <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${useStudioImage ? 'translate-x-4' : ''}`} />
+                                                </div>
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Voice Selection */}
+                            {activeSheet === 'voice' && (() => {
+                                // State for playing audio
+                                const [playingVoiceId, setPlayingVoiceId] = React.useState<string | null>(null);
+                                const audioRef = useRef<HTMLAudioElement | null>(null);
+
+                                const handlePlayVoice = (voiceId: string, previewUrl?: string) => {
+                                    if (playingVoiceId === voiceId) {
+                                        // Stop playing
+                                        audioRef.current?.pause();
+                                        setPlayingVoiceId(null);
+                                    } else {
+                                        // Start playing
+                                        audioRef.current?.pause();
+                                        if (previewUrl) {
+                                            const audio = new Audio(previewUrl);
+                                            audioRef.current = audio;
+                                            audio.play();
+                                            audio.onended = () => setPlayingVoiceId(null);
+                                            setPlayingVoiceId(voiceId);
+                                        }
+                                    }
+                                };
+
+                                return (
+                                    <div className="p-4 pb-8">
+                                        <h3 className="text-lg font-black mb-4 text-center">Choose Voice</h3>
+
+                                        {/* Recorded/Uploaded Voice Preview */}
+                                        {voiceFile && (
+                                            <div className="mb-4 p-3 rounded-xl border-2 border-purple-300 bg-purple-50">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                                        <MicIcon className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-sm">Your Voice</p>
+                                                        <p className="text-xs text-purple-600">{voiceFile.name}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const url = URL.createObjectURL(voiceFile);
+                                                            handlePlayVoice('uploaded', url);
+                                                        }}
+                                                        className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white"
+                                                    >
+                                                        {playingVoiceId === 'uploaded' ? (
+                                                            <span className="text-sm">⏹</span>
+                                                        ) : (
+                                                            <span className="text-sm">▶</span>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Record/Upload Actions */}
+                                        <div className="flex gap-3 mb-4">
+                                            <button
+                                                onClick={isRecording ? onStopRecording : onStartRecording}
+                                                className={`flex-1 py-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 ${isRecording ? 'border-red-500 bg-red-50 text-red-600 animate-pulse' : 'border-gray-200'}`}
+                                            >
+                                                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500' : 'bg-gray-400'}`} />
+                                                {isRecording ? 'Recording...' : 'Record'}
+                                            </button>
+                                            <label className="flex-1 py-3 rounded-xl border-2 border-gray-200 font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-gray-50">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                <span>Upload</span>
+                                                <input type="file" accept="audio/*" onChange={onUploadVoice} className="hidden" />
+                                            </label>
+                                        </div>
+
+                                        {/* Voice List with Play Buttons */}
+                                        <p className="text-sm font-bold text-gray-500 mb-3">Or choose a voice:</p>
+                                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                            {voices.map((voice) => (
+                                                <div
+                                                    key={voice.voice_id}
+                                                    className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-all ${selectedVoice?.voice_id === voice.voice_id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
+                                                >
+                                                    {/* Play Button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handlePlayVoice(voice.voice_id, voice.preview_url);
+                                                        }}
+                                                        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${playingVoiceId === voice.voice_id ? 'bg-[var(--brand-primary)] text-black' : 'bg-gradient-to-br from-green-400 to-emerald-500 text-white'}`}
+                                                    >
+                                                        {playingVoiceId === voice.voice_id ? (
+                                                            <span className="text-sm font-bold">⏹</span>
+                                                        ) : (
+                                                            <span className="text-sm">▶</span>
+                                                        )}
+                                                    </button>
+
+                                                    {/* Voice Info - Clickable to Select */}
+                                                    <button
+                                                        onClick={() => { onSelectVoice(voice); onClose(); }}
+                                                        className="flex-1 text-left"
+                                                    >
+                                                        <p className="font-bold">{voice.name}</p>
+                                                        {voice.labels?.accent && <p className="text-xs text-gray-500">{voice.labels.accent}</p>}
+                                                    </button>
+
+                                                    {/* Checkmark */}
+                                                    {selectedVoice?.voice_id === voice.voice_id && (
+                                                        <span className="text-[var(--brand-primary)] text-xl">✓</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Duration Selection */}
+                            {activeSheet === 'duration' && (
+                                <div className="p-4 pb-8">
+                                    <h3 className="text-lg font-black mb-4 text-center">Duration</h3>
+                                    <div className="flex gap-3">
+                                        {[15, 30, 60].map((d) => (
+                                            <button
+                                                key={d}
+                                                onClick={() => { setDuration(d); onClose(); }}
+                                                className={`flex-1 py-6 rounded-2xl border-2 font-black text-xl transition-all ${duration === d ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-black' : 'border-gray-200'}`}
+                                            >
+                                                {d}s
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Aspect Ratio Selection */}
+                            {activeSheet === 'aspect' && (
+                                <div className="p-4 pb-8">
+                                    <h3 className="text-lg font-black mb-4 text-center">Aspect Ratio</h3>
+                                    <div className="flex gap-3">
+                                        {[
+                                            { value: '9:16', icon: 'h-12 w-7' },
+                                            { value: '16:9', icon: 'h-7 w-12' },
+                                            { value: '1:1', icon: 'h-10 w-10' }
+                                        ].map((ar) => (
+                                            <button
+                                                key={ar.value}
+                                                onClick={() => { setAspectRatio(ar.value); onClose(); }}
+                                                className={`flex-1 py-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${aspectRatio === ar.value ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
+                                            >
+                                                <div className={`${ar.icon} border-2 ${aspectRatio === ar.value ? 'border-[var(--brand-primary)]' : 'border-gray-400'} rounded`} />
+                                                <span className="font-bold text-sm">{ar.value}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {/* Full Screen Sheets */}
+                    {isFullScreen && (
+                        <motion.div
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                            className="fixed inset-0 bg-white z-50 flex flex-col"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                                <h2 className="text-xl font-black capitalize">{activeSheet}</h2>
+                                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                                    <CloseIcon className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-4">
+
+                                {/* Script View */}
+                                {activeSheet === 'script' && (
+                                    <div className="prose prose-sm max-w-none">
+                                        {script ? (
+                                            <p className="text-base leading-relaxed whitespace-pre-wrap">{script}</p>
+                                        ) : (
+                                            <p className="text-gray-400 text-center py-12">No script generated yet. Enter a topic and click Research.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Assets View */}
+                                {activeSheet === 'assets' && (
+                                    <div>
+                                        <label className="flex items-center justify-center gap-2 p-4 mb-4 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-400">
+                                            <ImageIcon className="w-5 h-5 text-gray-400" />
+                                            <span className="font-bold text-gray-500">Upload Images</span>
+                                            <input type="file" accept="image/*" multiple onChange={onUploadAsset} className="hidden" />
+                                        </label>
+
+                                        {assets.length > 0 ? (
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {assets.map((asset, i) => (
+                                                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden">
+                                                        <img src={asset.thumbnail} className="w-full h-full object-cover" />
+                                                        <button
+                                                            onClick={() => onRemoveAsset(i)}
+                                                            className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center"
+                                                        >
+                                                            <CloseIcon className="w-3 h-3 text-white" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-400 text-center py-8">No assets collected yet. Click Collect to find images.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Storyboard View */}
+                                {activeSheet === 'storyboard' && (
+                                    <div className="space-y-4">
+                                        {scenes.length > 0 ? (
+                                            scenes.map((scene, i) => (
+                                                <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="w-6 h-6 rounded-full bg-black text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                                                        <span className="text-xs text-gray-500">Scene {i + 1}</span>
+                                                    </div>
+                                                    <p className="text-sm">{scene.text}</p>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-gray-400 text-center py-8">No storyboard yet. Generate a script first.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Video Preview */}
+                                {activeSheet === 'video' && (
+                                    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                                        {videoUrl ? (
+                                            <video
+                                                src={videoUrl}
+                                                controls
+                                                autoPlay
+                                                className="w-full max-w-sm rounded-2xl shadow-2xl"
+                                                style={{ aspectRatio: '9/16' }}
+                                            />
+                                        ) : (
+                                            <div className="text-center py-12">
+                                                <VideoIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                                                <p className="text-gray-400">No video generated yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* History View */}
+                                {activeSheet === 'history' && (
+                                    <div className="space-y-3">
+                                        {videoHistory.length > 0 ? (
+                                            videoHistory.map((video) => (
+                                                <button
+                                                    key={video.id}
+                                                    onClick={() => { onSelectVideo(video); onClose(); }}
+                                                    className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3 text-left"
+                                                >
+                                                    <div className="w-16 h-24 bg-black rounded-lg overflow-hidden flex-shrink-0">
+                                                        {video.video_url ? (
+                                                            <video src={video.video_url} className="w-full h-full object-cover" muted />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No preview</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold truncate">{video.topic || 'Untitled'}</p>
+                                                        <p className="text-xs text-gray-500">{new Date(video.created_at).toLocaleDateString()}</p>
+                                                    </div>
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <p className="text-gray-400 text-center py-8">No videos yet</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </>
+            )}
+        </AnimatePresence>
+    );
+};

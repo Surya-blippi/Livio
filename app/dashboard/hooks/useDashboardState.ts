@@ -1,0 +1,681 @@
+import { useState, useRef, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
+import {
+    generateScript,
+    cloneVoice,
+    generateSpeechWithVoiceId,
+    createVideo,
+    pollVideoStatus,
+    handleApiError,
+    generateElevenLabsSpeech,
+    generateDynamicSRT,
+    createCaptionVideoCloud,
+    addBackgroundMusic,
+    facePostProcess,
+    generateOptimizedFaceVideo,
+    generateSceneFaceVideo,
+    SceneInput,
+    WordTiming,
+    collectAssets,
+    CollectedAsset,
+    Scene,
+    SceneTiming,
+    generateSceneBasedSpeech
+} from '@/lib/apiClient';
+import {
+    getOrCreateUser,
+    getAllVoices,
+    saveVoice,
+    setActiveVoice,
+    updateVoiceId,
+    getVideos,
+    getVideoById,
+    saveVideo,
+    deleteVideo,
+    saveAvatar,
+    getAvatars,
+    saveDraft,
+    updateDraft,
+    DbUser,
+    DbVideo,
+    DbVoice,
+    DbAvatar
+} from '@/lib/supabase';
+
+export const useDashboardState = () => {
+    const { user, isLoaded } = useUser();
+
+    // Theme state
+    const [isDark, setIsDark] = useState(false);
+
+    // Core state
+    const [mode, setMode] = useState<'face' | 'faceless'>('face');
+    const [duration, setDuration] = useState(30);
+    const [inputText, setInputText] = useState('');
+    const [isEnhanced, setIsEnhanced] = useState(false);
+    const [enableCaptions, setEnableCaptions] = useState(true);
+    const [captionStyle, setCaptionStyle] = useState('bold-classic');
+    const [enableBackgroundMusic, setEnableBackgroundMusic] = useState(false);
+    const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+    const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+    const [originalTopic, setOriginalTopic] = useState(''); // Store the topic before enhancement
+    const [previewMode, setPreviewMode] = useState<'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions'>('idle');
+
+    // Photo state
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState('');
+
+    // Voice state
+    const [voiceFile, setVoiceFile] = useState<File | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioRecorder, setAudioRecorder] = useState<MediaRecorder | null>(null);
+
+    // Video state
+    const [videoUrl, setVideoUrl] = useState('');
+    const [audioUrl, setAudioUrl] = useState('');
+    const [captionsData, setCaptionsData] = useState('');
+    const [wordTimings, setWordTimings] = useState<WordTiming[]>([]);
+
+    // Processing state
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
+    const [processingStep, setProcessingStep] = useState(0);
+    const [error, setError] = useState('');
+
+    // UI state
+    const [showHistory, setShowHistory] = useState(false);
+    const [selectedVideo, setSelectedVideo] = useState<DbVideo | null>(null);
+
+    // Collected assets state
+    const [collectedAssets, setCollectedAssets] = useState<CollectedAsset[]>([]);
+    const [isCollectingAssets, setIsCollectingAssets] = useState(false);
+    const [showAssetGallery, setShowAssetGallery] = useState(false);
+    const [assetSearchTerms, setAssetSearchTerms] = useState<string[]>([]);
+
+    // Scene-based generation state
+    const [scenes, setScenes] = useState<Scene[]>([]);
+    const [sceneTimings, setSceneTimings] = useState<SceneTiming[]>([]);
+
+    // Studio ready image state
+    const [studioReadyUrl, setStudioReadyUrl] = useState('');
+    const [isGeneratingStudio, setIsGeneratingStudio] = useState(false);
+    const [useStudioImage, setUseStudioImage] = useState(false);
+    const [showImagePreview, setShowImagePreview] = useState(false);
+
+    // Supabase state
+    const [dbUser, setDbUser] = useState<DbUser | null>(null);
+    const [savedVoice, setSavedVoice] = useState<DbVoice | null>(null);
+    const [allVoices, setAllVoices] = useState<DbVoice[]>([]);
+    const [videoHistory, setVideoHistory] = useState<DbVideo[]>([]);
+    const [savedAvatars, setSavedAvatars] = useState<DbAvatar[]>([]);
+
+    // Refs
+    // const photoInputRef = useRef<HTMLInputElement>(null); // Managed in components now
+    // const voiceInputRef = useRef<HTMLInputElement>(null); // Managed in components now
+
+    // Initialization
+    useEffect(() => {
+        if (isLoaded && user) {
+            initializeUser();
+        }
+    }, [isLoaded, user]);
+
+    const initializeUser = async () => {
+        if (!user) return;
+        const dbUserData = await getOrCreateUser(user.id, user.primaryEmailAddress?.emailAddress || '', user.fullName || undefined, user.imageUrl || undefined);
+        if (dbUserData) {
+            setDbUser(dbUserData);
+            const voices = await getAllVoices(dbUserData.id);
+            setAllVoices(voices);
+            const activeVoice = voices.find(v => v.is_active) || voices[0] || null;
+            if (activeVoice) setSavedVoice(activeVoice);
+            const videos = await getVideos(dbUserData.id);
+            setVideoHistory(videos);
+            const avatars = await getAvatars(dbUserData.id);
+            setSavedAvatars(avatars);
+        }
+    };
+
+    const refreshVideoHistory = async () => {
+        if (dbUser) {
+            const videos = await getVideos(dbUser.id);
+            setVideoHistory(videos);
+        }
+    };
+
+    const hasClonedVoice = !!savedVoice?.voice_id;
+
+    // HANDLERS
+
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setPhotoFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => setPhotoPreview(reader.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleEnhanceWithAI = async () => {
+        if (!inputText.trim()) { setError('Please enter a topic first'); return; }
+        setIsProcessing(true);
+        setProcessingMessage(`Creating ${duration}s script...`);
+        setError('');
+        const topic = inputText; // Save the topic before replacing with script
+        try {
+            const result = await generateScript(inputText, duration);
+            setInputText(result.script);
+            if (result.scenes && result.scenes.length > 0) {
+                setScenes(result.scenes);
+            }
+            setIsEnhanced(true);
+            setOriginalTopic(topic);
+
+            // Auto-save draft to Supabase
+            if (dbUser) {
+                const draft = await saveDraft(
+                    dbUser.id,
+                    topic,
+                    result.script,
+                    [],
+                    mode,
+                    aspectRatio,
+                    duration
+                );
+                if (draft) {
+                    setCurrentDraftId(draft.id);
+                    console.log('Draft saved:', draft.id);
+                }
+            }
+        } catch (err) {
+            setError(handleApiError(err).message);
+        }
+        setIsProcessing(false);
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            const chunks: BlobPart[] = [];
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                setVoiceFile(new File([blob], 'recording.webm', { type: 'audio/webm' }));
+            };
+            recorder.start();
+            setAudioRecorder(recorder);
+            setIsRecording(true);
+        } catch { setError('Could not access microphone'); }
+    };
+
+    const stopRecording = () => {
+        if (audioRecorder) { audioRecorder.stop(); setIsRecording(false); }
+    };
+
+    const handleVoiceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) setVoiceFile(file);
+    };
+
+    const handleReset = () => {
+        setPhotoFile(null); setPhotoPreview(''); setInputText(''); setIsEnhanced(false);
+        setVoiceFile(null); setVideoUrl(''); setAudioUrl(''); setCaptionsData('');
+        setWordTimings([]); setError(''); setProcessingStep(0);
+        setCollectedAssets([]); setShowAssetGallery(false); setAssetSearchTerms([]);
+        setStudioReadyUrl(''); setUseStudioImage(false);
+    };
+
+    const handleMakeStudioReady = async () => {
+        if (!photoPreview) return;
+        setIsGeneratingStudio(true);
+        setError('');
+        try {
+            if (dbUser && photoPreview.startsWith('data:')) {
+                await saveAvatar(dbUser.id, photoPreview, 'Original Upload', false);
+            }
+            const response = await fetch('/api/make-studio-ready', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl: photoPreview }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to generate studio image');
+            setStudioReadyUrl(data.studioReadyUrl);
+            setUseStudioImage(true);
+            if (dbUser) {
+                await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true);
+                const avatars = await getAvatars(dbUser.id);
+                setSavedAvatars(avatars);
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to generate studio image');
+        }
+        setIsGeneratingStudio(false);
+    };
+
+    const handleCollectAssets = async () => {
+        if (!inputText.trim()) { setError('Please enter some content first'); return; }
+        setIsCollectingAssets(true);
+        setError('');
+        try {
+            const result = await collectAssets(inputText, originalTopic || inputText.slice(0, 100));
+            setCollectedAssets(result.assets);
+            setAssetSearchTerms(result.searchTerms);
+            setShowAssetGallery(true);
+            setPreviewMode('assets');
+
+            // Update draft with collected assets
+            if (currentDraftId && dbUser) {
+                const assetsForDb = result.assets.map(a => ({
+                    url: a.url,
+                    source: a.source
+                }));
+                await updateDraft(currentDraftId, { assets: assetsForDb });
+                console.log('Draft updated with assets:', assetsForDb.length);
+            }
+        } catch (err) {
+            setError(handleApiError(err).message);
+        }
+        setIsCollectingAssets(false);
+    };
+
+    const handleDeleteVideo = async (videoId: string) => {
+        await deleteVideo(videoId);
+        await refreshVideoHistory();
+        // Clear selected video if it was deleted
+        if (selectedVideo?.id === videoId) {
+            setSelectedVideo(null);
+        }
+    };
+
+    // Load video details from history (fetches full video data on-demand)
+    const handleSelectVideo = async (video: DbVideo) => {
+        // Set metadata immediately for fast UI response
+        setSelectedVideo(video);
+        setInputText(video.script || '');
+        setOriginalTopic(video.topic || '');
+        setMode(video.mode || 'faceless');
+        setEnableCaptions(video.has_captions ?? false);
+        setEnableBackgroundMusic(video.has_music ?? false);
+
+        // Load assets if available
+        if (video.assets && Array.isArray(video.assets)) {
+            const loadedAssets: CollectedAsset[] = video.assets.map((asset: { url: string; source?: string }) => ({
+                url: asset.url,
+                thumbnail: asset.url,
+                title: 'Loaded from history',
+                source: asset.source || 'history',
+                searchTerm: ''
+            }));
+            setCollectedAssets(loadedAssets);
+        } else {
+            setCollectedAssets([]);
+        }
+
+        setIsEnhanced(true);
+        console.log('Loading video:', video.id);
+
+        // Fetch full video data (including video_url and ASSETS) on-demand
+        // Even if video_url exists, we might need assets which are now excluded from list view
+        setProcessingMessage('Loading video details...');
+        const fullVideo = await getVideoById(video.id);
+
+        if (fullVideo) {
+            // Update video URL if missing
+            if (!video.video_url) {
+                setVideoUrl(fullVideo.video_url);
+            } else {
+                setVideoUrl(video.video_url);
+            }
+
+            // CRITICAL: Load assets from full video fetch (since list view excludes them)
+            if (fullVideo.assets && Array.isArray(fullVideo.assets)) {
+                const loadedAssets: CollectedAsset[] = fullVideo.assets.map((asset: { url: string; source?: string }) => ({
+                    url: asset.url,
+                    thumbnail: asset.url,
+                    title: 'Loaded from history',
+                    source: asset.source || 'history',
+                    searchTerm: ''
+                }));
+                setCollectedAssets(loadedAssets);
+            }
+
+            setSelectedVideo(fullVideo);
+        } else {
+            // Fallback if fetch fails
+            setVideoUrl(video.video_url);
+        }
+        setProcessingMessage('');
+        setPreviewMode('video');
+    };
+
+    const onVoiceSelect = async (voice: DbVoice) => {
+        if (dbUser) {
+            await setActiveVoice(dbUser.id, voice.id);
+            setSavedVoice(voice);
+            setAllVoices(prev => prev.map(v => ({ ...v, is_active: v.id === voice.id })));
+        }
+    };
+
+    const canGenerate = mode === 'faceless'
+        ? inputText.trim().length > 0
+        : inputText.trim().length > 0 && photoPreview && (voiceFile || hasClonedVoice);
+
+
+    const handleCreateVideo = async () => {
+        if (!inputText.trim()) { setError('Please enter a script'); return; }
+        setIsProcessing(true);
+        setProcessingStep(1);
+        setError('');
+
+        try {
+            if (mode === 'faceless') {
+                setProcessingMessage('Generating speech...');
+
+                // Determine voice ID to use
+                let voiceIdToUse: string | undefined = undefined;
+
+                // 1. If user uploaded/recorded a voice, clone it first
+                if (voiceFile) {
+                    setProcessingMessage('Cloning your voice...');
+                    const voiceData = await cloneVoice(voiceFile);
+                    voiceIdToUse = voiceData.voiceId;
+
+                    // Save the cloned voice for future use
+                    if (dbUser) {
+                        const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
+                        if (newVoice) {
+                            setSavedVoice(newVoice);
+                            setAllVoices(prev => [newVoice, ...prev]);
+                        }
+                    }
+                    setVoiceFile(null);
+                    setProcessingMessage('Generating speech...');
+                }
+                // 2. If user has a saved cloned voice, use that
+                else if (savedVoice?.voice_id) {
+                    voiceIdToUse = savedVoice.voice_id;
+                }
+                // 3. No voice - will use default preset (may error if preset not accessible)
+
+                let speechResult;
+
+                // Use scene-based generation if we have scenes
+                if (scenes.length > 0) {
+                    console.log(`[Video] Using scene-based generation with ${scenes.length} scenes, voice: ${voiceIdToUse || 'default'}`);
+                    const sceneResult = await generateSceneBasedSpeech(scenes, voiceIdToUse);
+                    setAudioUrl(sceneResult.audioUrl);
+                    setWordTimings(sceneResult.wordTimings);
+                    setSceneTimings(sceneResult.sceneTimings);
+
+                    if (enableCaptions && sceneResult.wordTimings.length > 0) {
+                        setCaptionsData(generateDynamicSRT(sceneResult.wordTimings));
+                    }
+
+                    speechResult = sceneResult;
+                } else {
+                    // Fallback to regular speech generation
+                    console.log(`[Video] No scenes available, using regular speech generation, voice: ${voiceIdToUse || 'default'}`);
+                    const regularResult = await generateElevenLabsSpeech(inputText, voiceIdToUse);
+                    setAudioUrl(regularResult.audioUrl);
+                    setWordTimings(regularResult.wordTimings);
+
+                    if (enableCaptions && regularResult.wordTimings.length > 0) {
+                        setCaptionsData(generateDynamicSRT(regularResult.wordTimings));
+                    }
+
+                    speechResult = regularResult;
+                }
+
+                setProcessingStep(2);
+                setProcessingMessage('Creating video...');
+                const audioBase64 = speechResult.audioUrl.split(',')[1];
+
+                // Get scene timings if available (from scene-based generation)
+                const currentSceneTimings = 'sceneTimings' in speechResult ? (speechResult as { sceneTimings: SceneTiming[] }).sceneTimings : undefined;
+
+                const videoResult = await createCaptionVideoCloud(
+                    audioBase64,
+                    enableCaptions ? speechResult.wordTimings : [],
+                    speechResult.duration,
+                    enableBackgroundMusic,
+                    collectedAssets.map(a => a.url),
+                    aspectRatio,
+                    currentSceneTimings,
+                    captionStyle,
+                    (progress, status) => {
+                        setProcessingMessage(status);
+                    },
+                    speechResult.remoteAudioUrl,  // Pass remote audio URL for JSON2Video
+                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined // Pass specific background music URL
+                );
+                setVideoUrl(videoResult.videoUrl);
+                if (dbUser) {
+                    const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
+                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', speechResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
+                    await refreshVideoHistory();
+                }
+                // Reset processing state after faceless video is done
+                setIsProcessing(false);
+                setProcessingStep(0);
+            } else {
+                let speechUrl: string;
+
+                if (voiceFile) {
+                    setProcessingMessage('Cloning your new voice...');
+                    const voiceData = await cloneVoice(voiceFile);
+                    if (dbUser) {
+                        const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
+                        if (newVoice) {
+                            setSavedVoice(newVoice);
+                            setAllVoices(prev => [newVoice, ...prev]);
+                        }
+                    }
+                    setProcessingStep(2);
+                    setProcessingMessage('Generating speech...');
+                    const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
+                    speechUrl = result.audioUrl;
+                    setVoiceFile(null);
+                } else if (hasClonedVoice && savedVoice) {
+                    setProcessingStep(2);
+                    setProcessingMessage('Generating speech...');
+                    try {
+                        const result = await generateSpeechWithVoiceId(inputText, savedVoice.voice_id);
+                        speechUrl = result.audioUrl;
+                        if (result.reCloned && result.newVoiceId && dbUser) {
+                            await updateVoiceId(savedVoice.id, result.newVoiceId, result.newPreviewUrl);
+                            const updatedVoice = { ...savedVoice, voice_id: result.newVoiceId, preview_url: result.newPreviewUrl };
+                            setSavedVoice(updatedVoice);
+                            setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                        }
+                    } catch (voiceError: unknown) {
+                        const errorCode = (voiceError as Error & { code?: string }).code;
+                        if (errorCode === 'VOICE_EXPIRED') {
+                            setProcessingMessage('Voice expired, re-cloning...');
+                            const response = await fetch(savedVoice.voice_sample_url);
+                            const blob = await response.blob();
+                            const file = new File([blob], 'voice.webm', { type: blob.type || 'audio/webm' });
+                            const voiceData = await cloneVoice(file);
+                            if (dbUser) {
+                                await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
+                                const updatedVoice = { ...savedVoice, voice_id: voiceData.voiceId, preview_url: voiceData.previewUrl };
+                                setSavedVoice(updatedVoice);
+                                setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                            }
+                            const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
+                            speechUrl = result.audioUrl;
+                        } else {
+                            throw voiceError;
+                        }
+                    }
+                } else {
+                    throw new Error('No voice available. Please record or upload a voice sample.');
+                }
+
+                // SCENE-BASED face mode: Perfect sync with individual TTS per scene
+                setProcessingStep(3);
+                setProcessingMessage('Preparing scene-based video...');
+
+                if (photoPreview && dbUser) {
+                    await saveAvatar(dbUser.id, useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview, 'Avatar', true);
+                }
+
+                // Determine image URL
+                const faceImageUrl = useStudioImage && studioReadyUrl
+                    ? studioReadyUrl
+                    : (photoPreview || '');
+
+                if (!faceImageUrl) {
+                    throw new Error('No photo available for face mode');
+                }
+
+                // Build scenes from script - alternate face/asset
+                // If we have scene timings from enhance, use those; otherwise split the script
+                const sceneInputs: SceneInput[] = [];
+
+                if (sceneTimings && sceneTimings.length > 0) {
+                    // Use scene data from enhanced script
+                    let assetIndex = 0;
+                    for (let i = 0; i < sceneTimings.length; i++) {
+                        const isAssetScene = i % 2 !== 0; // Alternate: face, asset, face, asset
+                        sceneInputs.push({
+                            text: sceneTimings[i].text,
+                            type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
+                            assetUrl: isAssetScene && collectedAssets.length > 0
+                                ? collectedAssets[assetIndex % collectedAssets.length].url
+                                : undefined
+                        });
+                        if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                    }
+                } else {
+                    // Fallback: Split script into sentences and alternate
+                    const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+                    let assetIndex = 0;
+                    for (let i = 0; i < sentences.length; i++) {
+                        const isAssetScene = i % 2 !== 0;
+                        sceneInputs.push({
+                            text: sentences[i].trim() + '.',
+                            type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
+                            assetUrl: isAssetScene && collectedAssets.length > 0
+                                ? collectedAssets[assetIndex % collectedAssets.length].url
+                                : undefined
+                        });
+                        if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                    }
+                }
+
+                console.log(`Face mode: Created ${sceneInputs.length} scenes (${sceneInputs.filter(s => s.type === 'face').length} face, ${sceneInputs.filter(s => s.type === 'asset').length} asset)`);
+
+                setProcessingStep(4);
+                setProcessingMessage(`Generating ${sceneInputs.length} scenes...`);
+
+                // Get voice ID from saved voice (required for face mode)
+                const voiceIdForScenes = savedVoice?.voice_id;
+
+                if (!voiceIdForScenes) {
+                    throw new Error('No voice ID available for scene generation. Please record or clone a voice first.');
+                }
+
+                // Call scene-based API
+                const sceneResult = await generateSceneFaceVideo(
+                    sceneInputs,
+                    faceImageUrl,
+                    voiceIdForScenes,
+                    enableBackgroundMusic,
+                    enableCaptions
+                );
+
+                setVideoUrl(sceneResult.videoUrl);
+
+                // Save video with clip assets from WaveSpeed
+                if (dbUser) {
+                    // Merge existing collected assets with new clip assets
+                    const allAssets = [
+                        ...collectedAssets,
+                        ...(sceneResult.clipAssets || [])
+                    ];
+                    await saveVideo(
+                        dbUser.id,
+                        sceneResult.videoUrl,
+                        inputText,
+                        'face',
+                        sceneResult.duration,
+                        enableCaptions,
+                        enableBackgroundMusic,
+                        undefined,
+                        inputText,
+                        allAssets  // Save all assets including WaveSpeed clips
+                    );
+                    await refreshVideoHistory();
+                }
+                setIsProcessing(false);
+            }
+        } catch (err) {
+            setError(handleApiError(err).message);
+            setIsProcessing(false);
+        } finally {
+            if (!error) setPreviewMode('video'); // Switch to video view on completion (or attempt)
+        }
+    };
+
+    return {
+        // State
+        isDark, setIsDark,
+        mode, setMode,
+        duration, setDuration,
+        inputText, setInputText,
+        isEnhanced, setIsEnhanced,
+        enableCaptions, setEnableCaptions,
+        captionStyle, setCaptionStyle,
+        enableBackgroundMusic, setEnableBackgroundMusic,
+        aspectRatio, setAspectRatio,
+        photoFile, setPhotoFile,
+        photoPreview, setPhotoPreview,
+        voiceFile, setVoiceFile,
+        isRecording, startRecording, stopRecording,
+        videoUrl, setVideoUrl,
+        audioUrl,
+        captionsData,
+        wordTimings,
+        isProcessing,
+        processingMessage,
+        processingStep,
+        error, setError,
+        showHistory, setShowHistory,
+        collectedAssets, setCollectedAssets,
+        isCollectingAssets,
+        showAssetGallery, setShowAssetGallery,
+        assetSearchTerms,
+        scenes, setScenes,
+        sceneTimings, setSceneTimings,
+        studioReadyUrl, setStudioReadyUrl,
+        isGeneratingStudio,
+        useStudioImage, setUseStudioImage,
+        showImagePreview, setShowImagePreview,
+        dbUser,
+        savedVoice, setSavedVoice,
+        allVoices, setAllVoices,
+        videoHistory,
+        savedAvatars,
+
+        // Derived
+        hasClonedVoice,
+        canGenerate,
+
+        // Handlers
+        handlePhotoUpload,
+        handleEnhanceWithAI,
+        handleVoiceUpload,
+        handleReset,
+        handleMakeStudioReady,
+        handleCollectAssets,
+        handleDeleteVideo,
+        handleCreateVideo,
+        handleSelectVideo,
+        selectedVideo, setSelectedVideo,
+        onVoiceSelect,
+        previewMode, setPreviewMode
+    };
+};
