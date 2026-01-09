@@ -66,8 +66,8 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     // Processing state - matches desktop style
     if (isProcessing) {
         return (
-            <div className="fixed top-14 left-0 right-0 z-40 px-4 pt-4">
-                <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] p-6 shadow-[4px_4px_0px_var(--brand-primary)]">
+            <div className="px-4 pt-2 pb-4">
+                <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] p-4 shadow-[4px_4px_0px_var(--brand-primary)]">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 relative">
                             <div className="absolute inset-0 rounded-full border-2 border-gray-100" />
@@ -84,9 +84,9 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     }
 
     return (
-        <div className="fixed top-14 left-0 right-0 z-40 px-4 pt-4">
-            {/* Composer Card - Matches Desktop Style */}
-            <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] shadow-[6px_6px_0px_rgba(0,0,0,1)]">
+        <div className="px-4 pt-2">
+            {/* Composer Card */}
+            <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] shadow-[4px_4px_0px_rgba(0,0,0,1)]">
 
                 {/* Toolbar Row */}
                 <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 bg-gray-50/50 rounded-t-[var(--radius-lg)] overflow-x-auto no-scrollbar">
