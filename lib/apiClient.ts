@@ -833,6 +833,21 @@ export const getFaceVideoJobStatus = async (jobId: string): Promise<FaceVideoJob
 };
 
 /**
+ * Trigger processing of a face video job
+ * This is called client-side to ensure the process runs on Vercel
+ */
+export const triggerFaceVideoProcess = async (jobId: string): Promise<void> => {
+    try {
+        // Fire and don't wait for completion - the process will update Supabase
+        axios.post('/api/face-video/process', { jobId }).catch(() => {
+            // Ignore errors - we'll poll for status separately
+        });
+    } catch {
+        // Ignore - polling will catch any issues
+    }
+};
+
+/**
  * Poll for face video job completion with progress callback
  */
 export const pollFaceVideoJob = async (
@@ -845,10 +860,22 @@ export const pollFaceVideoJob = async (
     duration: number;
     clipAssets: { url: string; source: string }[];
 }> => {
+    // Trigger processing from client-side (required for Vercel)
+    await triggerFaceVideoProcess(jobId);
+
+    // Wait a moment for the process to start
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxPollTimeMs) {
         const status = await getFaceVideoJobStatus(jobId);
+
+        // Re-trigger if still pending (process might not have started)
+        if (status.status === 'pending' && Date.now() - startTime > 10000) {
+            await triggerFaceVideoProcess(jobId);
+        }
+
 
         // Report progress
         if (onProgress) {
