@@ -172,27 +172,25 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                 {/* Top Nav Bar with Hamburger */}
                 <MobileNavBar onOpenHistory={() => setActiveSheet('history')} />
 
-                {/* Main Content Area - Premium */}
-                <div className="flex-1 overflow-y-auto pt-[220px] pb-8 bg-[#FAFAFA]">
-                    <div className="px-5 pt-4">
-                        {/* Section Header */}
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-300 mb-4">Inspiration</p>
-
-                        {/* Topic Pills - Ghost Style */}
-                        <div className="flex flex-wrap gap-2 mb-8">
+                {/* Main Content Area - Matches Desktop */}
+                <div className="flex-1 overflow-y-auto pt-[240px] pb-8 bg-[var(--surface-1)]">
+                    <div className="px-4 pt-2">
+                        {/* Topic Pills */}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Quick Topics</p>
+                        <div className="flex flex-wrap gap-2 mb-6">
                             {['AI & Tech', 'Crypto', 'Fitness', 'Life Hacks', 'Movies', 'Travel'].map((topic, i) => (
                                 <button
                                     key={i}
                                     onClick={() => setInputText(topic)}
-                                    className="px-4 py-2.5 bg-white/60 hover:bg-white border border-gray-200/60 hover:border-gray-300 rounded-full text-sm text-gray-600 hover:text-gray-900 shadow-sm hover:shadow transition-all duration-200"
+                                    className="px-3 py-1.5 bg-white border-2 border-black rounded-full text-xs font-bold hover:bg-[var(--brand-primary)] hover:shadow-[2px_2px_0px_#000] active:shadow-none transition-all"
                                 >
                                     {topic}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Quick Ideas - Text Links */}
-                        <p className="text-xs font-medium uppercase tracking-wider text-gray-300 mb-3">Quick Ideas</p>
+                        {/* Idea Cards */}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Ideas</p>
                         <div className="space-y-2">
                             {[
                                 { text: 'Morning productivity routine', icon: '☀️' },
@@ -203,9 +201,9 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                                 <button
                                     key={i}
                                     onClick={() => setInputText(idea.text)}
-                                    className="flex items-center gap-3 w-full px-4 py-3 bg-white/40 hover:bg-white rounded-2xl text-left text-sm text-gray-600 hover:text-gray-900 border border-transparent hover:border-gray-200/60 transition-all duration-200 group"
+                                    className="flex items-center gap-3 w-full px-4 py-3 bg-white border-2 border-gray-100 hover:border-black rounded-xl text-left text-sm font-medium hover:shadow-[3px_3px_0px_var(--brand-primary)] transition-all"
                                 >
-                                    <span className="text-lg opacity-60 group-hover:opacity-100 transition-opacity">{idea.icon}</span>
+                                    <span className="text-lg">{idea.icon}</span>
                                     <span>{idea.text}</span>
                                 </button>
                             ))}
