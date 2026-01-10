@@ -8,8 +8,9 @@ import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2v
 export const maxDuration = 55;
 
 // Timeouts and polling configuration
-const QUICK_POLL_TIMEOUT_MS = 25000; // 25 seconds per API call for polling (safe margin)
+const QUICK_POLL_TIMEOUT_MS = 25000; // 25 seconds per API call for polling
 const POLL_INTERVAL_MS = 3000; // 3 seconds between polls
+const LOCK_TIMEOUT_MS = 120000; // 2 minutes - if lock older than this, force release it
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -34,25 +35,41 @@ interface ProcessedScene {
     text: string;
 }
 
-// Pending scene state - tracks WaveSpeed jobs in progress
+// Pending scene state - stored in input_data JSONB
 interface PendingSceneState {
     predictionId: string;
     sceneIndex: number;
     audioUrl: string;
     duration: number;
     text: string;
-    imageDataUrl: string;
+    startedAt: number; // timestamp for timeout detection
+}
+
+// Job input data structure (stored in input_data JSONB)
+interface JobInputData {
+    scenes: SceneInput[];
+    faceImageUrl: string;
+    voiceId: string;
+    enableBackgroundMusic: boolean;
+    enableCaptions: boolean;
+    // Pending scene state is stored here (no schema change needed)
+    pendingScene?: PendingSceneState | null;
 }
 
 // Update job in Supabase
 async function updateJob(jobId: string, updates: Record<string, unknown>) {
-    await supabase
+    const result = await supabase
         .from('video_jobs')
         .update({
             ...updates,
             updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
+
+    if (result.error) {
+        console.error('Failed to update job:', result.error);
+    }
+    return result;
 }
 
 // Generate TTS for a single scene
@@ -111,7 +128,7 @@ async function startFaceVideoGeneration(imageDataUrl: string, audioUrl: string):
 }
 
 // Quick poll for WaveSpeed completion - limited time per API call
-async function quickPollWaveSpeed(predictionId: string): Promise<{ completed: boolean; videoUrl?: string }> {
+async function quickPollWaveSpeed(predictionId: string): Promise<{ completed: boolean; videoUrl?: string; failed?: boolean }> {
     const startTime = Date.now();
 
     while (Date.now() - startTime < QUICK_POLL_TIMEOUT_MS) {
@@ -123,26 +140,20 @@ async function quickPollWaveSpeed(predictionId: string): Promise<{ completed: bo
             });
 
             const pollData = pollResponse.data.data || pollResponse.data;
+            console.log(`📊 WaveSpeed poll: status=${pollData.status}`);
 
             if (pollData.status === 'completed' && pollData.output?.video) {
                 return { completed: true, videoUrl: pollData.output.video };
             } else if (pollData.status === 'failed') {
-                throw new Error('WaveSpeed video generation failed');
+                console.error('❌ WaveSpeed generation failed');
+                return { completed: false, failed: true };
             }
 
             // Continue polling
             await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
         } catch (pollError) {
-            // Only throw if it's a known failure, otherwise continue polling
-            if (axios.isAxiosError(pollError) && pollError.response?.status === 404) {
-                // Prediction not found - might still be starting
-                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-            } else if (pollError instanceof Error && pollError.message.includes('failed')) {
-                throw pollError;
-            } else {
-                // Timeout or network error - continue polling
-                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-            }
+            console.log(`⚠️ Poll error (will retry):`, pollError instanceof Error ? pollError.message : 'Unknown');
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
         }
     }
 
@@ -213,6 +224,17 @@ async function renderWithJson2Video(moviePayload: Record<string, unknown>): Prom
     throw new Error('JSON2Video render timed out');
 }
 
+// Prepare face image as data URL
+async function prepareFaceImageDataUrl(faceImageUrl: string): Promise<string> {
+    if (faceImageUrl.startsWith('data:')) {
+        return faceImageUrl;
+    }
+    const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer', timeout: 15000 });
+    const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
+    const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
+    return `data:${mimeType};base64,${imgBase64}`;
+}
+
 export async function POST(request: NextRequest) {
     let jobId: string | null = null;
 
@@ -244,42 +266,63 @@ export async function POST(request: NextRequest) {
         }
 
         // MUTEX: Check if another process call is currently running
+        // But also check for stale locks (older than LOCK_TIMEOUT_MS)
         if (job.is_processing === true) {
-            console.log(`⏳ Job ${jobId} is already being processed by another call, skipping...`);
-            return NextResponse.json({
-                message: 'Another process is currently running',
-                status: 'processing',
-                skipped: true
-            });
+            const updatedAt = new Date(job.updated_at).getTime();
+            const lockAge = Date.now() - updatedAt;
+
+            if (lockAge < LOCK_TIMEOUT_MS) {
+                console.log(`⏳ Job ${jobId} is locked (age: ${Math.round(lockAge / 1000)}s), skipping...`);
+                return NextResponse.json({
+                    message: 'Another process is currently running',
+                    status: 'processing',
+                    skipped: true
+                });
+            } else {
+                console.log(`🔓 Force releasing stale lock on job ${jobId} (age: ${Math.round(lockAge / 1000)}s)`);
+                // Stale lock - force release it
+            }
         }
 
-        // Acquire the lock immediately
+        // Acquire the lock
         await updateJob(jobId, { is_processing: true });
 
-        const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions } = job.input_data as {
-            scenes: SceneInput[];
-            faceImageUrl: string;
-            voiceId: string;
-            enableBackgroundMusic: boolean;
-            enableCaptions: boolean;
-        };
+        // Parse input data (includes pending scene state)
+        const inputData = job.input_data as JobInputData;
+        const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene } = inputData;
 
         const totalScenes = scenes.length;
         const currentIndex = job.current_scene_index || 0;
         const processedScenes: ProcessedScene[] = job.processed_scenes || [];
-        const pendingScene: PendingSceneState | null = job.pending_scene || null;
 
         console.log(`🎬 Processing job ${jobId}: scene ${currentIndex + 1}/${totalScenes}, pending: ${pendingScene ? 'yes' : 'no'}`);
 
         // ============ PHASE 2: Check pending WaveSpeed scene ============
         if (pendingScene && pendingScene.sceneIndex === currentIndex) {
-            console.log(`📍 Checking pending WaveSpeed scene ${currentIndex + 1}...`);
+            console.log(`📍 Checking pending WaveSpeed scene ${currentIndex + 1} (prediction: ${pendingScene.predictionId})...`);
 
             await updateJob(jobId, {
                 progress_message: `Waiting for face video ${currentIndex + 1}/${totalScenes}...`
             });
 
             const pollResult = await quickPollWaveSpeed(pendingScene.predictionId);
+
+            if (pollResult.failed) {
+                // WaveSpeed failed - restart this scene
+                console.log(`❌ WaveSpeed failed for scene ${currentIndex + 1}, will retry`);
+                const updatedInputData = { ...inputData, pendingScene: null };
+                await updateJob(jobId, {
+                    input_data: updatedInputData,
+                    progress_message: `Face video ${currentIndex + 1}/${totalScenes} failed, retrying...`,
+                    is_processing: false
+                });
+                return NextResponse.json({
+                    success: true,
+                    completed: false,
+                    message: 'WaveSpeed failed, will retry',
+                    retry: true
+                });
+            }
 
             if (pollResult.completed && pollResult.videoUrl) {
                 console.log(`✅ WaveSpeed scene ${currentIndex + 1} completed!`);
@@ -298,11 +341,13 @@ export async function POST(request: NextRequest) {
 
                 processedScenes.push(newProcessedScene);
 
-                // Clear pending scene and move to next
+                // Clear pending scene from input_data and move to next
+                const updatedInputData = { ...inputData, pendingScene: null };
+
                 await updateJob(jobId, {
                     current_scene_index: currentIndex + 1,
                     processed_scenes: processedScenes,
-                    pending_scene: null,
+                    input_data: updatedInputData,
                     progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
                     progress_message: `Scene ${currentIndex + 1}/${totalScenes} complete`,
                     is_processing: false
@@ -318,11 +363,29 @@ export async function POST(request: NextRequest) {
                     message: `Scene ${currentIndex + 1}/${totalScenes} processed`
                 });
             } else {
+                // Still processing - check if it's been too long
+                const sceneAge = Date.now() - pendingScene.startedAt;
+                if (sceneAge > 300000) { // 5 minutes max for one scene
+                    console.log(`⏰ Scene ${currentIndex + 1} timed out after ${Math.round(sceneAge / 1000)}s, retrying...`);
+                    const updatedInputData = { ...inputData, pendingScene: null };
+                    await updateJob(jobId, {
+                        input_data: updatedInputData,
+                        progress_message: `Scene ${currentIndex + 1} timed out, retrying...`,
+                        is_processing: false
+                    });
+                    return NextResponse.json({
+                        success: true,
+                        completed: false,
+                        message: 'Scene timed out, will retry',
+                        retry: true
+                    });
+                }
+
                 // Still processing - release lock and return
-                console.log(`⏳ WaveSpeed scene ${currentIndex + 1} still processing...`);
+                console.log(`⏳ WaveSpeed scene ${currentIndex + 1} still processing (${Math.round(sceneAge / 1000)}s)...`);
 
                 await updateJob(jobId, {
-                    progress_message: `Generating face video ${currentIndex + 1}/${totalScenes} (processing...)`,
+                    progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
                     is_processing: false
                 });
 
@@ -331,7 +394,7 @@ export async function POST(request: NextRequest) {
                     completed: false,
                     currentScene: currentIndex,
                     totalScenes,
-                    message: `Scene ${currentIndex + 1} still generating, check again soon`,
+                    message: `Scene ${currentIndex + 1} generating, check again soon`,
                     pendingWaveSpeed: true
                 });
             }
@@ -339,7 +402,8 @@ export async function POST(request: NextRequest) {
 
         // ============ Check if all scenes are processed ============
         if (currentIndex >= totalScenes) {
-            // Move to composition phase
+            console.log(`📽️ All scenes processed, starting composition...`);
+
             await updateJob(jobId, {
                 status: 'processing',
                 progress: 80,
@@ -408,36 +472,30 @@ export async function POST(request: NextRequest) {
 
         if (scene.type === 'face') {
             // Prepare face image as data URL
-            let imageDataUrl: string;
-            if (faceImageUrl.startsWith('data:')) {
-                imageDataUrl = faceImageUrl;
-            } else {
-                const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer', timeout: 15000 });
-                const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
-                const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
-                imageDataUrl = `data:${mimeType};base64,${imgBase64}`;
-            }
+            const imageDataUrl = await prepareFaceImageDataUrl(faceImageUrl);
 
-            // Start WaveSpeed generation
             await updateJob(jobId, {
                 progress_message: `Starting face video ${currentIndex + 1}/${totalScenes}...`
             });
 
+            // Start WaveSpeed generation
             const predictionId = await startFaceVideoGeneration(imageDataUrl, audioUrl);
             console.log(`🚀 WaveSpeed started for scene ${currentIndex + 1}: ${predictionId}`);
 
-            // Save pending scene state
+            // Save pending scene state in input_data
             const newPendingScene: PendingSceneState = {
                 predictionId,
                 sceneIndex: currentIndex,
                 audioUrl,
                 duration,
                 text: scene.text,
-                imageDataUrl
+                startedAt: Date.now()
             };
 
+            const updatedInputData = { ...inputData, pendingScene: newPendingScene };
+
             await updateJob(jobId, {
-                pending_scene: newPendingScene,
+                input_data: updatedInputData,
                 progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
                 is_processing: false
             });
@@ -488,7 +546,7 @@ export async function POST(request: NextRequest) {
         }
 
     } catch (error) {
-        console.error('Error processing scene:', error);
+        console.error('❌ Error processing scene:', error);
 
         if (jobId) {
             await updateJob(jobId, {

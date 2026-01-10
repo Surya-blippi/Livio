@@ -839,8 +839,9 @@ export const getFaceVideoJobStatus = async (jobId: string): Promise<FaceVideoJob
 export const triggerFaceVideoProcess = async (jobId: string): Promise<void> => {
     try {
         // Fire and don't wait for completion - the process will update Supabase
-        axios.post('/api/face-video/process', { jobId }).catch(() => {
-            // Ignore errors - we'll poll for status separately
+        console.log(`[FaceVideo] Triggering process for job ${jobId}`);
+        axios.post('/api/face-video/process', { jobId }).catch((err) => {
+            console.log(`[FaceVideo] Trigger request sent (response may be slow):`, err?.message || 'ok');
         });
     } catch {
         // Ignore - polling will catch any issues
@@ -849,60 +850,79 @@ export const triggerFaceVideoProcess = async (jobId: string): Promise<void> => {
 
 /**
  * Poll for face video job completion with progress callback
+ * Uses aggressive retriggering to drive scene-by-scene processing
  */
 export const pollFaceVideoJob = async (
     jobId: string,
     onProgress?: (progress: number, message: string) => void,
-    pollIntervalMs: number = 3000,
-    maxPollTimeMs: number = 600000 // 10 minutes max
+    pollIntervalMs: number = 2000, // Poll status every 2s
+    maxPollTimeMs: number = 900000 // 15 minutes max for complex videos
 ): Promise<{
     videoUrl: string;
     duration: number;
     clipAssets: { url: string; source: string }[];
 }> => {
+    console.log(`[FaceVideo] Starting poll for job ${jobId}`);
+
     // Initial trigger to start processing
     await triggerFaceVideoProcess(jobId);
 
     // Wait a moment for the process to start
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const startTime = Date.now();
     let lastTriggerTime = Date.now();
+    let consecutiveErrors = 0;
+
+    // Retrigger every 3 seconds to drive scene progression
+    const RETRIGGER_INTERVAL_MS = 3000;
 
     while (Date.now() - startTime < maxPollTimeMs) {
-        const status = await getFaceVideoJobStatus(jobId);
+        try {
+            const status = await getFaceVideoJobStatus(jobId);
+            consecutiveErrors = 0; // Reset on success
 
-        // Report progress
-        if (onProgress) {
-            onProgress(status.progress, status.progressMessage);
+            // Report progress
+            if (onProgress) {
+                onProgress(status.progress, status.progressMessage);
+            }
+
+            // Check for completion
+            if (status.status === 'completed' && status.result) {
+                console.log(`[FaceVideo] Job ${jobId} completed!`);
+                return {
+                    videoUrl: status.result.videoUrl,
+                    duration: status.result.duration,
+                    clipAssets: status.result.clipAssets || []
+                };
+            }
+
+            // Check for failure
+            if (status.status === 'failed') {
+                console.error(`[FaceVideo] Job ${jobId} failed:`, status.error);
+                throw new Error(status.error || 'Video generation failed');
+            }
+
+            // Re-trigger processing frequently to drive scene-by-scene
+            // Server has mutex lock + stale lock detection, so safe to trigger often
+            if ((status.status === 'pending' || status.status === 'processing') &&
+                Date.now() - lastTriggerTime > RETRIGGER_INTERVAL_MS) {
+                await triggerFaceVideoProcess(jobId);
+                lastTriggerTime = Date.now();
+            }
+        } catch (pollError) {
+            consecutiveErrors++;
+            console.error(`[FaceVideo] Poll error (${consecutiveErrors}):`, pollError);
+
+            // If too many consecutive errors, give up
+            if (consecutiveErrors > 10) {
+                throw new Error('Too many polling errors');
+            }
         }
-
-        // Check for completion
-        if (status.status === 'completed' && status.result) {
-            return {
-                videoUrl: status.result.videoUrl,
-                duration: status.result.duration,
-                clipAssets: status.result.clipAssets || []
-            };
-        }
-
-        // Check for failure
-        if (status.status === 'failed') {
-            throw new Error(status.error || 'Video generation failed');
-        }
-
-        // Re-trigger processing frequently (drives scene-by-scene with quick polls)
-        // Server has mutex lock, so safe to trigger often
-        if ((status.status === 'pending' || status.status === 'processing') &&
-            Date.now() - lastTriggerTime > 5000) {
-            await triggerFaceVideoProcess(jobId);
-            lastTriggerTime = Date.now();
-        }
-
 
         // Wait before next poll
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     }
 
-    throw new Error('Video generation timed out');
+    throw new Error('Video generation timed out after 15 minutes');
 };
