@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { fal } from '@fal-ai/client';
 import { supabase } from '@/lib/supabase';
-import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
+import { convertFaceVideoToJson2VideoFormat, FaceSceneInput, Json2VideoMovie } from '@/lib/json2video';
 
 fal.config({
     credentials: process.env.FAL_KEY
