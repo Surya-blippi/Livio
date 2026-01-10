@@ -246,7 +246,7 @@ export const generateFacelessSpeech = async (
     // Use MiniMax TTS via generate-speech endpoint with Calm Woman voice
     const response = await axios.post('/api/generate-speech', {
         script,
-        customVoiceId: voiceId || 'Wise_Woman' // MiniMax preset calm lady voice
+        customVoiceId: voiceId || 'female-01' // Safe fallback if Wise_Woman is invalid
     });
 
     const audioUrl = response.data.audioUrl;

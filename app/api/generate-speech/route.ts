@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
                 console.error('Speech-02 HD error with custom voice ID:', ttsError);
 
                 // Check if this is a voice not found / expired error
-                const errorMessage = ttsError instanceof Error ? ttsError.message : String(ttsError);
                 if (errorMessage.includes('voice') || errorMessage.includes('not found') || errorMessage.includes('invalid')) {
+                    console.error('TTS Voice Error:', errorMessage);
                     return NextResponse.json(
                         {
                             error: 'Voice expired or not found',
