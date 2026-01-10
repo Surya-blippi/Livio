@@ -40,6 +40,7 @@ import {
     saveDraft,
     updateDraft,
     uploadVoiceSample,
+    getActiveVideoJobs,
     DbUser,
     DbVideo,
     DbVoice,
@@ -140,6 +141,50 @@ export const useDashboardState = () => {
             setVideoHistory(videos);
             const avatars = await getAvatars(dbUserData.id);
             setSavedAvatars(avatars);
+
+            // Check for and resume any in-progress video jobs
+            checkForActiveJobs(dbUserData.id);
+        }
+    };
+
+    // Resume in-progress video jobs (e.g., after browser crash)
+    const checkForActiveJobs = async (userId: string) => {
+        try {
+            const activeJobs = await getActiveVideoJobs(userId);
+            if (activeJobs.length > 0) {
+                const job = activeJobs[0]; // Resume the most recent one
+                console.log(`[Resume] Found active job: ${job.id}, status: ${job.status}`);
+
+                // Set UI to processing state
+                setIsProcessing(true);
+                setProcessingMessage(job.progress_message || 'Resuming video generation...');
+                setProcessingStep(Math.floor((job.progress / 100) * 6));
+
+                // Resume polling for this job
+                try {
+                    const result = await pollFaceVideoJob(
+                        job.id,
+                        (progress, message, sceneData) => {
+                            setProcessingStep(Math.floor(4 + (progress / 100) * 2));
+                            setProcessingMessage(message);
+                            if (sceneData) setSceneProgress(sceneData);
+                        }
+                    );
+
+                    setVideoUrl(result.videoUrl);
+                    setProcessingMessage('Video ready!');
+                    setPreviewMode('video');
+                    await refreshVideoHistory();
+                } catch (err) {
+                    console.error('[Resume] Job failed:', err);
+                    setError(`Failed to resume video: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                } finally {
+                    setIsProcessing(false);
+                    setSceneProgress(null);
+                }
+            }
+        } catch (err) {
+            console.error('[Resume] Error checking active jobs:', err);
         }
     };
 

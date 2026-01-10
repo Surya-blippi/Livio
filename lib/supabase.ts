@@ -66,6 +66,28 @@ export interface DbVideoDraft {
     updated_at: string;
 }
 
+// Video job from video_jobs table (for face video processing)
+export interface DbVideoJob {
+    id: string;
+    user_id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    progress_message: string;
+    input_data: {
+        scenes: { text: string; type: 'face' | 'asset' }[];
+        faceImageUrl?: string;
+        voiceId?: string;
+    };
+    result_data?: {
+        videoUrl: string;
+        duration: number;
+    };
+    error?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+
 // ==========================================
 // USER FUNCTIONS
 // ==========================================
@@ -485,4 +507,42 @@ export async function getLatestDraft(userId: string): Promise<DbVideoDraft | nul
 
 export async function deleteDraft(draftId: string): Promise<void> {
     await supabase.from('video_drafts').delete().eq('id', draftId);
+}
+
+// ==========================================
+// VIDEO JOBS FUNCTIONS (for in-progress face videos)
+// ==========================================
+
+// Get active (processing) video jobs for a user
+export async function getActiveVideoJobs(userId: string): Promise<DbVideoJob[]> {
+    const { data, error } = await supabase
+        .from('video_jobs')
+        .select('*')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+    if (error) {
+        console.error('Error getting active video jobs:', error);
+        return [];
+    }
+
+    return data || [];
+}
+
+// Get a single video job by ID  
+export async function getVideoJobById(jobId: string): Promise<DbVideoJob | null> {
+    const { data, error } = await supabase
+        .from('video_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+    if (error) {
+        console.error('Error getting video job:', error);
+        return null;
+    }
+
+    return data;
 }
