@@ -73,27 +73,39 @@ export async function POST(request: NextRequest) {
 
         // Write buffer to temp
         await writeFile(tempInputPath, audioBuffer);
-        console.log(`Saved input to ${tempInputPath}, converting to MP3...`);
+        console.log(`Saved input to ${tempInputPath}, attempting conversion to MP3...`);
 
-        // Convert to MP3
-        await new Promise<void>((resolve, reject) => {
-            ffmpeg(tempInputPath)
-                .toFormat('mp3')
-                .on('end', () => resolve())
-                .on('error', (err) => reject(err))
-                .save(tempOutputPath);
-        });
+        let bufferToUpload = audioBuffer;
+        let mimeType = 'audio/mpeg'; // Default to claiming MP3 if converted, or risk it if fallback
 
-        // Read converted file
-        const convertedBuffer = await readFile(tempOutputPath);
-        const base64 = convertedBuffer.toString('base64');
+        try {
+            // Convert to MP3
+            await new Promise<void>((resolve, reject) => {
+                ffmpeg(tempInputPath)
+                    .toFormat('mp3')
+                    .on('end', () => resolve())
+                    .on('error', (err) => reject(err))
+                    .save(tempOutputPath);
+            });
 
-        console.log('Conversion successful. New size:', convertedBuffer.length);
-        console.log('Uploading MP3 to Fal storage...');
+            // Read converted file
+            const convertedBuffer = await readFile(tempOutputPath);
+            bufferToUpload = convertedBuffer;
+            console.log('Conversion successful. New size:', convertedBuffer.length);
+        } catch (ffmpegError) {
+            console.warn('FFmpeg conversion failed, falling back to original file:', ffmpegError);
+            // Fallback: Use original buffer. 
+            // Note: If original was WebM and MiniMax hates WebM, this might still fail at Fal stage,
+            // but at least it won't be a 500 Internal Server Error here.
+            // We'll set mimeType based on inputExt to be honest
+            mimeType = inputExt === 'mp3' ? 'audio/mpeg' : `audio/${inputExt}`;
+        }
 
-        // Upload to Fal storage to get a public URL (Data URLs often fail validation)
+        console.log(`Uploading ${mimeType} to Fal storage...`);
+
+        // Upload to Fal storage to get a public URL
         const storageUrl = await fal.storage.upload(
-            new Blob([convertedBuffer], { type: 'audio/mpeg' })
+            new Blob([bufferToUpload], { type: mimeType })
         );
         console.log('Audio uploaded to:', storageUrl);
 
