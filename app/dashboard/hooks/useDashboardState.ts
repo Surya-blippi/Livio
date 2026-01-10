@@ -199,13 +199,61 @@ export const useDashboardState = () => {
 
     // HANDLERS
 
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Helper to upload avatar to storage and DB
+    const uploadAvatar = async (file: File): Promise<string | null> => {
+        if (!dbUser) return null;
+        try {
+            // 1. Upload to Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${dbUser.id}/${Date.now()}.${fileExt}`;
+            const { data, error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            // 3. Save to DB
+            const savedAvatar = await saveAvatar(dbUser.id, publicUrl, 'Uploaded Avatar', false);
+
+            // 4. Update Saved Avatars List
+            if (savedAvatar) {
+                setSavedAvatars(prev => [savedAvatar, ...prev]);
+            }
+
+            return publicUrl;
+        } catch (err) {
+            console.error('Avatar upload failed:', err);
+            setError('Failed to upload image');
+            return null;
+        }
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setPhotoFile(file);
+            setProcessingMessage('Uploading image...');
+            setIsProcessing(true);
+
+            // Preview immediately (optimistic)
             const reader = new FileReader();
             reader.onloadend = () => setPhotoPreview(reader.result as string);
             reader.readAsDataURL(file);
+
+            // Upload in background
+            const publicUrl = await uploadAvatar(file);
+
+            setIsProcessing(false);
+            setProcessingMessage('');
+
+            if (publicUrl) {
+                setPhotoFile(null); // No longer needed as file
+                setPhotoPreview(publicUrl); // Update to real URL
+            }
         }
     };
 
@@ -288,24 +336,29 @@ export const useDashboardState = () => {
         setIsGeneratingStudio(true);
         setError('');
         try {
-            if (dbUser && photoPreview.startsWith('data:')) {
-                await saveAvatar(dbUser.id, photoPreview, 'Original Upload', false);
-            }
+            // Use persistent URL if available, otherwise data URL (should be persistent by now)
+            const inputUrl = photoPreview;
+
             const response = await fetch('/api/make-studio-ready', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageUrl: photoPreview }),
+                body: JSON.stringify({ imageUrl: inputUrl }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to generate studio image');
+
             setStudioReadyUrl(data.studioReadyUrl);
             setUseStudioImage(true);
+
             if (dbUser) {
-                await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true);
-                const avatars = await getAvatars(dbUser.id);
-                setSavedAvatars(avatars);
+                // Save the STUDIO READY version
+                const savedStudioAvatar = await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true);
+                if (savedStudioAvatar) {
+                    setSavedAvatars(prev => [savedStudioAvatar, ...prev]);
+                }
             }
         } catch (err) {
+            console.error('Make Studio Ready failed:', err);
             setError(err instanceof Error ? err.message : 'Failed to generate studio image');
         }
         setIsGeneratingStudio(false);
