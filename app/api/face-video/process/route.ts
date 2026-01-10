@@ -8,12 +8,10 @@ import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2v
 export const maxDuration = 55;
 
 // Configuration
-const POLL_INTERVAL_MS = 4000; // 4 seconds between polls
-const MAX_POLL_TIME_MS = 50000; // 50 seconds max polling (leave 5s buffer)
+const POLL_INTERVAL_MS = 4000;
+const MAX_POLL_TIME_MS = 45000; // 45 seconds max polling
 
-fal.config({
-    credentials: process.env.FAL_KEY
-});
+fal.config({ credentials: process.env.FAL_KEY });
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
 const WAVESPEED_API_KEY = process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
@@ -34,13 +32,18 @@ interface ProcessedScene {
     text: string;
 }
 
-// Pending scene state
 interface PendingSceneState {
     predictionId: string;
     sceneIndex: number;
     audioUrl: string;
     duration: number;
     text: string;
+    startedAt: number;
+}
+
+// NEW: Pending render state for async JSON2Video
+interface PendingRenderState {
+    projectId: string;
     startedAt: number;
 }
 
@@ -51,167 +54,81 @@ interface JobInputData {
     enableBackgroundMusic: boolean;
     enableCaptions: boolean;
     pendingScene?: PendingSceneState | null;
+    pendingRender?: PendingRenderState | null;  // NEW
 }
 
-// Generate TTS for a single scene
+// Generate TTS
 async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`🎤 Generating TTS for: "${text.substring(0, 30)}..."`);
-
+    console.log(`🎤 TTS: "${text.substring(0, 30)}..."`);
     const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
         input: {
             text,
-            voice_setting: {
-                voice_id: voiceId,
-                speed: 1,
-                vol: 1,
-                pitch: 0
-            },
+            voice_setting: { voice_id: voiceId, speed: 1, vol: 1, pitch: 0 },
             output_format: 'url'
         },
         logs: false
     }) as unknown as { data: { audio: { url: string }; duration_ms?: number } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from TTS API');
-    }
-
-    const duration = (result.data.duration_ms || 5000) / 1000;
-    console.log(`✅ TTS done: ${duration.toFixed(1)}s`);
-
-    return { audioUrl: result.data.audio.url, duration };
+    if (!result.data?.audio?.url) throw new Error('No audio URL from TTS');
+    return { audioUrl: result.data.audio.url, duration: (result.data.duration_ms || 5000) / 1000 };
 }
 
-// Start WaveSpeed generation
-async function startWaveSpeedGeneration(imageDataUrl: string, audioUrl: string): Promise<string> {
-    console.log(`🚀 Starting WaveSpeed generation...`);
-
-    // Download audio and convert to base64
+// Start WaveSpeed
+async function startWaveSpeed(imageDataUrl: string, audioUrl: string): Promise<string> {
+    console.log(`🚀 Starting WaveSpeed...`);
     const audioResponse = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 15000 });
     const audioBase64 = Buffer.from(audioResponse.data).toString('base64');
-    const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
-    const response = await axios.post(
-        WAVESPEED_API_URL,
-        {
-            image: imageDataUrl,
-            audio: audioDataUrl,
-            resolution: '480p',
-            seed: -1
-        },
-        {
-            headers: {
-                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            timeout: 30000
-        }
-    );
+    const response = await axios.post(WAVESPEED_API_URL, {
+        image: imageDataUrl,
+        audio: `data:audio/mpeg;base64,${audioBase64}`,
+        resolution: '480p',
+        seed: -1
+    }, {
+        headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}`, 'Content-Type': 'application/json' },
+        timeout: 30000
+    });
 
-    const responseData = response.data.data || response.data;
-    const predictionId = responseData.id;
-
-    console.log(`📋 WaveSpeed started - Prediction ID: ${predictionId}`);
-    console.log(`📋 Full response:`, JSON.stringify(responseData, null, 2));
-
+    const predictionId = (response.data.data || response.data).id;
+    console.log(`📋 WaveSpeed ID: ${predictionId}`);
     return predictionId;
 }
 
-// Poll WaveSpeed for result
-async function pollWaveSpeedForResult(predictionId: string): Promise<{ completed: boolean; videoUrl?: string; failed?: boolean }> {
-    console.log(`🔍 Polling WaveSpeed for prediction: ${predictionId}`);
-
+// Poll WaveSpeed
+async function pollWaveSpeed(predictionId: string): Promise<{ completed: boolean; videoUrl?: string; failed?: boolean }> {
+    console.log(`🔍 Polling WaveSpeed: ${predictionId}`);
     const startTime = Date.now();
 
     while (Date.now() - startTime < MAX_POLL_TIME_MS) {
         try {
-            // Try both URL formats
-            const pollUrl = `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`;
-            console.log(`📡 Polling: ${pollUrl}`);
+            const resp = await axios.get(
+                `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`,
+                { headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }, timeout: 10000 }
+            );
+            const data = resp.data.data || resp.data;
+            console.log(`📊 Status: ${data.status}`);
 
-            const pollResponse = await axios.get(pollUrl, {
-                headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
-                timeout: 10000
-            });
-
-            const pollData = pollResponse.data.data || pollResponse.data;
-            console.log(`📊 Poll result - Status: ${pollData.status}, Has output: ${!!pollData.output?.video}`);
-
-            if (pollData.status === 'completed') {
-                const videoUrl = pollData.output?.video || (pollData.outputs && pollData.outputs[0]);
-                if (videoUrl) {
-                    console.log(`✅ Video ready: ${videoUrl.substring(0, 50)}...`);
-                    return { completed: true, videoUrl };
-                }
-            } else if (pollData.status === 'failed') {
-                console.error(`❌ WaveSpeed failed:`, pollData.error);
-                return { completed: false, failed: true };
+            if (data.status === 'completed' && (data.output?.video || data.outputs?.[0])) {
+                return { completed: true, videoUrl: data.output?.video || data.outputs[0] };
             }
+            if (data.status === 'failed') return { completed: false, failed: true };
 
-            console.log(`⏳ Still processing, waiting ${POLL_INTERVAL_MS}ms...`);
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-        } catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.log(`⚠️ Poll request error: ${error.response?.status} ${error.message}`);
-            } else {
-                console.log(`⚠️ Poll error:`, error);
-            }
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        } catch (e) {
+            console.log(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
     }
-
-    console.log(`⏰ Polling timeout reached (${MAX_POLL_TIME_MS}ms)`);
     return { completed: false };
 }
 
-// Upload video to Supabase
-async function uploadToSupabase(videoUrl: string, fileName: string): Promise<string> {
-    try {
-        console.log(`📤 Uploading to Supabase: ${fileName}`);
-        const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 60000 });
-        const videoBuffer = Buffer.from(response.data);
-
-        const { error } = await supabase.storage
-            .from('videos')
-            .upload(`clips/${fileName}`, videoBuffer, {
-                contentType: 'video/mp4',
-                upsert: true
-            });
-
-        if (error) {
-            console.warn('⚠️ Upload warning:', error);
-            return videoUrl;
-        }
-
-        const { data: publicUrl } = supabase.storage
-            .from('videos')
-            .getPublicUrl(`clips/${fileName}`);
-
-        console.log(`✅ Uploaded successfully`);
-        return publicUrl.publicUrl;
-    } catch (err) {
-        console.error('❌ Upload failed:', err);
-        return videoUrl;
-    }
-}
-
-// Prepare face image
-async function prepareFaceImage(faceImageUrl: string): Promise<string> {
-    if (faceImageUrl.startsWith('data:')) {
-        return faceImageUrl;
-    }
-    const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer', timeout: 15000 });
-    const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
-    const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
-    return `data:${mimeType};base64,${imgBase64}`;
-}
-
-// Render final video with JSON2Video
-async function renderFinalVideo(
+// Start JSON2Video render (returns project ID immediately)
+async function startJson2VideoRender(
     processedScenes: ProcessedScene[],
     enableCaptions: boolean,
     enableBackgroundMusic: boolean
-): Promise<{ videoUrl: string; duration: number }> {
-    console.log(`🎬 Starting final render with ${processedScenes.length} scenes...`);
+): Promise<string> {
+    console.log(`🎬 Starting JSON2Video render...`);
 
     const faceScenes: FaceSceneInput[] = processedScenes.map(ps => ({
         url: ps.clipUrl,
@@ -228,319 +145,283 @@ async function renderFinalVideo(
         enableBackgroundMusic: enableBackgroundMusic ?? false,
     });
 
-    const response = await axios.post(
-        'https://api.json2video.com/v2/movies',
-        moviePayload,
-        {
-            headers: {
-                'x-api-key': JSON2VIDEO_API_KEY,
-                'Content-Type': 'application/json'
-            }
-        }
-    );
+    const response = await axios.post('https://api.json2video.com/v2/movies', moviePayload, {
+        headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
+    });
 
     const projectId = response.data.project;
     console.log(`📽️ JSON2Video project: ${projectId}`);
+    return projectId;
+}
 
-    for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+// Poll JSON2Video
+async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean }> {
+    console.log(`🔍 Polling JSON2Video: ${projectId}`);
+    const startTime = Date.now();
 
-        const statusResponse = await axios.get(
-            `https://api.json2video.com/v2/movies?project=${projectId}`,
-            { headers: { 'x-api-key': JSON2VIDEO_API_KEY } }
-        );
+    while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+        try {
+            const resp = await axios.get(
+                `https://api.json2video.com/v2/movies?project=${projectId}`,
+                { headers: { 'x-api-key': JSON2VIDEO_API_KEY } }
+            );
+            const status = resp.data;
+            console.log(`📊 JSON2Video status: ${status.status}`);
 
-        const status = statusResponse.data;
-        if (status.status === 'done' && status.movie) {
-            console.log(`✅ Final video ready!`);
-            return { videoUrl: status.movie, duration: status.duration || 30 };
-        } else if (status.status === 'error') {
-            throw new Error(`JSON2Video error: ${status.message}`);
+            if (status.status === 'done' && status.movie) {
+                return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
+            }
+            if (status.status === 'error') {
+                console.error(`❌ JSON2Video error:`, status.message);
+                return { completed: false, failed: true };
+            }
+
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        } catch (e) {
+            console.log(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
     }
+    return { completed: false };
+}
 
-    throw new Error('JSON2Video render timed out');
+// Upload to Supabase
+async function uploadToSupabase(videoUrl: string, fileName: string): Promise<string> {
+    try {
+        const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 60000 });
+        const { error } = await supabase.storage.from('videos').upload(`clips/${fileName}`, Buffer.from(response.data), {
+            contentType: 'video/mp4', upsert: true
+        });
+        if (error) return videoUrl;
+        return supabase.storage.from('videos').getPublicUrl(`clips/${fileName}`).data.publicUrl;
+    } catch {
+        return videoUrl;
+    }
+}
+
+// Prepare face image
+async function prepareFaceImage(url: string): Promise<string> {
+    if (url.startsWith('data:')) return url;
+    const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+    return `data:${resp.headers['content-type'] || 'image/jpeg'};base64,${Buffer.from(resp.data).toString('base64')}`;
 }
 
 export async function POST(request: NextRequest) {
     let jobId: string | null = null;
 
     try {
-        const { jobId: requestedJobId } = await request.json();
-        jobId = requestedJobId;
+        const { jobId: reqJobId } = await request.json();
+        jobId = reqJobId;
+        if (!jobId) return NextResponse.json({ error: 'Missing job ID' }, { status: 400 });
 
-        if (!jobId) {
-            return NextResponse.json({ error: 'Missing job ID' }, { status: 400 });
-        }
-
-        console.log(`\n========================================`);
-        console.log(`🎬 PROCESSING JOB: ${jobId}`);
-        console.log(`========================================`);
+        console.log(`\n========== JOB: ${jobId} ==========`);
 
         // Fetch job
-        const { data: job, error: fetchError } = await supabase
-            .from('video_jobs')
-            .select('*')
-            .eq('id', jobId)
-            .single();
-
-        if (fetchError || !job) {
-            console.error(`❌ Job not found`);
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-        }
-
-        // Already done?
+        const { data: job, error: fetchErr } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
+        if (fetchErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
         if (job.status === 'completed' || job.status === 'failed') {
-            console.log(`⏭️ Job already ${job.status}`);
-            return NextResponse.json({ message: `Job already ${job.status}`, status: job.status });
+            return NextResponse.json({ message: `Already ${job.status}`, status: job.status });
         }
 
-        // CRITICAL: Check if another process is running
-        // Use database-level check with timestamp
-        if (job.is_processing === true) {
+        // Lock check
+        if (job.is_processing) {
             const lockAge = Date.now() - new Date(job.updated_at).getTime();
-            if (lockAge < 120000) { // 2 minute lock
-                console.log(`🔒 Job locked (${Math.round(lockAge / 1000)}s ago), skipping`);
-                return NextResponse.json({ message: 'Processing in progress', skipped: true });
+            if (lockAge < 120000) {
+                console.log(`🔒 Locked (${Math.round(lockAge / 1000)}s)`);
+                return NextResponse.json({ skipped: true });
             }
-            console.log(`🔓 Stale lock detected (${Math.round(lockAge / 1000)}s), taking over`);
         }
 
-        // Acquire lock FIRST, before reading data
-        const { error: lockError } = await supabase
-            .from('video_jobs')
+        // Acquire lock
+        const { error: lockErr } = await supabase.from('video_jobs')
             .update({ is_processing: true, updated_at: new Date().toISOString() })
-            .eq('id', jobId)
-            .eq('is_processing', false); // Only acquire if not already locked
+            .eq('id', jobId).eq('is_processing', false);
+        if (lockErr) return NextResponse.json({ skipped: true });
 
-        if (lockError) {
-            console.log(`⚠️ Could not acquire lock, another process may have it`);
-            return NextResponse.json({ message: 'Could not acquire lock', skipped: true });
-        }
-
-        // Re-fetch job to get latest state
-        const { data: freshJob } = await supabase
-            .from('video_jobs')
-            .select('*')
-            .eq('id', jobId)
-            .single();
-
-        if (!freshJob) {
-            return NextResponse.json({ error: 'Job disappeared' }, { status: 404 });
-        }
+        // Re-fetch
+        const { data: freshJob } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
+        if (!freshJob) return NextResponse.json({ error: 'Job gone' }, { status: 404 });
 
         const inputData = freshJob.input_data as JobInputData;
-        const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene } = inputData;
+        const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene, pendingRender } = inputData;
         const totalScenes = scenes.length;
         const currentIndex = freshJob.current_scene_index || 0;
         let processedScenes: ProcessedScene[] = freshJob.processed_scenes || [];
 
-        console.log(`📊 State: Scene ${currentIndex + 1}/${totalScenes}, Pending: ${pendingScene?.predictionId || 'none'}`);
-        console.log(`📊 Processed scenes: ${processedScenes.length}`);
+        console.log(`State: ${currentIndex}/${totalScenes}, pending: ${pendingScene?.predictionId || 'none'}, render: ${pendingRender?.projectId || 'none'}`);
 
-        // ============ CASE 1: Pending scene - poll for result ============
-        if (pendingScene && pendingScene.sceneIndex === currentIndex) {
-            console.log(`\n🔍 CHECKING PENDING SCENE ${currentIndex + 1}`);
-            console.log(`   Prediction ID: ${pendingScene.predictionId}`);
-            console.log(`   Started: ${Math.round((Date.now() - pendingScene.startedAt) / 1000)}s ago`);
+        // ======== CASE A: Pending render - poll JSON2Video ========
+        if (pendingRender) {
+            console.log(`\n📽️ CHECKING PENDING RENDER: ${pendingRender.projectId}`);
 
             await supabase.from('video_jobs').update({
-                progress_message: `Checking scene ${currentIndex + 1}/${totalScenes}...`,
+                progress_message: 'Waiting for final video...',
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            const pollResult = await pollWaveSpeedForResult(pendingScene.predictionId);
+            const result = await pollJson2Video(pendingRender.projectId);
 
-            if (pollResult.completed && pollResult.videoUrl) {
-                console.log(`\n✅ SCENE ${currentIndex + 1} COMPLETED!`);
+            if (result.completed && result.videoUrl) {
+                console.log(`✅ RENDER COMPLETE: ${result.videoUrl}`);
 
-                const fileName = `clip_${jobId}_scene_${currentIndex}.mp4`;
-                const clipUrl = await uploadToSupabase(pollResult.videoUrl, fileName);
-
-                const newScene: ProcessedScene = {
-                    index: currentIndex,
-                    type: 'face',
-                    clipUrl,
-                    duration: pendingScene.duration,
-                    text: pendingScene.text
-                };
-                processedScenes.push(newScene);
-
-                const nextIndex = currentIndex + 1;
-                const updatedInputData = { ...inputData, pendingScene: null };
+                const clipAssets = processedScenes.filter(ps => ps.type === 'face').map(ps => ({ url: ps.clipUrl, source: 'wavespeed' }));
 
                 await supabase.from('video_jobs').update({
-                    current_scene_index: nextIndex,
-                    processed_scenes: processedScenes,
-                    input_data: updatedInputData,
-                    progress: Math.floor(10 + (nextIndex / totalScenes) * 70),
-                    progress_message: nextIndex >= totalScenes
-                        ? 'All scenes done, composing...'
-                        : `Scene ${currentIndex + 1}/${totalScenes} complete`,
+                    status: 'completed',
+                    progress: 100,
+                    progress_message: 'Video ready!',
+                    result_data: { videoUrl: result.videoUrl, duration: result.duration, clipAssets },
+                    input_data: { ...inputData, pendingRender: null },
                     is_processing: false,
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
 
-                console.log(`✅ Saved scene ${currentIndex + 1}. Next: ${nextIndex + 1}/${totalScenes}`);
-                return NextResponse.json({ success: true, sceneCompleted: currentIndex + 1, totalScenes });
+                return NextResponse.json({ success: true, completed: true, videoUrl: result.videoUrl });
             }
 
-            if (pollResult.failed) {
-                console.log(`\n❌ SCENE ${currentIndex + 1} FAILED - will retry`);
-                const updatedInputData = { ...inputData, pendingScene: null };
+            if (result.failed || Date.now() - pendingRender.startedAt > 600000) {
+                console.log(`❌ Render failed or timed out`);
                 await supabase.from('video_jobs').update({
-                    input_data: updatedInputData,
+                    input_data: { ...inputData, pendingRender: null },
+                    progress_message: 'Render failed, retrying...',
+                    is_processing: false,
+                    updated_at: new Date().toISOString()
+                }).eq('id', jobId);
+                return NextResponse.json({ retry: true });
+            }
+
+            // Still rendering
+            await supabase.from('video_jobs').update({
+                progress_message: 'Rendering final video...',
+                is_processing: false,
+                updated_at: new Date().toISOString()
+            }).eq('id', jobId);
+            return NextResponse.json({ stillRendering: true });
+        }
+
+        // ======== CASE B: Pending scene - poll WaveSpeed ========
+        if (pendingScene && pendingScene.sceneIndex === currentIndex) {
+            console.log(`\n🔍 CHECKING SCENE ${currentIndex + 1}: ${pendingScene.predictionId}`);
+
+            const result = await pollWaveSpeed(pendingScene.predictionId);
+
+            if (result.completed && result.videoUrl) {
+                console.log(`✅ SCENE ${currentIndex + 1} DONE`);
+                const clipUrl = await uploadToSupabase(result.videoUrl, `clip_${jobId}_${currentIndex}.mp4`);
+                processedScenes.push({
+                    index: currentIndex, type: 'face', clipUrl,
+                    duration: pendingScene.duration, text: pendingScene.text
+                });
+
+                await supabase.from('video_jobs').update({
+                    current_scene_index: currentIndex + 1,
+                    processed_scenes: processedScenes,
+                    input_data: { ...inputData, pendingScene: null },
+                    progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
+                    progress_message: `Scene ${currentIndex + 1}/${totalScenes} done`,
+                    is_processing: false,
+                    updated_at: new Date().toISOString()
+                }).eq('id', jobId);
+
+                return NextResponse.json({ sceneCompleted: currentIndex + 1 });
+            }
+
+            if (result.failed || Date.now() - pendingScene.startedAt > 600000) {
+                await supabase.from('video_jobs').update({
+                    input_data: { ...inputData, pendingScene: null },
                     progress_message: `Scene ${currentIndex + 1} failed, retrying...`,
                     is_processing: false,
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
-                return NextResponse.json({ success: true, retry: true });
+                return NextResponse.json({ retry: true });
             }
 
-            // Scene timeout check
-            const sceneAge = Date.now() - pendingScene.startedAt;
-            if (sceneAge > 600000) { // 10 minutes
-                console.log(`\n⏰ SCENE ${currentIndex + 1} TIMED OUT`);
-                const updatedInputData = { ...inputData, pendingScene: null };
-                await supabase.from('video_jobs').update({
-                    input_data: updatedInputData,
-                    progress_message: `Scene ${currentIndex + 1} timed out, retrying...`,
-                    is_processing: false,
-                    updated_at: new Date().toISOString()
-                }).eq('id', jobId);
-                return NextResponse.json({ success: true, retry: true });
-            }
-
-            // Still processing
-            console.log(`\n⏳ Scene ${currentIndex + 1} still generating...`);
             await supabase.from('video_jobs').update({
-                progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
+                progress_message: `Generating scene ${currentIndex + 1}/${totalScenes}...`,
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
-            return NextResponse.json({ success: true, stillProcessing: true });
+            return NextResponse.json({ stillProcessing: true });
         }
 
-        // ============ CASE 2: All scenes done - render final ============
+        // ======== CASE C: All scenes done - start render ========
         if (currentIndex >= totalScenes) {
-            console.log(`\n📽️ ALL SCENES DONE - RENDERING FINAL VIDEO`);
+            console.log(`\n📽️ STARTING FINAL RENDER`);
 
             await supabase.from('video_jobs').update({
                 progress: 80,
-                progress_message: 'Composing final video...',
+                progress_message: 'Starting final render...',
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            const { videoUrl, duration } = await renderFinalVideo(
-                processedScenes,
-                enableCaptions,
-                enableBackgroundMusic
-            );
-
-            const clipAssets = processedScenes
-                .filter(ps => ps.type === 'face')
-                .map(ps => ({ url: ps.clipUrl, source: 'wavespeed' }));
+            const projectId = await startJson2VideoRender(processedScenes, enableCaptions, enableBackgroundMusic);
 
             await supabase.from('video_jobs').update({
-                status: 'completed',
-                progress: 100,
-                progress_message: 'Video ready!',
-                result_data: { videoUrl, duration, clipAssets },
+                input_data: { ...inputData, pendingRender: { projectId, startedAt: Date.now() } },
+                progress: 85,
+                progress_message: 'Rendering final video...',
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            console.log(`\n✅ JOB COMPLETED: ${videoUrl}`);
-            return NextResponse.json({ success: true, completed: true, videoUrl, duration });
+            return NextResponse.json({ renderStarted: true, projectId });
         }
 
-        // ============ CASE 3: Start new scene ============
+        // ======== CASE D: Start new scene ========
         console.log(`\n🆕 STARTING SCENE ${currentIndex + 1}/${totalScenes}`);
 
         await supabase.from('video_jobs').update({
             status: 'processing',
             progress: Math.floor(10 + (currentIndex / totalScenes) * 70),
-            progress_message: `Starting scene ${currentIndex + 1}/${totalScenes}...`,
+            progress_message: `Starting scene ${currentIndex + 1}...`,
             updated_at: new Date().toISOString()
         }).eq('id', jobId);
 
         const scene = scenes[currentIndex];
-        console.log(`   Type: ${scene.type}`);
-        console.log(`   Text: "${scene.text.substring(0, 50)}..."`);
-
         const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
 
         if (scene.type === 'face') {
             const imageDataUrl = await prepareFaceImage(faceImageUrl);
-            const predictionId = await startWaveSpeedGeneration(imageDataUrl, audioUrl);
+            const predictionId = await startWaveSpeed(imageDataUrl, audioUrl);
 
-            const newPendingScene: PendingSceneState = {
-                predictionId,
-                sceneIndex: currentIndex,
-                audioUrl,
-                duration,
-                text: scene.text,
-                startedAt: Date.now()
-            };
-
-            const updatedInputData = { ...inputData, pendingScene: newPendingScene };
-
-            // CRITICAL: Save pending scene and release lock atomically
-            const { error: updateError } = await supabase.from('video_jobs').update({
-                input_data: updatedInputData,
-                progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
+            await supabase.from('video_jobs').update({
+                input_data: { ...inputData, pendingScene: { predictionId, sceneIndex: currentIndex, audioUrl, duration, text: scene.text, startedAt: Date.now() } },
+                progress_message: `Generating scene ${currentIndex + 1}/${totalScenes}...`,
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            if (updateError) {
-                console.error(`❌ Failed to save pending scene:`, updateError);
-                throw new Error('Failed to save pending scene');
-            }
-
-            console.log(`\n💾 Saved pending scene with prediction: ${predictionId}`);
-            return NextResponse.json({ success: true, sceneStarted: currentIndex + 1, predictionId });
+            return NextResponse.json({ sceneStarted: currentIndex + 1 });
         } else {
-            // Asset scene - immediate
-            const newScene: ProcessedScene = {
-                index: currentIndex,
-                type: scene.type,
+            processedScenes.push({
+                index: currentIndex, type: scene.type,
                 clipUrl: scene.assetUrl || faceImageUrl,
-                audioUrl: audioUrl,
-                duration,
-                text: scene.text
-            };
-            processedScenes.push(newScene);
+                audioUrl, duration, text: scene.text
+            });
 
             await supabase.from('video_jobs').update({
                 current_scene_index: currentIndex + 1,
                 processed_scenes: processedScenes,
                 progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
-                progress_message: `Scene ${currentIndex + 1}/${totalScenes} complete`,
+                progress_message: `Scene ${currentIndex + 1}/${totalScenes} done`,
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            console.log(`\n✅ Asset scene ${currentIndex + 1} done`);
-            return NextResponse.json({ success: true, sceneCompleted: currentIndex + 1, totalScenes });
+            return NextResponse.json({ sceneCompleted: currentIndex + 1 });
         }
 
     } catch (error) {
-        console.error(`\n❌ ERROR:`, error);
-
+        console.error(`❌ ERROR:`, error);
         if (jobId) {
             await supabase.from('video_jobs').update({
                 status: 'failed',
-                error: error instanceof Error ? error.message : 'Unknown error',
+                error: error instanceof Error ? error.message : 'Unknown',
                 progress_message: 'Failed',
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
         }
-
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown' }, { status: 500 });
     }
 }
