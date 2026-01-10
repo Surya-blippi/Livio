@@ -166,7 +166,8 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
             console.log(`📡 Requesting: ${url}`);
 
             const resp = await fetch(url, {
-                headers: { 'x-api-key': JSON2VIDEO_API_KEY }
+                headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+                cache: 'no-store'
             });
 
             if (!resp.ok) {
