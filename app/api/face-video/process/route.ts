@@ -4,11 +4,14 @@ import { fal } from '@fal-ai/client';
 import { supabase } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 
-// Fast timeout - we just start things, webhook handles completion
+// Reasonable timeout - we start scenes and optionally poll
 export const maxDuration = 55;
 
-// Lock timeout - if lock older than this, force release
-const LOCK_TIMEOUT_MS = 120000; // 2 minutes
+// Configuration
+const LOCK_TIMEOUT_MS = 120000; // 2 minutes stale lock timeout
+const SCENE_TIMEOUT_MS = 600000; // 10 minutes per scene timeout
+const POLL_INTERVAL_MS = 5000; // 5 seconds between polls
+const MAX_POLL_TIME_MS = 45000; // 45 seconds max polling per API call
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -95,28 +98,57 @@ async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioU
     };
 }
 
-// Start WaveSpeed face video generation WITH WEBHOOK
-async function startFaceVideoGenerationWithWebhook(
+// Check if we have a valid public webhook URL
+function getWebhookUrl(request: NextRequest): string | null {
+    // Only use webhook if we have a proper public URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const vercelUrl = process.env.VERCEL_URL;
+
+    if (appUrl && !appUrl.includes('localhost')) {
+        return `${appUrl}/api/face-video/webhook`;
+    }
+
+    if (vercelUrl) {
+        return `https://${vercelUrl}/api/face-video/webhook`;
+    }
+
+    // Check request origin - if it's not localhost, use it
+    const origin = request.nextUrl.origin;
+    if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return `${origin}/api/face-video/webhook`;
+    }
+
+    // No valid public URL - will use polling instead
+    console.log('⚠️ No public webhook URL available, will use polling');
+    return null;
+}
+
+// Start WaveSpeed face video generation
+async function startFaceVideoGeneration(
     imageDataUrl: string,
     audioUrl: string,
-    webhookUrl: string
+    webhookUrl: string | null
 ): Promise<string> {
     // Download audio and convert to base64
     const audioResponse = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 15000 });
     const audioBase64 = Buffer.from(audioResponse.data).toString('base64');
     const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
-    // Create video using WaveSpeed API with webhook parameter
-    const urlWithWebhook = `${WAVESPEED_API_URL}?webhook=${encodeURIComponent(webhookUrl)}`;
-
-    console.log(`🚀 Starting WaveSpeed with webhook: ${webhookUrl}`);
+    // Build URL - add webhook if available
+    let requestUrl = WAVESPEED_API_URL;
+    if (webhookUrl) {
+        requestUrl = `${WAVESPEED_API_URL}?webhook=${encodeURIComponent(webhookUrl)}`;
+        console.log(`🚀 Starting WaveSpeed with webhook: ${webhookUrl}`);
+    } else {
+        console.log(`🚀 Starting WaveSpeed (polling mode)`);
+    }
 
     const response = await axios.post(
-        urlWithWebhook,
+        requestUrl,
         {
             image: imageDataUrl,
             audio: audioDataUrl,
-            resolution: '720p',
+            resolution: '480p', // Use 480p for cost savings ($0.15/5s vs $0.30/5s)
             seed: -1
         },
         {
@@ -133,6 +165,69 @@ async function startFaceVideoGenerationWithWebhook(
     return responseData.id;
 }
 
+// Poll WaveSpeed for completion (backup/fallback mechanism)
+async function pollWaveSpeedResult(predictionId: string): Promise<{ completed: boolean; videoUrl?: string; failed?: boolean }> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+        try {
+            const pollUrl = `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`;
+            const pollResponse = await axios.get(pollUrl, {
+                headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
+                timeout: 10000
+            });
+
+            const pollData = pollResponse.data.data || pollResponse.data;
+            console.log(`📊 WaveSpeed poll: status=${pollData.status}`);
+
+            if (pollData.status === 'completed' && pollData.output?.video) {
+                return { completed: true, videoUrl: pollData.output.video };
+            } else if (pollData.status === 'failed') {
+                console.error('❌ WaveSpeed generation failed');
+                return { completed: false, failed: true };
+            }
+
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        } catch (pollError) {
+            console.log(`⚠️ Poll error (will retry):`, pollError instanceof Error ? pollError.message : 'Unknown');
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+    }
+
+    return { completed: false };
+}
+
+// Upload video to Supabase Storage
+async function uploadClipToSupabase(videoUrl: string, fileName: string): Promise<string> {
+    try {
+        console.log(`📤 Uploading video to Supabase: ${fileName}`);
+        const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 60000 });
+        const videoBuffer = Buffer.from(response.data);
+
+        const { error } = await supabase.storage
+            .from('videos')
+            .upload(`clips/${fileName}`, videoBuffer, {
+                contentType: 'video/mp4',
+                upsert: true
+            });
+
+        if (error) {
+            console.warn('⚠️ Supabase upload warning:', error);
+            return videoUrl;
+        }
+
+        const { data: publicUrl } = supabase.storage
+            .from('videos')
+            .getPublicUrl(`clips/${fileName}`);
+
+        console.log(`✅ Uploaded to Supabase`);
+        return publicUrl.publicUrl;
+    } catch (err) {
+        console.error('❌ Upload failed:', err);
+        return videoUrl;
+    }
+}
+
 // Render with JSON2Video
 async function renderWithJson2Video(moviePayload: Record<string, unknown>): Promise<{ videoUrl: string; duration: number }> {
     const response = await axios.post(
@@ -147,7 +242,7 @@ async function renderWithJson2Video(moviePayload: Record<string, unknown>): Prom
     );
 
     const projectId = response.data.project;
-    const maxPolls = 60; // 60 * 5s = 5 minutes for final render
+    const maxPolls = 60;
 
     for (let i = 0; i < maxPolls; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -158,8 +253,6 @@ async function renderWithJson2Video(moviePayload: Record<string, unknown>): Prom
         );
 
         const status = statusResponse.data;
-        console.log(`🎬 JSON2Video status: ${status.status}`);
-
         if (status.status === 'done' && status.movie) {
             return { videoUrl: status.movie, duration: status.duration || 30 };
         } else if (status.status === 'error') {
@@ -179,20 +272,6 @@ async function prepareFaceImageDataUrl(faceImageUrl: string): Promise<string> {
     const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
     const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
     return `data:${mimeType};base64,${imgBase64}`;
-}
-
-// Get base URL for webhook
-function getBaseUrl(request: NextRequest): string {
-    // Try environment variable first
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-        return process.env.NEXT_PUBLIC_APP_URL;
-    }
-    // Use Vercel URL if available
-    if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL}`;
-    }
-    // Fallback to request origin
-    return request.nextUrl.origin;
 }
 
 export async function POST(request: NextRequest) {
@@ -225,8 +304,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // MUTEX: Check if another process call is currently running
-        // But also check for stale locks
+        // MUTEX: Check for stale locks
         if (job.is_processing === true) {
             const updatedAt = new Date(job.updated_at).getTime();
             const lockAge = Date.now() - updatedAt;
@@ -238,15 +316,13 @@ export async function POST(request: NextRequest) {
                     status: 'processing',
                     skipped: true
                 });
-            } else {
-                console.log(`🔓 Force releasing stale lock on job ${jobId} (age: ${Math.round(lockAge / 1000)}s)`);
             }
+            console.log(`🔓 Force releasing stale lock (age: ${Math.round(lockAge / 1000)}s)`);
         }
 
-        // Acquire the lock
+        // Acquire lock
         await updateJob(jobId, { is_processing: true });
 
-        // Parse input data
         const inputData = job.input_data as JobInputData;
         const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene } = inputData;
 
@@ -256,53 +332,90 @@ export async function POST(request: NextRequest) {
 
         console.log(`🎬 Processing job ${jobId}: scene ${currentIndex + 1}/${totalScenes}, pending: ${pendingScene ? 'yes' : 'no'}`);
 
-        // ============ Check if waiting for webhook ============
+        // ============ Check pending scene (poll for completion) ============
         if (pendingScene && pendingScene.sceneIndex === currentIndex) {
-            // Scene is being processed by WaveSpeed, waiting for webhook
             const sceneAge = Date.now() - pendingScene.startedAt;
+            console.log(`📍 Checking pending scene ${currentIndex + 1} (age: ${Math.round(sceneAge / 1000)}s)...`);
 
-            if (sceneAge > 600000) { // 10 minutes timeout
-                console.log(`⏰ Scene ${currentIndex + 1} timed out after ${Math.round(sceneAge / 1000)}s, retrying...`);
+            // Check for timeout
+            if (sceneAge > SCENE_TIMEOUT_MS) {
+                console.log(`⏰ Scene timed out, retrying...`);
                 const updatedInputData = { ...inputData, pendingScene: null };
                 await updateJob(jobId, {
                     input_data: updatedInputData,
                     progress_message: `Scene ${currentIndex + 1} timed out, retrying...`,
                     is_processing: false
                 });
+                return NextResponse.json({ success: true, retry: true });
+            }
+
+            // Poll for completion (backup in case webhook fails)
+            const pollResult = await pollWaveSpeedResult(pendingScene.predictionId);
+
+            if (pollResult.failed) {
+                console.log(`❌ WaveSpeed failed, will retry`);
+                const updatedInputData = { ...inputData, pendingScene: null };
+                await updateJob(jobId, {
+                    input_data: updatedInputData,
+                    progress_message: `Scene ${currentIndex + 1} failed, retrying...`,
+                    is_processing: false
+                });
+                return NextResponse.json({ success: true, retry: true });
+            }
+
+            if (pollResult.completed && pollResult.videoUrl) {
+                console.log(`✅ WaveSpeed completed for scene ${currentIndex + 1}!`);
+
+                const fileName = `clip_${jobId}_scene_${currentIndex}.mp4`;
+                const clipUrl = await uploadClipToSupabase(pollResult.videoUrl, fileName);
+
+                const newProcessedScene: ProcessedScene = {
+                    index: currentIndex,
+                    type: 'face',
+                    clipUrl,
+                    duration: pendingScene.duration,
+                    text: pendingScene.text
+                };
+
+                processedScenes.push(newProcessedScene);
+
+                const updatedInputData = { ...inputData, pendingScene: null };
+                await updateJob(jobId, {
+                    current_scene_index: currentIndex + 1,
+                    processed_scenes: processedScenes,
+                    input_data: updatedInputData,
+                    progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
+                    progress_message: `Scene ${currentIndex + 1}/${totalScenes} complete`,
+                    is_processing: false
+                });
+
+                console.log(`✅ Scene ${currentIndex + 1} saved. Next: ${currentIndex + 2}/${totalScenes}`);
                 return NextResponse.json({
                     success: true,
-                    completed: false,
-                    message: 'Scene timed out, will retry',
-                    retry: true
+                    currentScene: currentIndex + 1,
+                    totalScenes
                 });
             }
 
-            console.log(`⏳ Scene ${currentIndex + 1} waiting for webhook (${Math.round(sceneAge / 1000)}s)...`);
-
+            // Still processing - release lock and wait
+            console.log(`⏳ Scene still generating...`);
             await updateJob(jobId, {
                 progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
                 is_processing: false
             });
-
             return NextResponse.json({
                 success: true,
-                completed: false,
-                message: `Scene ${currentIndex + 1} generating (webhook pending)`,
-                waitingForWebhook: true
+                message: 'Still generating, poll again',
+                waitingForCompletion: true
             });
         }
 
-        // ============ Check if all scenes are processed ============
+        // ============ All scenes processed - compose ============
         if (currentIndex >= totalScenes) {
-            console.log(`📽️ All scenes processed, starting composition...`);
+            console.log(`📽️ All scenes processed, composing...`);
 
-            await updateJob(jobId, {
-                status: 'processing',
-                progress: 80,
-                progress_message: 'Composing final video...'
-            });
+            await updateJob(jobId, { progress: 80, progress_message: 'Composing final video...' });
 
-            // Build JSON2Video payload from processed scenes
             const faceScenes: FaceSceneInput[] = processedScenes.map(ps => ({
                 url: ps.clipUrl,
                 duration: ps.duration,
@@ -318,14 +431,10 @@ export async function POST(request: NextRequest) {
                 enableBackgroundMusic: enableBackgroundMusic ?? false,
             });
 
-            await updateJob(jobId, {
-                progress: 85,
-                progress_message: 'Rendering final video...'
-            });
+            await updateJob(jobId, { progress: 85, progress_message: 'Rendering final video...' });
 
             const { videoUrl, duration } = await renderWithJson2Video(moviePayload);
 
-            // Mark as completed
             const clipAssets = processedScenes
                 .filter(ps => ps.type === 'face')
                 .map(ps => ({ url: ps.clipUrl, source: 'wavespeed' }));
@@ -339,16 +448,10 @@ export async function POST(request: NextRequest) {
             });
 
             console.log(`✅ Job ${jobId} completed!`);
-
-            return NextResponse.json({
-                success: true,
-                completed: true,
-                videoUrl,
-                duration
-            });
+            return NextResponse.json({ success: true, completed: true, videoUrl, duration });
         }
 
-        // ============ Start new scene processing ============
+        // ============ Start new scene ============
         await updateJob(jobId, {
             status: 'processing',
             progress: Math.floor(10 + (currentIndex / totalScenes) * 70),
@@ -356,29 +459,18 @@ export async function POST(request: NextRequest) {
         });
 
         const scene = scenes[currentIndex];
-        console.log(`📍 Starting scene ${currentIndex + 1}: ${scene.type.toUpperCase()} - "${scene.text.substring(0, 40)}..."`);
+        console.log(`📍 Starting scene ${currentIndex + 1}: ${scene.type.toUpperCase()}`);
 
-        // Generate TTS for this scene
         const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
-        console.log(`🔊 TTS generated for scene ${currentIndex + 1}: ${duration.toFixed(1)}s`);
+        console.log(`🔊 TTS: ${duration.toFixed(1)}s`);
 
         if (scene.type === 'face') {
-            // Prepare face image as data URL
             const imageDataUrl = await prepareFaceImageDataUrl(faceImageUrl);
+            const webhookUrl = getWebhookUrl(request);
 
-            await updateJob(jobId, {
-                progress_message: `Starting face video ${currentIndex + 1}/${totalScenes}...`
-            });
+            const predictionId = await startFaceVideoGeneration(imageDataUrl, audioUrl, webhookUrl);
+            console.log(`🚀 WaveSpeed started: ${predictionId}`);
 
-            // Build webhook URL
-            const baseUrl = getBaseUrl(request);
-            const webhookUrl = `${baseUrl}/api/face-video/webhook`;
-
-            // Start WaveSpeed generation with webhook
-            const predictionId = await startFaceVideoGenerationWithWebhook(imageDataUrl, audioUrl, webhookUrl);
-            console.log(`🚀 WaveSpeed started for scene ${currentIndex + 1}: ${predictionId}`);
-
-            // Save pending scene state
             const newPendingScene: PendingSceneState = {
                 predictionId,
                 sceneIndex: currentIndex,
@@ -388,34 +480,24 @@ export async function POST(request: NextRequest) {
                 startedAt: Date.now()
             };
 
-            const updatedInputData = { ...inputData, pendingScene: newPendingScene };
-
             await updateJob(jobId, {
-                input_data: updatedInputData,
+                input_data: { ...inputData, pendingScene: newPendingScene },
                 progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
                 is_processing: false
             });
 
-            console.log(`💾 Saved pending scene ${currentIndex + 1}, waiting for webhook`);
-
             return NextResponse.json({
                 success: true,
-                completed: false,
-                currentScene: currentIndex,
-                totalScenes,
-                message: `Scene ${currentIndex + 1} started, waiting for webhook`,
-                waitingForWebhook: true
+                message: `Scene ${currentIndex + 1} started`,
+                waitingForCompletion: true
             });
         } else {
-            // Asset scene - process immediately (no WaveSpeed needed)
-            const clipUrl = scene.assetUrl || faceImageUrl;
-            const sceneAudioUrl = audioUrl;
-
+            // Asset scene
             const newProcessedScene: ProcessedScene = {
                 index: currentIndex,
                 type: scene.type,
-                clipUrl,
-                audioUrl: sceneAudioUrl,
+                clipUrl: scene.assetUrl || faceImageUrl,
+                audioUrl: audioUrl,
                 duration,
                 text: scene.text
             };
@@ -430,19 +512,12 @@ export async function POST(request: NextRequest) {
                 is_processing: false
             });
 
-            console.log(`✅ Asset scene ${currentIndex + 1} complete. Next: ${currentIndex + 2}/${totalScenes}`);
-
-            return NextResponse.json({
-                success: true,
-                completed: false,
-                currentScene: currentIndex + 1,
-                totalScenes,
-                message: `Scene ${currentIndex + 1}/${totalScenes} processed`
-            });
+            console.log(`✅ Asset scene ${currentIndex + 1} complete`);
+            return NextResponse.json({ success: true, currentScene: currentIndex + 1, totalScenes });
         }
 
     } catch (error) {
-        console.error('❌ Error processing scene:', error);
+        console.error('❌ Error:', error);
 
         if (jobId) {
             await updateJob(jobId, {
@@ -454,7 +529,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-            { error: `Failed to process scene: ${error instanceof Error ? error.message : 'Unknown error'}` },
+            { error: `Failed: ${error instanceof Error ? error.message : 'Unknown'}` },
             { status: 500 }
         );
     }
