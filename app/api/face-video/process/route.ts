@@ -192,10 +192,14 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
         const status = await resp.json();
         console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
 
-        // If we have a movie URL, it is done, regardless of status string
-        if (status.movie) {
-            console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
-            return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
+        if (status.movie && status.movie.status === 'done') {
+            console.log(`✅ RENDER DONE! Video URL: ${status.movie.url}`);
+            return { completed: true, videoUrl: status.movie.url, duration: status.movie.duration || 30 };
+        }
+
+        if (status.movie && status.movie.status === 'error') {
+            console.error(`❌ JSON2Video error:`, status.movie.message);
+            return { completed: false, failed: true, status: status.movie.message };
         }
 
         if (status.status === 'done' && status.movie) {
