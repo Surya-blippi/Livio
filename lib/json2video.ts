@@ -491,7 +491,7 @@ function formatSrtTime(seconds: number): string {
 /**
  * Start a video render on JSON2Video
  */
-export async function startRender(movie: Record<string, unknown>): Promise<Json2VideoResponse> {
+export async function startRender(movie: Json2VideoMovie): Promise<Json2VideoResponse> {
     const response = await fetch(`${JSON2VIDEO_API_BASE}/movies`, {
         method: 'POST',
         headers: {
