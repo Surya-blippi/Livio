@@ -86,6 +86,8 @@ export const useDashboardState = () => {
     const [processingMessage, setProcessingMessage] = useState('');
     const [processingStep, setProcessingStep] = useState(0);
     const [error, setError] = useState('');
+    // Scene progress for checklist UI
+    const [sceneProgress, setSceneProgress] = useState<{ totalScenes: number; currentSceneIndex: number; processedScenesCount: number; isRendering: boolean } | null>(null);
 
     // UI state
     const [showHistory, setShowHistory] = useState(false);
@@ -695,9 +697,10 @@ export const useDashboardState = () => {
                 // Poll for job completion with progress updates
                 const sceneResult = await pollFaceVideoJob(
                     jobId,
-                    (progress, message) => {
+                    (progress, message, sceneData) => {
                         setProcessingStep(Math.floor(4 + (progress / 100) * 2)); // Steps 4-6
                         setProcessingMessage(message);
+                        if (sceneData) setSceneProgress(sceneData);
                     }
                 );
 
@@ -756,6 +759,7 @@ export const useDashboardState = () => {
         isProcessing,
         processingMessage,
         processingStep,
+        sceneProgress,
         error, setError,
         showHistory, setShowHistory,
         collectedAssets, setCollectedAssets,

@@ -29,6 +29,12 @@ export async function GET(
             );
         }
 
+        // Extract scene progress for checklist UI
+        const inputData = job.input_data as { scenes?: unknown[] } | null;
+        const totalScenes = inputData?.scenes?.length || 0;
+        const currentSceneIndex = job.current_scene_index || 0;
+        const processedScenes = job.processed_scenes || [];
+
         // Return job status and result
         return NextResponse.json({
             jobId: job.id,
@@ -38,8 +44,14 @@ export async function GET(
             result: job.result_data,
             error: job.error,
             createdAt: job.created_at,
-            updatedAt: job.updated_at
+            updatedAt: job.updated_at,
+            // Scene progress for checklist
+            totalScenes,
+            currentSceneIndex,
+            processedScenesCount: processedScenes.length,
+            isRendering: job.input_data?.pendingRender ? true : false
         });
+
 
     } catch (error) {
         console.error('Error fetching job status:', error);

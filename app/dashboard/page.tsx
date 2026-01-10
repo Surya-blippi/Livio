@@ -132,6 +132,7 @@ export default function Dashboard() {
                         isProcessing={state.isProcessing}
                         processingMessage={state.processingMessage}
                         processingStep={state.processingStep}
+                        sceneProgress={state.sceneProgress}
                         voiceName={state.savedVoice?.name ?? 'Select Voice'}
                         avatarUrl={state.useStudioImage ? state.studioReadyUrl : state.photoPreview}
                         aspectRatio={state.aspectRatio}

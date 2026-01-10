@@ -14,6 +14,7 @@ interface EditorPanelProps {
     isProcessing: boolean;
     processingMessage: string;
     processingStep: number;
+    sceneProgress?: { totalScenes: number; currentSceneIndex: number; processedScenesCount: number; isRendering: boolean } | null;
 
     // Context / Config Data (For Pills)
     voiceName: string;
@@ -50,6 +51,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     isProcessing,
     processingMessage,
     processingStep,
+    sceneProgress,
     voiceName,
     avatarUrl,
     aspectRatio,
@@ -102,28 +104,78 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
                 {/* 1. Main Stage (Empty Space / Processing View) */}
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col items-center justify-center">
-                    {/* Processing State */}
+                    {/* Processing State - Scene Checklist */}
                     {isProcessing && (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="w-full max-w-md bg-white border-2 border-black rounded-[var(--radius-xl)] p-8 shadow-[8px_8px_0px_var(--brand-primary)] text-center relative overflow-hidden"
+                            className="w-full max-w-md bg-white border-2 border-black rounded-[var(--radius-xl)] p-6 shadow-[8px_8px_0px_var(--brand-primary)] relative overflow-hidden"
                         >
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gray-100">
+                            {/* Progress bar */}
+                            <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-100">
                                 <motion.div
-                                    className="h-full bg-black"
+                                    className="h-full bg-[var(--brand-primary)]"
                                     initial={{ width: '0%' }}
-                                    animate={{ width: `${Math.min(processingStep * 25, 100)}%` }}
+                                    animate={{ width: `${sceneProgress ? Math.min((sceneProgress.processedScenesCount / sceneProgress.totalScenes) * 100, 100) : Math.min(processingStep * 25, 100)}%` }}
+                                    transition={{ duration: 0.3 }}
                                 />
                             </div>
 
-                            <div className="w-16 h-16 mx-auto mb-6 relative">
-                                <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-t-black animate-spin"></div>
-                            </div>
+                            <h3 className="text-xl font-black mb-4 text-center">Generating Video...</h3>
 
-                            <h3 className="text-2xl font-black mb-2">Generating Video...</h3>
-                            <p className="font-medium text-[var(--text-secondary)]">{processingMessage}</p>
+                            {/* Scene Checklist */}
+                            {sceneProgress && sceneProgress.totalScenes > 0 ? (
+                                <div className="space-y-2 mb-4">
+                                    {Array.from({ length: sceneProgress.totalScenes }, (_, i) => {
+                                        const isCompleted = i < sceneProgress.processedScenesCount;
+                                        const isCurrent = i === sceneProgress.currentSceneIndex && !sceneProgress.isRendering;
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isCompleted ? 'bg-green-50' : isCurrent ? 'bg-yellow-50' : 'bg-gray-50'
+                                                    }`}
+                                            >
+                                                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${isCompleted ? 'bg-green-500 border-green-600' : isCurrent ? 'border-yellow-500 bg-yellow-100' : 'border-gray-300'
+                                                    }`}>
+                                                    {isCompleted ? (
+                                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    ) : isCurrent ? (
+                                                        <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                                                    ) : null}
+                                                </div>
+                                                <span className={`font-semibold text-sm ${isCompleted ? 'text-green-700' : isCurrent ? 'text-yellow-700' : 'text-gray-400'
+                                                    }`}>
+                                                    Scene {i + 1}
+                                                </span>
+                                                {isCompleted && <span className="text-green-600 text-xs ml-auto">✓ Done</span>}
+                                                {isCurrent && <span className="text-yellow-600 text-xs ml-auto animate-pulse">Generating...</span>}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Final Render Step */}
+                                    <div className={`flex items-center gap-3 p-2 rounded-lg transition-all ${sceneProgress.isRendering ? 'bg-purple-50' : sceneProgress.processedScenesCount >= sceneProgress.totalScenes ? 'bg-gray-50' : 'bg-gray-50/50'
+                                        }`}>
+                                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${sceneProgress.isRendering ? 'border-purple-500 bg-purple-100' : 'border-gray-300'
+                                            }`}>
+                                            {sceneProgress.isRendering && <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse" />}
+                                        </div>
+                                        <span className={`font-semibold text-sm ${sceneProgress.isRendering ? 'text-purple-700' : 'text-gray-400'
+                                            }`}>
+                                            Final Render
+                                        </span>
+                                        {sceneProgress.isRendering && <span className="text-purple-600 text-xs ml-auto animate-pulse">Composing...</span>}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-full border-4 border-gray-100 border-t-black animate-spin" />
+                                </div>
+                            )}
+
+                            <p className="font-medium text-[var(--text-secondary)] text-center text-sm">{processingMessage}</p>
                         </motion.div>
                     )}
 

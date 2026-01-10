@@ -799,7 +799,13 @@ export interface FaceVideoJobStatus {
         clipAssets: { url: string; source: string }[];
     };
     error?: string;
+    // Scene progress for checklist UI
+    totalScenes?: number;
+    currentSceneIndex?: number;
+    processedScenesCount?: number;
+    isRendering?: boolean;
 }
+
 
 /**
  * Start a face video generation job (returns immediately)
@@ -854,7 +860,7 @@ export const triggerFaceVideoProcess = async (jobId: string): Promise<void> => {
  */
 export const pollFaceVideoJob = async (
     jobId: string,
-    onProgress?: (progress: number, message: string) => void,
+    onProgress?: (progress: number, message: string, sceneData?: { totalScenes: number; currentSceneIndex: number; processedScenesCount: number; isRendering: boolean }) => void,
     pollIntervalMs: number = 2000, // Poll status every 2s
     maxPollTimeMs: number = 900000 // 15 minutes max for complex videos
 ): Promise<{
@@ -882,10 +888,16 @@ export const pollFaceVideoJob = async (
             const status = await getFaceVideoJobStatus(jobId);
             consecutiveErrors = 0; // Reset on success
 
-            // Report progress
+            // Report progress with scene data
             if (onProgress) {
-                onProgress(status.progress, status.progressMessage);
+                onProgress(status.progress, status.progressMessage, {
+                    totalScenes: status.totalScenes || 0,
+                    currentSceneIndex: status.currentSceneIndex || 0,
+                    processedScenesCount: status.processedScenesCount || 0,
+                    isRendering: status.isRendering || false
+                });
             }
+
 
             // Check for completion
             if (status.status === 'completed' && status.result) {
