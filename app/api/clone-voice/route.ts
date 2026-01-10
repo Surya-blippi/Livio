@@ -105,9 +105,10 @@ export async function POST(request: NextRequest) {
 
         console.log('CHECKPOINT: Uploading to Fal storage...');
         // Upload to Fal storage to get a public URL
-        // Cast buffer to Uint8Array to satisfy Blob TS definition
-        const blob = new Blob([new Uint8Array(bufferToUpload)], { type: mimeType });
-        const storageUrl = await fal.storage.upload(blob);
+        // FORCE the filename to be .mp3 using the File constructor. 
+        // This ensures the resulting URL ends in .mp3, satisfying MiniMax's extension check.
+        const fileObj = new File([new Uint8Array(bufferToUpload)], 'force_audio.mp3', { type: mimeType });
+        const storageUrl = await fal.storage.upload(fileObj);
         console.log('CHECKPOINT: Audio uploaded to:', storageUrl);
 
         // Call MiniMax voice cloning API with the converted MP3 URL
