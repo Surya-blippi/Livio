@@ -589,13 +589,8 @@ export const useDashboardState = () => {
                         console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
 
                         try {
-                            // Fetch the file from storage
-                            const response = await fetch(savedVoice.voice_sample_url);
-                            const blob = await response.blob();
-                            const file = new File([blob], 'recording.webm', { type: blob.type }); // Filename doesn't matter much for conversion
-
-                            // Clone it
-                            const voiceData = await cloneVoice(file);
+                            // Use the URL directly for cloning (fast path)
+                            const voiceData = await cloneVoice(savedVoice.voice_sample_url);
                             voiceIdToUse = voiceData.voiceId;
 
                             // Update the voice record with the real ID
