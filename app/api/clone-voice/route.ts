@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
 
         let bufferToUpload = audioBuffer;
         let mimeType = 'audio/mpeg'; // Default to claiming MP3 if converted, or risk it if fallback
+        let base64 = '';
 
         try {
             // Convert to MP3
@@ -91,22 +92,21 @@ export async function POST(request: NextRequest) {
             // Read converted file
             const convertedBuffer = await readFile(tempOutputPath);
             bufferToUpload = convertedBuffer;
+            base64 = convertedBuffer.toString('base64');
             console.log('Conversion successful. New size:', convertedBuffer.length);
         } catch (ffmpegError) {
             console.warn('FFmpeg conversion failed, falling back to original file:', ffmpegError);
             // Fallback: Use original buffer. 
-            // Note: If original was WebM and MiniMax hates WebM, this might still fail at Fal stage,
-            // but at least it won't be a 500 Internal Server Error here.
-            // We'll set mimeType based on inputExt to be honest
             mimeType = inputExt === 'mp3' ? 'audio/mpeg' : `audio/${inputExt}`;
+            base64 = bufferToUpload.toString('base64');
         }
 
         console.log(`Uploading ${mimeType} to Fal storage...`);
 
         // Upload to Fal storage to get a public URL
-        const storageUrl = await fal.storage.upload(
-            new Blob([bufferToUpload], { type: mimeType })
-        );
+        // Cast buffer to Uint8Array to satisfy Blob TS definition
+        const blob = new Blob([new Uint8Array(bufferToUpload)], { type: mimeType });
+        const storageUrl = await fal.storage.upload(blob);
         console.log('Audio uploaded to:', storageUrl);
 
         // Call MiniMax voice cloning API with the converted MP3 URL
