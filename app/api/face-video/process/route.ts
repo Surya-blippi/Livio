@@ -145,6 +145,22 @@ async function startJson2VideoRender(
         enableBackgroundMusic: enableBackgroundMusic ?? false,
     });
 
+    // Add webhook if available
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+        // Ensure "exports" exists
+        if (!moviePayload.exports) moviePayload.exports = [];
+        if (moviePayload.exports.length === 0) moviePayload.exports.push({ destinations: [] });
+
+        // Add webhook destination
+        moviePayload.exports[0].destinations = moviePayload.exports[0].destinations || [];
+        moviePayload.exports[0].destinations.push({
+            type: 'webhook',
+            endpoint: `${appUrl}/api/webhooks/json2video`
+        });
+        console.log(`🪝 Component Webhook added: ${appUrl}/api/webhooks/json2video`);
+    }
+
     const response = await axios.post('https://api.json2video.com/v2/movies', moviePayload, {
         headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
     });

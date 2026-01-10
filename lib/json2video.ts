@@ -65,6 +65,9 @@ export interface Json2VideoMovie {
     fps?: number;
     draft?: boolean;
     scenes: Json2VideoScene[];
+    elements?: any[]; // Movie-level elements
+    voice?: string;
+    exports?: { destinations: { type?: string; endpoint?: string; id?: string; file?: string }[] }[];
 }
 
 export interface Json2VideoResponse {
@@ -231,8 +234,8 @@ function getCaptionSettings(styleName: string): Record<string, unknown> {
  * Convert our app's scene format to JSON2Video movie format
  * Uses the correct JSON2Video API v2 schema
  */
-export function convertToJson2VideoFormat(input: RenderInput): Record<string, unknown> {
-    const scenes: Record<string, unknown>[] = input.scenes.map((scene, index) => {
+export function convertToJson2VideoFormat(input: RenderInput): Json2VideoMovie {
+    const scenes: any[] = input.scenes.map((scene, index) => {
         const elements: Record<string, unknown>[] = [];
         const kenBurns = getKenBurnsEffect(index);
 
@@ -349,8 +352,8 @@ export interface FaceVideoRenderInput {
  * Convert face video scenes to JSON2Video format
  * Uses video elements for face scenes, image elements with Ken Burns for assets
  */
-export function convertFaceVideoToJson2VideoFormat(input: FaceVideoRenderInput): Record<string, unknown> {
-    const scenes: Record<string, unknown>[] = input.scenes.map((scene, index) => {
+export function convertFaceVideoToJson2VideoFormat(input: FaceVideoRenderInput): Json2VideoMovie {
+    const scenes: any[] = input.scenes.map((scene, index) => {
         const elements: Record<string, unknown>[] = [];
 
         if (scene.sceneType === 'face') {
