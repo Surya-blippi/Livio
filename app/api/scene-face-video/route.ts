@@ -154,7 +154,7 @@ async function uploadClipToSupabase(
 
 // Call JSON2Video API to render the final video
 async function renderWithJson2Video(
-    moviePayload: Record<string, unknown>
+    moviePayload: Json2VideoMovie
 ): Promise<{ videoUrl: string; duration: number }> {
     console.log('[JSON2Video] Starting render...');
 
