@@ -85,26 +85,40 @@ export const enhanceScript = async (topic: string, duration: number = 30): Promi
 /**
  * Clone voice using MiniMax FAL (returns voice ID for tracking)
  */
-export const cloneVoice = async (audioFile: File): Promise<{ voiceId: string; previewUrl: string; audioBase64: string }> => {
-    const formData = new FormData();
-    formData.append('audio', audioFile);
+export const cloneVoice = async (audioInput: File | string): Promise<{ voiceId: string; previewUrl: string; audioBase64: string }> => {
+    let response;
+    let audioBase64 = '';
 
-    // Convert to base64 for storage and reuse (browser-compatible)
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    const mimeType = audioFile.type || 'audio/wav';
-    const audioBase64 = `data:${mimeType};base64,${base64}`;
+    if (typeof audioInput === 'string') {
+        // Input is a URL
+        response = await axios.post('/api/clone-voice', {
+            audioUrl: audioInput
+        }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        audioBase64 = ''; // We don't have base64 in this case, but that's fine for the DB if we have the URL
+    } else {
+        // Input is a File
+        const formData = new FormData();
+        formData.append('audio', audioInput);
 
-    const response = await axios.post('/api/clone-voice', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
+        // Convert to base64 for storage and reuse (browser-compatible)
+        const arrayBuffer = await audioInput.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
         }
-    });
+        const base64 = btoa(binary);
+        const mimeType = audioInput.type || 'audio/wav';
+        audioBase64 = `data:${mimeType};base64,${base64}`;
+
+        response = await axios.post('/api/clone-voice', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    }
 
     return {
         voiceId: response.data.voiceId,

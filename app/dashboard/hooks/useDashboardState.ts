@@ -500,7 +500,8 @@ export const useDashboardState = () => {
             let previewUrl = storageUrl;
 
             try {
-                const voiceData = await cloneVoice(voiceFile);
+                // Pass the URL instead of the file for faster/reliable cloning
+                const voiceData = await cloneVoice(storageUrl);
                 voiceId = voiceData.voiceId;
                 previewUrl = voiceData.previewUrl; // Use generated preview if available
             } catch (cloneError) {

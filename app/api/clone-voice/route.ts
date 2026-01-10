@@ -30,12 +30,43 @@ export async function POST(request: NextRequest) {
             // Continue, hoping ffmpeg is in global path or conversion isn't strictly fatal
         }
 
+        if (request.headers.get('content-type')?.includes('application/json')) {
+            const body = await request.json();
+            if (body.audioUrl) {
+                console.log('Using provided audio URL for cloning:', body.audioUrl);
+
+                // Call MiniMax voice cloning API directly with the provided URL
+                const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
+                    input: {
+                        audio_url: body.audioUrl,
+                        model: 'speech-02-hd',
+                        noise_reduction: true,
+                        need_volume_normalization: true
+                    },
+                    logs: true,
+                    onQueueUpdate: (update) => {
+                        if (update.status === 'IN_PROGRESS') {
+                            console.log('Voice cloning progress:', update.logs?.map((log: { message: string }) => log.message));
+                        }
+                    }
+                });
+
+                console.log('Voice cloning result:', result);
+
+                return NextResponse.json({
+                    voiceId: result.data.custom_voice_id,
+                    previewUrl: result.data.audio?.url,
+                    audioBase64: '' // No base64 available when using URL flow
+                });
+            }
+        }
+
         const formData = await request.formData();
         const audioFile = formData.get('audio') as File;
 
         if (!audioFile) {
             return NextResponse.json(
-                { error: 'Audio file is required' },
+                { error: 'Audio file or audioUrl is required' },
                 { status: 400 }
             );
         }
