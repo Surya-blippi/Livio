@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS video_jobs (
     -- Scene-by-scene processing state
     current_scene_index INTEGER DEFAULT 0,
     processed_scenes JSONB DEFAULT '[]'::jsonb,
+    is_processing BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

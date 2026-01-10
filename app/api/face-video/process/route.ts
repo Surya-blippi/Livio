@@ -221,6 +221,19 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // MUTEX: Check if another process call is currently running
+        if (job.is_processing === true) {
+            console.log(`⏳ Job ${jobId} is already being processed by another call, skipping...`);
+            return NextResponse.json({
+                message: 'Another process is currently running',
+                status: 'processing',
+                skipped: true
+            });
+        }
+
+        // Acquire the lock immediately
+        await updateJob(jobId, { is_processing: true });
+
         const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions } = job.input_data as {
             scenes: SceneInput[];
             faceImageUrl: string;
@@ -276,7 +289,8 @@ export async function POST(request: NextRequest) {
                 status: 'completed',
                 progress: 100,
                 progress_message: 'Video ready!',
-                result_data: { videoUrl, duration, clipAssets }
+                result_data: { videoUrl, duration, clipAssets },
+                is_processing: false  // RELEASE LOCK
             });
 
             console.log(`✅ Job ${jobId} completed!`);
@@ -346,14 +360,15 @@ export async function POST(request: NextRequest) {
 
         processedScenes.push(newProcessedScene);
 
-        // Update job with new scene and increment index
+        // Update job with new scene, increment index, and RELEASE LOCK
         await updateJob(jobId, {
             current_scene_index: currentIndex + 1,
             processed_scenes: processedScenes,
             progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
             progress_message: currentIndex + 1 >= totalScenes
                 ? 'All scenes processed, composing...'
-                : `Scene ${currentIndex + 1}/${totalScenes} complete`
+                : `Scene ${currentIndex + 1}/${totalScenes} complete`,
+            is_processing: false  // RELEASE LOCK
         });
 
         console.log(`✅ Scene ${currentIndex + 1} complete. Next: ${currentIndex + 2}/${totalScenes}`);
@@ -373,7 +388,8 @@ export async function POST(request: NextRequest) {
             await updateJob(jobId, {
                 status: 'failed',
                 error: error instanceof Error ? error.message : 'Unknown error',
-                progress_message: 'Failed'
+                progress_message: 'Failed',
+                is_processing: false  // RELEASE LOCK on error
             });
         }
 

@@ -892,9 +892,9 @@ export const pollFaceVideoJob = async (
         }
 
         // Re-trigger processing if still pending or processing (drives scene-by-scene)
-        // Only trigger every 5+ seconds to avoid overwhelming
+        // Server has mutex lock, so safe to trigger every 10s
         if ((status.status === 'pending' || status.status === 'processing') &&
-            Date.now() - lastTriggerTime > 5000) {
+            Date.now() - lastTriggerTime > 10000) {
             await triggerFaceVideoProcess(jobId);
             lastTriggerTime = Date.now();
         }
