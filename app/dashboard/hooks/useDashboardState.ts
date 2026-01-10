@@ -494,21 +494,35 @@ export const useDashboardState = () => {
             const storageUrl = await uploadVoiceSample(dbUser.id, voiceFile);
             if (!storageUrl) throw new Error('Failed to upload voice sample');
 
-            // 2. Save explicitly to DB as "pending"
+            // 2. Clone the voice IMMEDIATELY
+            // logic moved from handleCreateVideo to here
+            let voiceId = 'pending';
+            let previewUrl = storageUrl;
+
+            try {
+                const voiceData = await cloneVoice(voiceFile);
+                voiceId = voiceData.voiceId;
+                previewUrl = voiceData.previewUrl; // Use generated preview if available
+            } catch (cloneError) {
+                console.error('Immediate cloning failed, saving as pending:', cloneError);
+                // Fallback: save as pending if cloning service is down, so we don't lose the upload
+            }
+
+            // 3. Save to DB
             // Generate a unique name
             const voiceCount = allVoices.length + 1;
             const voiceName = `Custom Voice ${voiceCount}`;
 
             const newVoice = await saveVoice(
                 dbUser.id,
-                'pending', // Mark as pending cloning
+                voiceId,
                 storageUrl,
                 voiceName,
-                storageUrl // Use sample as preview
+                previewUrl
             );
 
             if (newVoice) {
-                // 3. Select it and clear pending file
+                // 4. Select it and clear pending file
                 await setActiveVoice(dbUser.id, newVoice.id);
                 setSavedVoice(newVoice);
                 setAllVoices(prev => [newVoice, ...prev]);
