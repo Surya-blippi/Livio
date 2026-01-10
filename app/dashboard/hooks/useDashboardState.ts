@@ -582,8 +582,8 @@ export const useDashboardState = () => {
                 }
                 // 2. If user has a saved cloned voice, use that
                 else if (savedVoice) {
-                    // Check if the voice is "pending" (deferred cloning)
-                    if (savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
+                    // Check if the voice is "pending" or missing ID
+                    if (!savedVoice.voice_id || savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
                         setProcessingMessage('Cloning your new voice...');
                         console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
 
