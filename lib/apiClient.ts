@@ -143,8 +143,12 @@ export const generateSpeechWithVoiceId = async (
     try {
         const response = await axios.post('/api/generate-speech', {
             script,
-            customVoiceId
+            customVoiceId: customVoiceId || 'female-01' // Safe fallback
         });
+
+        if (!customVoiceId) {
+            console.warn('[TTS] No voice ID provided, fell back to female-01');
+        }
 
         return {
             audioUrl: response.data.audioUrl,
