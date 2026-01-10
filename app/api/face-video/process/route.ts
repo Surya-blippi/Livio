@@ -154,36 +154,44 @@ async function startJson2VideoRender(
     return projectId;
 }
 
-// Poll JSON2Video
+// Poll JSON2Video with detailed logging
 async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean }> {
-    console.log(`🔍 Polling JSON2Video: ${projectId}`);
+    console.log(`\n🔍 === POLLING JSON2VIDEO ===`);
+    console.log(`📋 Project ID: ${projectId}`);
     const startTime = Date.now();
 
     while (Date.now() - startTime < MAX_POLL_TIME_MS) {
         try {
-            const resp = await axios.get(
-                `https://api.json2video.com/v2/movies?project=${projectId}`,
-                { headers: { 'x-api-key': JSON2VIDEO_API_KEY } }
-            );
+            const url = `https://api.json2video.com/v2/movies?project=${projectId}`;
+            console.log(`📡 Requesting: ${url}`);
+
+            const resp = await axios.get(url, {
+                headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+                timeout: 15000
+            });
             const status = resp.data;
-            console.log(`📊 JSON2Video status: ${status.status}`);
+            console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
 
             if (status.status === 'done' && status.movie) {
+                console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
                 return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
             }
             if (status.status === 'error') {
-                console.error(`❌ JSON2Video error:`, status.message);
+                console.error(`❌ JSON2Video error:`, status.message || status);
                 return { completed: false, failed: true };
             }
 
+            console.log(`⏳ Status: ${status.status}, waiting ${POLL_INTERVAL_MS}ms...`);
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         } catch (e) {
-            console.log(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
+            console.error(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
     }
+    console.log(`⏱️ Polling timeout after ${(Date.now() - startTime) / 1000}s`);
     return { completed: false };
 }
+
 
 // Upload to Supabase
 async function uploadToSupabase(videoUrl: string, fileName: string): Promise<string> {
