@@ -583,6 +583,10 @@ export const useDashboardState = () => {
                 }
                 // 2. If user has a saved cloned voice, use that
                 else if (savedVoice) {
+                    console.log('[Debug] Checking savedVoice:', savedVoice);
+                    console.log('[Debug] savedVoice.voice_id:', savedVoice.voice_id);
+                    console.log('[Debug] Type of voice_id:', typeof savedVoice.voice_id);
+
                     // Check if the voice is "pending" or missing ID
                     if (!savedVoice.voice_id || savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
                         setProcessingMessage('Cloning your new voice...');
@@ -591,6 +595,7 @@ export const useDashboardState = () => {
                         try {
                             // Use the URL directly for cloning (fast path)
                             const voiceData = await cloneVoice(savedVoice.voice_sample_url);
+                            console.log('[Debug] Clone successful, new ID:', voiceData.voiceId);
                             voiceIdToUse = voiceData.voiceId;
 
                             // Update the voice record with the real ID
@@ -608,6 +613,7 @@ export const useDashboardState = () => {
                             return;
                         }
                     } else {
+                        console.log('[Debug] Using existing voice ID:', savedVoice.voice_id);
                         voiceIdToUse = savedVoice.voice_id;
                     }
                 }
