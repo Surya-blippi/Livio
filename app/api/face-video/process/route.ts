@@ -154,8 +154,8 @@ async function startJson2VideoRender(
     return projectId;
 }
 
-// Poll JSON2Video with detailed logging
-async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean }> {
+// Poll JSON2Video with detailed logging and fetch
+async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean; status?: string }> {
     console.log(`\n🔍 === POLLING JSON2VIDEO ===`);
     console.log(`📋 Project ID: ${projectId}`);
     const startTime = Date.now();
@@ -165,11 +165,16 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
             const url = `https://api.json2video.com/v2/movies?project=${projectId}`;
             console.log(`📡 Requesting: ${url}`);
 
-            const resp = await axios.get(url, {
-                headers: { 'x-api-key': JSON2VIDEO_API_KEY },
-                timeout: 15000
+            const resp = await fetch(url, {
+                headers: { 'x-api-key': JSON2VIDEO_API_KEY }
             });
-            const status = resp.data;
+
+            if (!resp.ok) {
+                console.log(`⚠️ HTTP Error: ${resp.status}`);
+                throw new Error(`HTTP ${resp.status}`);
+            }
+
+            const status = await resp.json();
             console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
 
             if (status.status === 'done' && status.movie) {
@@ -178,18 +183,19 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
             }
             if (status.status === 'error') {
                 console.error(`❌ JSON2Video error:`, status.message || status);
-                return { completed: false, failed: true };
+                return { completed: false, failed: true, status: status.message };
             }
 
-            console.log(`⏳ Status: ${status.status}, waiting ${POLL_INTERVAL_MS}ms...`);
-            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+            // Return status for debugging
+            return { completed: false, status: status.status };
+
         } catch (e) {
             console.error(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
     }
     console.log(`⏱️ Polling timeout after ${(Date.now() - startTime) / 1000}s`);
-    return { completed: false };
+    return { completed: false, status: 'timeout' };
 }
 
 
@@ -261,11 +267,6 @@ export async function POST(request: NextRequest) {
         if (pendingRender) {
             console.log(`\n📽️ CHECKING PENDING RENDER: ${pendingRender.projectId}`);
 
-            await supabase.from('video_jobs').update({
-                progress_message: 'Waiting for final video...',
-                updated_at: new Date().toISOString()
-            }).eq('id', jobId);
-
             const result = await pollJson2Video(pendingRender.projectId);
 
             if (result.completed && result.videoUrl) {
@@ -286,11 +287,11 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ success: true, completed: true, videoUrl: result.videoUrl });
             }
 
-            if (result.failed || Date.now() - pendingRender.startedAt > 600000) {
+            if (result.failed || Date.now() - pendingRender.startedAt > 1200000) { // 20 mins timeout
                 console.log(`❌ Render failed or timed out`);
                 await supabase.from('video_jobs').update({
                     input_data: { ...inputData, pendingRender: null },
-                    progress_message: 'Render failed, retrying...',
+                    progress_message: `Render failed: ${result.status || 'timeout'}`,
                     is_processing: false,
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
@@ -298,12 +299,23 @@ export async function POST(request: NextRequest) {
             }
 
             // Still rendering
-            await supabase.from('video_jobs').update({
-                progress_message: 'Rendering final video...',
-                is_processing: false,
-                updated_at: new Date().toISOString()
-            }).eq('id', jobId);
-            return NextResponse.json({ stillRendering: true });
+            const statusMsg = result.status ? `Rendering: ${result.status}` : 'Rendering final video...';
+            // Only update DB if message changed (to save writes)
+            if (freshJob.progress_message !== statusMsg) {
+                await supabase.from('video_jobs').update({
+                    progress_message: statusMsg,
+                    is_processing: false,
+                    updated_at: new Date().toISOString()
+                }).eq('id', jobId);
+            } else {
+                // But always release lock!
+                await supabase.from('video_jobs').update({
+                    is_processing: false,
+                    updated_at: new Date().toISOString()
+                }).eq('id', jobId);
+            }
+
+            return NextResponse.json({ stillRendering: true, status: result.status });
         }
 
         // ======== CASE B: Pending scene - poll WaveSpeed ========
