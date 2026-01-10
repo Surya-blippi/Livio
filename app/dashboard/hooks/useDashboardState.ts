@@ -708,8 +708,34 @@ export const useDashboardState = () => {
                 } else if (hasClonedVoice && savedVoice) {
                     setProcessingStep(2);
                     setProcessingMessage('Generating speech...');
+
+                    let activeVoiceId = savedVoice.voice_id;
+
+                    // Handle pending voice in FACE mode
+                    if (!activeVoiceId || activeVoiceId === 'pending' || activeVoiceId === 'undefined') {
+                        console.log('[FaceMode] Cloning pending voice...');
+                        try {
+                            const voiceData = await cloneVoice(savedVoice.voice_sample_url);
+                            activeVoiceId = voiceData.voiceId;
+
+                            // Update DB
+                            if (dbUser) {
+                                await updateVoiceId(savedVoice.id, activeVoiceId, voiceData.previewUrl);
+                                // Update local state is optional here as we use activeVoiceId variable, but good for UI
+                                const updatedVoice = { ...savedVoice, voice_id: activeVoiceId, preview_url: voiceData.previewUrl };
+                                setSavedVoice(updatedVoice);
+                                setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                            }
+                        } catch (err) {
+                            console.error('Face mode cloning failed:', err);
+                            setError('Failed to process custom voice.');
+                            setIsProcessing(false);
+                            return;
+                        }
+                    }
+
                     try {
-                        const result = await generateSpeechWithVoiceId(inputText, savedVoice.voice_id);
+                        const result = await generateSpeechWithVoiceId(inputText, activeVoiceId);
                         speechUrl = result.audioUrl;
                         if (result.reCloned && result.newVoiceId && dbUser) {
                             await updateVoiceId(savedVoice.id, result.newVoiceId, result.newPreviewUrl);
