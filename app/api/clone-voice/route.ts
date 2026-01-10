@@ -30,62 +30,50 @@ export async function POST(request: NextRequest) {
             // Continue, hoping ffmpeg is in global path or conversion isn't strictly fatal
         }
 
+        let audioBuffer: Buffer;
+        let originalName = 'audio.webm';
+
+        // 1. Determine input source (JSON URL or FormData File)
         if (request.headers.get('content-type')?.includes('application/json')) {
             const body = await request.json();
             if (body.audioUrl) {
                 console.log('Using provided audio URL for cloning:', body.audioUrl);
+                // Download the file from the URL
+                const response = await fetch(body.audioUrl);
+                if (!response.ok) throw new Error(`Failed to download audio from URL: ${response.statusText}`);
+                const arrayBuffer = await response.arrayBuffer();
+                audioBuffer = Buffer.from(arrayBuffer);
 
-                // Call MiniMax voice cloning API directly with the provided URL
-                const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
-                    input: {
-                        audio_url: body.audioUrl,
-                        model: 'speech-02-hd',
-                        noise_reduction: true,
-                        need_volume_normalization: true
-                    },
-                    logs: true,
-                    onQueueUpdate: (update) => {
-                        if (update.status === 'IN_PROGRESS') {
-                            console.log('Voice cloning progress:', update.logs?.map((log: { message: string }) => log.message));
-                        }
-                    }
-                });
-
-                console.log('Voice cloning result:', result);
-
-                return NextResponse.json({
-                    voiceId: result.data.custom_voice_id,
-                    previewUrl: result.data.audio?.url,
-                    audioBase64: '' // No base64 available when using URL flow
-                });
+                // Try to infer extension from URL
+                const urlPath = new URL(body.audioUrl).pathname;
+                const ext = path.extname(urlPath);
+                if (ext) originalName = `audio${ext}`;
+            } else {
+                return NextResponse.json({ error: 'audioUrl is required in JSON body' }, { status: 400 });
             }
+        } else {
+            const formData = await request.formData();
+            const audioFile = formData.get('audio') as File;
+
+            if (!audioFile) {
+                return NextResponse.json({ error: 'Audio file or audioUrl is required' }, { status: 400 });
+            }
+            console.log('Processing audio upload:', audioFile.name, audioFile.type, audioFile.size);
+            audioBuffer = Buffer.from(await audioFile.arrayBuffer());
+            originalName = audioFile.name;
         }
-
-        const formData = await request.formData();
-        const audioFile = formData.get('audio') as File;
-
-        if (!audioFile) {
-            return NextResponse.json(
-                { error: 'Audio file or audioUrl is required' },
-                { status: 400 }
-            );
-        }
-
-        console.log('Processing audio upload:', audioFile.name, audioFile.type, audioFile.size);
 
         // Setup temp paths
         const tempId = uuidv4();
         const tempDir = os.tmpdir();
         // Determine input extension or default to webm (common for recorder blobs)
-        const inputExt = audioFile.name.split('.').pop() || 'webm';
+        const inputExt = originalName.split('.').pop() || 'webm';
         tempInputPath = path.join(tempDir, `${tempId}.${inputExt}`);
         tempOutputPath = path.join(tempDir, `${tempId}.mp3`);
 
-        // Write uploaded file to temp
-        const buffer = Buffer.from(await audioFile.arrayBuffer());
-        await writeFile(tempInputPath, buffer);
-
-        console.log(`Converting ${tempInputPath} to ${tempOutputPath}...`);
+        // Write buffer to temp
+        await writeFile(tempInputPath, audioBuffer);
+        console.log(`Saved input to ${tempInputPath}, converting to MP3...`);
 
         // Convert to MP3
         await new Promise<void>((resolve, reject) => {
@@ -101,7 +89,7 @@ export async function POST(request: NextRequest) {
         const base64 = convertedBuffer.toString('base64');
 
         console.log('Conversion successful. New size:', convertedBuffer.length);
-        console.log('Uploading audio to Fal storage...');
+        console.log('Uploading MP3 to Fal storage...');
 
         // Upload to Fal storage to get a public URL (Data URLs often fail validation)
         const storageUrl = await fal.storage.upload(
