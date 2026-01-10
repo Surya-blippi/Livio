@@ -13,6 +13,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Validate customVoiceId
+        if (customVoiceId === 'pending') {
+            return NextResponse.json(
+                { error: 'Voice is still cloning. Please wait or try again.' },
+                { status: 400 }
+            );
+        }
+
         // If we have a custom voice ID, use the Speech-02 HD API directly
         if (customVoiceId) {
             console.log('Generating speech with custom voice ID:', customVoiceId);

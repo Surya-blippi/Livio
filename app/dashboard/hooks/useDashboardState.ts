@@ -611,7 +611,15 @@ export const useDashboardState = () => {
                         voiceIdToUse = savedVoice.voice_id;
                     }
                 }
-                // 3. No voice - will use default preset (may error if preset not accessible)
+                // 3. Last safety check
+                if (voiceIdToUse === 'pending') {
+                    console.error('SafeGuard: Voice ID is still PENDING after checks');
+                    setError('Voice cloning incomplete. Please try selecting the voice again.');
+                    setIsProcessing(false);
+                    return;
+                }
+
+                // 4. No voice - will use default preset (may error if preset not accessible)
 
                 let speechResult;
 
