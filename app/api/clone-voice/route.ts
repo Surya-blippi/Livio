@@ -101,15 +101,15 @@ export async function POST(request: NextRequest) {
             base64 = bufferToUpload.toString('base64');
         }
 
-        console.log(`Uploading ${mimeType} to Fal storage...`);
-
+        console.log('CHECKPOINT: Uploading to Fal storage...');
         // Upload to Fal storage to get a public URL
         // Cast buffer to Uint8Array to satisfy Blob TS definition
         const blob = new Blob([new Uint8Array(bufferToUpload)], { type: mimeType });
         const storageUrl = await fal.storage.upload(blob);
-        console.log('Audio uploaded to:', storageUrl);
+        console.log('CHECKPOINT: Audio uploaded to:', storageUrl);
 
         // Call MiniMax voice cloning API with the converted MP3 URL
+        console.log('CHECKPOINT: Calling Fal Subscribe...');
         const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
             input: {
                 audio_url: storageUrl,
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        console.log('Voice cloning result:', result);
+        console.log('CHECKPOINT: Voice cloning result received:', result);
 
         return NextResponse.json({
             voiceId: result.data.custom_voice_id,
