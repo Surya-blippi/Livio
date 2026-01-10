@@ -47,6 +47,7 @@ import {
     DbVoice,
     DbAvatar
 } from '@/lib/supabase';
+import { convertToMp3, needsConversion } from '@/lib/audioConverter';
 
 export const useDashboardState = () => {
     const { user, isLoaded } = useUser();
