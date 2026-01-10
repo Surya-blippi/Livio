@@ -41,6 +41,7 @@ import {
     updateDraft,
     uploadVoiceSample,
     getActiveVideoJobs,
+    supabase,
     DbUser,
     DbVideo,
     DbVoice,
