@@ -176,6 +176,12 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
         const status = await resp.json();
         console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
 
+        // If we have a movie URL, it is done, regardless of status string
+        if (status.movie) {
+            console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
+            return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
+        }
+
         if (status.status === 'done' && status.movie) {
             console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
             return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
@@ -185,7 +191,8 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
             return { completed: false, failed: true, status: status.message };
         }
 
-        return { completed: false, status: `[${projectId.substring(0, 6)}] ${status.status}` };
+        const debugInfo = status.status || `Keys:${Object.keys(status).join(',')}`;
+        return { completed: false, status: `[${projectId.substring(0, 6)}] ${debugInfo}` };
 
     } catch (e) {
         console.error(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
