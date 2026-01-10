@@ -286,6 +286,20 @@ export async function POST(request: NextRequest) {
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
 
+                // Save to permanent 'videos' table
+                await supabase.from('videos').insert({
+                    user_id: job.user_id,
+                    video_url: result.videoUrl,
+                    script: job.script,
+                    mode: job.mode,
+                    topic: job.topic,
+                    duration: result.duration || 0,
+                    has_captions: inputData.enableCaptions,
+                    has_music: inputData.enableBackgroundMusic,
+                    assets: inputData.scenes?.map((s: any) => ({ url: s.visual, text: s.text })) || [], // Estimate assets from scenes
+                    thumbnail_url: null
+                });
+
                 return NextResponse.json({ success: true, completed: true, videoUrl: result.videoUrl });
             }
 
