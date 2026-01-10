@@ -490,8 +490,17 @@ export const useDashboardState = () => {
         try {
             setIsConfirmingVoice(true);
 
-            // 1. Upload the voice sample
-            const storageUrl = await uploadVoiceSample(dbUser.id, voiceFile);
+            // 0. Convert to MP3 if needed (client-side, avoids server FFmpeg issues)
+            let fileToUpload = voiceFile;
+            if (needsConversion(voiceFile)) {
+                console.log('[Voice] Converting audio to MP3 on client...');
+                setProcessingMessage('Converting voice format...');
+                fileToUpload = await convertToMp3(voiceFile);
+                console.log('[Voice] Conversion complete, new file:', fileToUpload.name, fileToUpload.size);
+            }
+
+            // 1. Upload the voice sample (now in MP3 format)
+            const storageUrl = await uploadVoiceSample(dbUser.id, fileToUpload);
             if (!storageUrl) throw new Error('Failed to upload voice sample');
 
             // 2. Clone the voice IMMEDIATELY
