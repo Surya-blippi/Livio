@@ -97,9 +97,6 @@ export async function POST(request: NextRequest) {
         } catch (ffmpegError) {
             console.warn('FFmpeg conversion failed, falling back to original file:', ffmpegError);
             // Fallback: Use original buffer. 
-        } catch (ffmpegError) {
-            console.warn('FFmpeg conversion failed, falling back to original file:', ffmpegError);
-            // Fallback: Use original buffer. 
             // INTENTIONAL HACK: MiniMax rejects .webm extension but likely handles the stream.
             // We force mimeType to audio/mpeg (MP3) to bypass the extension check.
             mimeType = 'audio/mpeg';
