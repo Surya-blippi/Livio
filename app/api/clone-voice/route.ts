@@ -1,34 +1,24 @@
 import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
 import ffmpeg from 'fluent-ffmpeg';
-// import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'; // Dynamic import used instead
+import ffmpegPath from 'ffmpeg-static';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-// Don't set path at top level to avoid build-time errors with platform binaries
-// ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Set FFmpeg path from ffmpeg-static (works better on serverless)
+if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+}
 
 export async function POST(request: NextRequest) {
     let tempInputPath = '';
     let tempOutputPath = '';
 
     try {
-        // Initialize ffmpeg path inside handler using dynamic require to avoid build-time resolution
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-            const ffmpegPath = ffmpegInstaller.path;
-            if (ffmpegPath) {
-                ffmpeg.setFfmpegPath(ffmpegPath);
-            } else {
-                console.warn('FFmpeg path not found in installer, using default system path');
-            }
-        } catch (e) {
-            console.warn('Failed to set ffmpeg path from installer:', e);
-            // Continue, hoping ffmpeg is in global path or conversion isn't strictly fatal
-        }
+        console.log('CHECKPOINT: Starting clone-voice handler');
+        console.log('CHECKPOINT: FFmpeg path:', ffmpegPath);
 
         let audioBuffer: Buffer;
         let originalName = 'audio.webm';
