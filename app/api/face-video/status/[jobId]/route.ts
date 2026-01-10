@@ -30,10 +30,14 @@ export async function GET(
         }
 
         // Extract scene progress for checklist UI
-        const inputData = job.input_data as { scenes?: unknown[] } | null;
+        const inputData = job.input_data as {
+            scenes?: unknown[];
+            pendingRender?: { projectId: string } | null;
+        } | null;
         const totalScenes = inputData?.scenes?.length || 0;
         const currentSceneIndex = job.current_scene_index || 0;
         const processedScenes = job.processed_scenes || [];
+        const isRendering = inputData?.pendingRender !== null && inputData?.pendingRender !== undefined;
 
         // Return job status and result
         return NextResponse.json({
@@ -49,8 +53,9 @@ export async function GET(
             totalScenes,
             currentSceneIndex,
             processedScenesCount: processedScenes.length,
-            isRendering: job.input_data?.pendingRender ? true : false
+            isRendering
         });
+
 
 
     } catch (error) {

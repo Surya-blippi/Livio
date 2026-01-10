@@ -223,24 +223,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: `Already ${job.status}`, status: job.status });
         }
 
-        // Lock check
-        if (job.is_processing) {
-            const lockAge = Date.now() - new Date(job.updated_at).getTime();
-            if (lockAge < 120000) {
-                console.log(`🔒 Locked (${Math.round(lockAge / 1000)}s)`);
-                return NextResponse.json({ skipped: true });
-            }
+        // Lock check - use timestamp-based stale detection
+        const lockAge = Date.now() - new Date(job.updated_at).getTime();
+        if (job.is_processing && lockAge < 60000) { // 60 second lock (more aggressive)
+            console.log(`🔒 Locked (${Math.round(lockAge / 1000)}s ago), skipping`);
+            return NextResponse.json({ skipped: true, lockAge: Math.round(lockAge / 1000) });
         }
 
-        // Acquire lock
-        const { error: lockErr } = await supabase.from('video_jobs')
+        // Acquire lock unconditionally (stale locks will be overwritten)
+        console.log(`🔓 Acquiring lock for job ${jobId}...`);
+        await supabase.from('video_jobs')
             .update({ is_processing: true, updated_at: new Date().toISOString() })
-            .eq('id', jobId).eq('is_processing', false);
-        if (lockErr) return NextResponse.json({ skipped: true });
+            .eq('id', jobId);
 
-        // Re-fetch
+        // Re-fetch to get latest state
         const { data: freshJob } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
         if (!freshJob) return NextResponse.json({ error: 'Job gone' }, { status: 404 });
+
 
         const inputData = freshJob.input_data as JobInputData;
         const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene, pendingRender } = inputData;
