@@ -4,8 +4,12 @@ import { fal } from '@fal-ai/client';
 import { supabase } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 
-// Configure for reasonable timeout - we only process ONE scene per call
-export const maxDuration = 120; // 2 minutes max per scene
+// Configure for Vercel Hobby plan safe timeout (60s max, using 55s for safety margin)
+export const maxDuration = 55;
+
+// Timeouts and polling configuration
+const QUICK_POLL_TIMEOUT_MS = 25000; // 25 seconds per API call for polling (safe margin)
+const POLL_INTERVAL_MS = 3000; // 3 seconds between polls
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -28,6 +32,16 @@ interface ProcessedScene {
     audioUrl?: string;
     duration: number;
     text: string;
+}
+
+// Pending scene state - tracks WaveSpeed jobs in progress
+interface PendingSceneState {
+    predictionId: string;
+    sceneIndex: number;
+    audioUrl: string;
+    duration: number;
+    text: string;
+    imageDataUrl: string;
 }
 
 // Update job in Supabase
@@ -67,10 +81,10 @@ async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioU
     };
 }
 
-// Generate WaveSpeed face video - with timeout protection
-async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Promise<string> {
+// Start WaveSpeed face video generation - returns prediction ID immediately
+async function startFaceVideoGeneration(imageDataUrl: string, audioUrl: string): Promise<string> {
     // Download audio and convert to base64
-    const audioResponse = await axios.get(audioUrl, { responseType: 'arraybuffer' });
+    const audioResponse = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 15000 });
     const audioBase64 = Buffer.from(audioResponse.data).toString('base64');
     const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
@@ -88,20 +102,19 @@ async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Pr
                 'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
                 'Content-Type': 'application/json'
             },
-            timeout: 30000
+            timeout: 20000
         }
     );
 
     const responseData = response.data.data || response.data;
-    const predictionId = responseData.id;
+    return responseData.id;
+}
 
-    // Poll for completion - limited to ~90 seconds
-    let videoUrl: string | null = null;
-    const maxAttempts = 18; // 18 * 5s = 90s
+// Quick poll for WaveSpeed completion - limited time per API call
+async function quickPollWaveSpeed(predictionId: string): Promise<{ completed: boolean; videoUrl?: string }> {
+    const startTime = Date.now();
 
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
+    while (Date.now() - startTime < QUICK_POLL_TIMEOUT_MS) {
         try {
             const pollUrl = `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`;
             const pollResponse = await axios.get(pollUrl, {
@@ -110,22 +123,31 @@ async function generateFaceVideoClip(imageDataUrl: string, audioUrl: string): Pr
             });
 
             const pollData = pollResponse.data.data || pollResponse.data;
+
             if (pollData.status === 'completed' && pollData.output?.video) {
-                videoUrl = pollData.output.video;
-                break;
+                return { completed: true, videoUrl: pollData.output.video };
             } else if (pollData.status === 'failed') {
                 throw new Error('WaveSpeed video generation failed');
             }
+
+            // Continue polling
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
         } catch (pollError) {
-            if (i === maxAttempts - 1) throw pollError;
+            // Only throw if it's a known failure, otherwise continue polling
+            if (axios.isAxiosError(pollError) && pollError.response?.status === 404) {
+                // Prediction not found - might still be starting
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            } else if (pollError instanceof Error && pollError.message.includes('failed')) {
+                throw pollError;
+            } else {
+                // Timeout or network error - continue polling
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            }
         }
     }
 
-    if (!videoUrl) {
-        throw new Error('WaveSpeed video generation timed out');
-    }
-
-    return videoUrl;
+    // Time's up for this API call - return incomplete
+    return { completed: false };
 }
 
 // Upload video to Supabase Storage
@@ -245,10 +267,77 @@ export async function POST(request: NextRequest) {
         const totalScenes = scenes.length;
         const currentIndex = job.current_scene_index || 0;
         const processedScenes: ProcessedScene[] = job.processed_scenes || [];
+        const pendingScene: PendingSceneState | null = job.pending_scene || null;
 
-        console.log(`🎬 Processing job ${jobId}: scene ${currentIndex + 1}/${totalScenes}`);
+        console.log(`🎬 Processing job ${jobId}: scene ${currentIndex + 1}/${totalScenes}, pending: ${pendingScene ? 'yes' : 'no'}`);
 
-        // Check if all scenes are already processed
+        // ============ PHASE 2: Check pending WaveSpeed scene ============
+        if (pendingScene && pendingScene.sceneIndex === currentIndex) {
+            console.log(`📍 Checking pending WaveSpeed scene ${currentIndex + 1}...`);
+
+            await updateJob(jobId, {
+                progress_message: `Waiting for face video ${currentIndex + 1}/${totalScenes}...`
+            });
+
+            const pollResult = await quickPollWaveSpeed(pendingScene.predictionId);
+
+            if (pollResult.completed && pollResult.videoUrl) {
+                console.log(`✅ WaveSpeed scene ${currentIndex + 1} completed!`);
+
+                // Upload and save the scene
+                const fileName = `clip_${jobId}_scene_${currentIndex}.mp4`;
+                const clipUrl = await uploadClipToSupabase(pollResult.videoUrl, fileName);
+
+                const newProcessedScene: ProcessedScene = {
+                    index: currentIndex,
+                    type: 'face',
+                    clipUrl,
+                    duration: pendingScene.duration,
+                    text: pendingScene.text
+                };
+
+                processedScenes.push(newProcessedScene);
+
+                // Clear pending scene and move to next
+                await updateJob(jobId, {
+                    current_scene_index: currentIndex + 1,
+                    processed_scenes: processedScenes,
+                    pending_scene: null,
+                    progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
+                    progress_message: `Scene ${currentIndex + 1}/${totalScenes} complete`,
+                    is_processing: false
+                });
+
+                console.log(`✅ Scene ${currentIndex + 1} saved. Next: ${currentIndex + 2}/${totalScenes}`);
+
+                return NextResponse.json({
+                    success: true,
+                    completed: false,
+                    currentScene: currentIndex + 1,
+                    totalScenes,
+                    message: `Scene ${currentIndex + 1}/${totalScenes} processed`
+                });
+            } else {
+                // Still processing - release lock and return
+                console.log(`⏳ WaveSpeed scene ${currentIndex + 1} still processing...`);
+
+                await updateJob(jobId, {
+                    progress_message: `Generating face video ${currentIndex + 1}/${totalScenes} (processing...)`,
+                    is_processing: false
+                });
+
+                return NextResponse.json({
+                    success: true,
+                    completed: false,
+                    currentScene: currentIndex,
+                    totalScenes,
+                    message: `Scene ${currentIndex + 1} still generating, check again soon`,
+                    pendingWaveSpeed: true
+                });
+            }
+        }
+
+        // ============ Check if all scenes are processed ============
         if (currentIndex >= totalScenes) {
             // Move to composition phase
             await updateJob(jobId, {
@@ -290,7 +379,7 @@ export async function POST(request: NextRequest) {
                 progress: 100,
                 progress_message: 'Video ready!',
                 result_data: { videoUrl, duration, clipAssets },
-                is_processing: false  // RELEASE LOCK
+                is_processing: false
             });
 
             console.log(`✅ Job ${jobId} completed!`);
@@ -303,83 +392,100 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Mark as processing
+        // ============ PHASE 1: Start new scene processing ============
         await updateJob(jobId, {
             status: 'processing',
             progress: Math.floor(10 + (currentIndex / totalScenes) * 70),
             progress_message: `Processing scene ${currentIndex + 1}/${totalScenes}...`
         });
 
-        // Get current scene to process
         const scene = scenes[currentIndex];
-        console.log(`📍 Scene ${currentIndex + 1}: ${scene.type.toUpperCase()} - "${scene.text.substring(0, 40)}..."`);
+        console.log(`📍 Starting scene ${currentIndex + 1}: ${scene.type.toUpperCase()} - "${scene.text.substring(0, 40)}..."`);
 
-        // Prepare face image as data URL (only once, for face scenes)
-        let imageDataUrl: string | null = null;
+        // Generate TTS for this scene
+        const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
+        console.log(`🔊 TTS generated for scene ${currentIndex + 1}: ${duration.toFixed(1)}s`);
+
         if (scene.type === 'face') {
+            // Prepare face image as data URL
+            let imageDataUrl: string;
             if (faceImageUrl.startsWith('data:')) {
                 imageDataUrl = faceImageUrl;
             } else {
-                const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer' });
+                const imgResponse = await axios.get(faceImageUrl, { responseType: 'arraybuffer', timeout: 15000 });
                 const imgBase64 = Buffer.from(imgResponse.data).toString('base64');
                 const mimeType = imgResponse.headers['content-type'] || 'image/jpeg';
                 imageDataUrl = `data:${mimeType};base64,${imgBase64}`;
             }
-        }
 
-        // Generate TTS for this scene
-        const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
-
-        let clipUrl: string;
-        let sceneAudioUrl: string | undefined;
-
-        if (scene.type === 'face' && imageDataUrl) {
+            // Start WaveSpeed generation
             await updateJob(jobId, {
-                progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`
+                progress_message: `Starting face video ${currentIndex + 1}/${totalScenes}...`
             });
 
-            const wavespeedUrl = await generateFaceVideoClip(imageDataUrl, audioUrl);
-            const fileName = `clip_${jobId}_scene_${currentIndex}.mp4`;
-            clipUrl = await uploadClipToSupabase(wavespeedUrl, fileName);
-            // No separate audio for face scenes (audio baked in)
+            const predictionId = await startFaceVideoGeneration(imageDataUrl, audioUrl);
+            console.log(`🚀 WaveSpeed started for scene ${currentIndex + 1}: ${predictionId}`);
+
+            // Save pending scene state
+            const newPendingScene: PendingSceneState = {
+                predictionId,
+                sceneIndex: currentIndex,
+                audioUrl,
+                duration,
+                text: scene.text,
+                imageDataUrl
+            };
+
+            await updateJob(jobId, {
+                pending_scene: newPendingScene,
+                progress_message: `Generating face video ${currentIndex + 1}/${totalScenes}...`,
+                is_processing: false
+            });
+
+            console.log(`💾 Saved pending scene ${currentIndex + 1}, returning for next poll`);
+
+            return NextResponse.json({
+                success: true,
+                completed: false,
+                currentScene: currentIndex,
+                totalScenes,
+                message: `Scene ${currentIndex + 1} WaveSpeed started, poll again`,
+                pendingWaveSpeed: true
+            });
         } else {
-            // Asset scene - use the asset URL directly
-            clipUrl = scene.assetUrl || faceImageUrl;
-            sceneAudioUrl = audioUrl; // Asset scenes need separate audio
+            // Asset scene - process immediately (no WaveSpeed needed)
+            const clipUrl = scene.assetUrl || faceImageUrl;
+            const sceneAudioUrl = audioUrl; // Asset scenes need separate audio
+
+            const newProcessedScene: ProcessedScene = {
+                index: currentIndex,
+                type: scene.type,
+                clipUrl,
+                audioUrl: sceneAudioUrl,
+                duration,
+                text: scene.text
+            };
+
+            processedScenes.push(newProcessedScene);
+
+            await updateJob(jobId, {
+                current_scene_index: currentIndex + 1,
+                processed_scenes: processedScenes,
+                progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
+                progress_message: `Scene ${currentIndex + 1}/${totalScenes} complete`,
+                is_processing: false
+            });
+
+            console.log(`✅ Asset scene ${currentIndex + 1} complete. Next: ${currentIndex + 2}/${totalScenes}`);
+
+            return NextResponse.json({
+                success: true,
+                completed: false,
+                currentScene: currentIndex + 1,
+                totalScenes,
+                message: `Scene ${currentIndex + 1}/${totalScenes} processed`
+            });
         }
-
-        // Add to processed scenes
-        const newProcessedScene: ProcessedScene = {
-            index: currentIndex,
-            type: scene.type,
-            clipUrl,
-            audioUrl: sceneAudioUrl,
-            duration,
-            text: scene.text
-        };
-
-        processedScenes.push(newProcessedScene);
-
-        // Update job with new scene, increment index, and RELEASE LOCK
-        await updateJob(jobId, {
-            current_scene_index: currentIndex + 1,
-            processed_scenes: processedScenes,
-            progress: Math.floor(10 + ((currentIndex + 1) / totalScenes) * 70),
-            progress_message: currentIndex + 1 >= totalScenes
-                ? 'All scenes processed, composing...'
-                : `Scene ${currentIndex + 1}/${totalScenes} complete`,
-            is_processing: false  // RELEASE LOCK
-        });
-
-        console.log(`✅ Scene ${currentIndex + 1} complete. Next: ${currentIndex + 2}/${totalScenes}`);
-
-        return NextResponse.json({
-            success: true,
-            completed: false,
-            currentScene: currentIndex + 1,
-            totalScenes,
-            message: `Scene ${currentIndex + 1}/${totalScenes} processed`
-        });
 
     } catch (error) {
         console.error('Error processing scene:', error);
@@ -389,7 +495,7 @@ export async function POST(request: NextRequest) {
                 status: 'failed',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 progress_message: 'Failed',
-                is_processing: false  // RELEASE LOCK on error
+                is_processing: false
             });
         }
 

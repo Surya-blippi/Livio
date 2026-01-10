@@ -891,13 +891,14 @@ export const pollFaceVideoJob = async (
             throw new Error(status.error || 'Video generation failed');
         }
 
-        // Re-trigger processing if still pending or processing (drives scene-by-scene)
-        // Server has mutex lock, so safe to trigger every 10s
+        // Re-trigger processing frequently (drives scene-by-scene with quick polls)
+        // Server has mutex lock, so safe to trigger often
         if ((status.status === 'pending' || status.status === 'processing') &&
-            Date.now() - lastTriggerTime > 10000) {
+            Date.now() - lastTriggerTime > 5000) {
             await triggerFaceVideoProcess(jobId);
             lastTriggerTime = Date.now();
         }
+
 
         // Wait before next poll
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
