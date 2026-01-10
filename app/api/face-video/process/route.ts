@@ -155,48 +155,42 @@ async function startJson2VideoRender(
 }
 
 // Poll JSON2Video with detailed logging and fetch
+// Poll JSON2Video (Single check with timestamp cache busting)
 async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean; status?: string }> {
-    console.log(`\n🔍 === POLLING JSON2VIDEO ===`);
-    console.log(`📋 Project ID: ${projectId}`);
-    const startTime = Date.now();
+    console.log(`\n🔍 === CHECKING JSON2VIDEO: ${projectId} ===`);
 
-    while (Date.now() - startTime < MAX_POLL_TIME_MS) {
-        try {
-            const url = `https://api.json2video.com/v2/movies?project=${projectId}`;
-            console.log(`📡 Requesting: ${url}`);
+    try {
+        const url = `https://api.json2video.com/v2/movies?project=${projectId}&_t=${Date.now()}`;
+        console.log(`📡 Requesting: ${url}`);
 
-            const resp = await fetch(url, {
-                headers: { 'x-api-key': JSON2VIDEO_API_KEY },
-                cache: 'no-store'
-            });
+        const resp = await fetch(url, {
+            headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+            cache: 'no-store'
+        });
 
-            if (!resp.ok) {
-                console.log(`⚠️ HTTP Error: ${resp.status}`);
-                throw new Error(`HTTP ${resp.status}`);
-            }
-
-            const status = await resp.json();
-            console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
-
-            if (status.status === 'done' && status.movie) {
-                console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
-                return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
-            }
-            if (status.status === 'error') {
-                console.error(`❌ JSON2Video error:`, status.message || status);
-                return { completed: false, failed: true, status: status.message };
-            }
-
-            // Return status for debugging
-            return { completed: false, status: status.status };
-
-        } catch (e) {
-            console.error(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
-            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        if (!resp.ok) {
+            console.log(`⚠️ HTTP Error: ${resp.status}`);
+            return { completed: false, status: `HTTP ${resp.status}` };
         }
+
+        const status = await resp.json();
+        console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
+
+        if (status.status === 'done' && status.movie) {
+            console.log(`✅ RENDER DONE! Video URL: ${status.movie}`);
+            return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
+        }
+        if (status.status === 'error') {
+            console.error(`❌ JSON2Video error:`, status.message || status);
+            return { completed: false, failed: true, status: status.message };
+        }
+
+        return { completed: false, status: `[${projectId.substring(0, 6)}] ${status.status}` };
+
+    } catch (e) {
+        console.error(`⚠️ Poll error:`, e instanceof Error ? e.message : e);
+        return { completed: false, status: 'connection error' };
     }
-    console.log(`⏱️ Polling timeout after ${(Date.now() - startTime) / 1000}s`);
-    return { completed: false, status: 'timeout' };
 }
 
 

@@ -166,7 +166,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                             }`}>
                                             Final Render
                                         </span>
-                                        {sceneProgress.isRendering && <span className="text-purple-600 text-xs ml-auto animate-pulse">Composing...</span>}
+                                        {sceneProgress.isRendering && (
+                                            <span className="text-purple-600 text-xs ml-auto animate-pulse max-w-[150px] truncate text-right">
+                                                {processingMessage || 'Composing...'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
