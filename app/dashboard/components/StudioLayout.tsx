@@ -61,6 +61,13 @@ interface StudioLayoutProps {
     onGenerate: () => void;
     isProcessing: boolean;
     processingMessage: string;
+    processingStep?: number;
+    sceneProgress?: {
+        totalScenes: number;
+        processedScenesCount: number;
+        currentSceneIndex: number;
+        isRendering: boolean;
+    } | null;
     enableCaptions: boolean;
     setEnableCaptions: (enabled: boolean) => void;
     enableBackgroundMusic: boolean;
@@ -123,6 +130,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     onGenerate,
     isProcessing,
     processingMessage,
+    processingStep,
+    sceneProgress,
     enableCaptions,
     setEnableCaptions,
     enableBackgroundMusic,
@@ -182,6 +191,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         onGenerate={onGenerate}
                         isProcessing={isProcessing}
                         processingMessage={processingMessage}
+                        processingStep={processingStep}
+                        sceneProgress={sceneProgress}
                         enableCaptions={enableCaptions}
                         setEnableCaptions={setEnableCaptions}
                         enableBackgroundMusic={enableBackgroundMusic}

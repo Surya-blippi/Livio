@@ -10,6 +10,13 @@ interface MobileComposerProps {
     onGenerate: () => void;
     isProcessing: boolean;
     processingMessage: string;
+    processingStep?: number;
+    sceneProgress?: {
+        totalScenes: number;
+        processedScenesCount: number;
+        currentSceneIndex: number;
+        isRendering: boolean;
+    } | null;
     enableCaptions: boolean;
     setEnableCaptions: (enabled: boolean) => void;
     enableBackgroundMusic: boolean;
@@ -36,6 +43,8 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     onGenerate,
     isProcessing,
     processingMessage,
+    processingStep = 0,
+    sceneProgress,
     enableCaptions,
     setEnableCaptions,
     enableBackgroundMusic,
@@ -63,21 +72,80 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
         }
     }, [inputText]);
 
-    // Processing state - matches desktop style
+    // Processing state - matches desktop style with scene checklist
     if (isProcessing) {
         return (
             <div className="px-4 pt-2 pb-4">
-                <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] p-4 shadow-[4px_4px_0px_var(--brand-primary)]">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 relative">
-                            <div className="absolute inset-0 rounded-full border-2 border-gray-100" />
-                            <div className="absolute inset-0 rounded-full border-2 border-t-black animate-spin" />
-                        </div>
-                        <div>
-                            <p className="font-black text-black">Generating...</p>
-                            <p className="text-sm text-[var(--text-secondary)]">{processingMessage}</p>
-                        </div>
+                <div className="bg-white border-2 border-black rounded-[var(--radius-lg)] p-4 shadow-[4px_4px_0px_var(--brand-primary)] relative overflow-hidden">
+                    {/* Progress bar */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gray-100">
+                        <div
+                            className="h-full bg-[var(--brand-primary)] transition-all duration-300"
+                            style={{
+                                width: `${sceneProgress
+                                    ? Math.min((sceneProgress.processedScenesCount / sceneProgress.totalScenes) * 100, 100)
+                                    : Math.min(processingStep * 25, 100)}%`
+                            }}
+                        />
                     </div>
+
+                    <h3 className="text-lg font-black mb-3 text-center mt-1">Generating Video...</h3>
+
+                    {/* Scene Checklist */}
+                    {sceneProgress && sceneProgress.totalScenes > 0 ? (
+                        <div className="space-y-1.5 mb-3">
+                            {Array.from({ length: sceneProgress.totalScenes }, (_, i) => {
+                                const isCompleted = i < sceneProgress.processedScenesCount;
+                                const isCurrent = i === sceneProgress.currentSceneIndex && !sceneProgress.isRendering;
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`flex items-center gap-2 p-1.5 rounded-lg transition-all text-sm ${isCompleted ? 'bg-green-50' : isCurrent ? 'bg-yellow-50' : 'bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isCompleted ? 'bg-green-500 border-green-600' : isCurrent ? 'border-yellow-500 bg-yellow-100' : 'border-gray-300'
+                                            }`}>
+                                            {isCompleted ? (
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            ) : isCurrent ? (
+                                                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                                            ) : null}
+                                        </div>
+                                        <span className={`font-semibold ${isCompleted ? 'text-green-700' : isCurrent ? 'text-yellow-700' : 'text-gray-400'
+                                            }`}>
+                                            Scene {i + 1}
+                                        </span>
+                                        {isCompleted && <span className="text-green-600 text-xs ml-auto">✓</span>}
+                                        {isCurrent && <span className="text-yellow-600 text-xs ml-auto animate-pulse">...</span>}
+                                    </div>
+                                );
+                            })}
+
+                            {/* Final Render Step */}
+                            <div className={`flex items-center gap-2 p-1.5 rounded-lg transition-all text-sm ${sceneProgress.isRendering ? 'bg-purple-50' : 'bg-gray-50/50'
+                                }`}>
+                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${sceneProgress.isRendering ? 'border-purple-500 bg-purple-100' : 'border-gray-300'
+                                    }`}>
+                                    {sceneProgress.isRendering && <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />}
+                                </div>
+                                <span className={`font-semibold ${sceneProgress.isRendering ? 'text-purple-700' : 'text-gray-400'
+                                    }`}>
+                                    Final Render
+                                </span>
+                                {sceneProgress.isRendering && (
+                                    <span className="text-purple-600 text-xs ml-auto animate-pulse">...</span>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center gap-3 mb-3">
+                            <div className="w-6 h-6 rounded-full border-3 border-gray-100 border-t-black animate-spin" />
+                        </div>
+                    )}
+
+                    <p className="font-medium text-[var(--text-secondary)] text-center text-xs">{processingMessage}</p>
                 </div>
             </div>
         );

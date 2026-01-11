@@ -241,6 +241,8 @@ export default function Dashboard() {
                 onGenerate={state.handleCreateVideo}
                 isProcessing={state.isProcessing}
                 processingMessage={state.processingMessage}
+                processingStep={state.processingStep}
+                sceneProgress={state.sceneProgress}
                 enableCaptions={state.enableCaptions}
                 setEnableCaptions={state.setEnableCaptions}
                 enableBackgroundMusic={state.enableBackgroundMusic}
