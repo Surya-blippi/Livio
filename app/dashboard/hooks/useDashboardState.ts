@@ -305,14 +305,12 @@ export const useDashboardState = () => {
             setIsRecording(true);
 
             // Store reference for stopping
-            // @ts-expect-error - storing custom recorder in state
             setAudioRecorder(recorder as unknown as MediaRecorder);
         } catch { setError('Could not access microphone'); }
     };
 
     const stopRecording = () => {
         if (audioRecorder && isRecording) {
-            // @ts-expect-error - our custom recorder has a stop that returns File
             const wavFile = (audioRecorder as unknown as { stop: () => File }).stop();
             setVoiceFile(wavFile);
             setSavedVoice(null); // Deselect saved voice to show recorded voice is active
