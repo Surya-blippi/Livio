@@ -62,9 +62,17 @@ export async function POST(request: NextRequest) {
             } catch (ttsError: unknown) {
                 console.error('Speech-02 HD error with custom voice ID:', ttsError);
 
+                // Log full error details
+                if (ttsError && typeof ttsError === 'object' && 'body' in ttsError) {
+                    console.error('Fal TTS Error Body:', JSON.stringify((ttsError as { body?: unknown }).body, null, 2));
+                }
+
                 // Check if this is a voice not found / expired error
                 const errorMessage = ttsError instanceof Error ? ttsError.message : String(ttsError);
-                if (errorMessage.includes('voice') || errorMessage.includes('not found') || errorMessage.includes('invalid')) {
+                const errorBody = (ttsError as { body?: { detail?: string } })?.body?.detail || '';
+
+                if (errorMessage.includes('voice') || errorMessage.includes('not found') || errorMessage.includes('invalid') ||
+                    errorBody.includes('voice') || errorBody.includes('not found')) {
                     console.error('TTS Voice Error:', errorMessage);
                     return NextResponse.json(
                         {
