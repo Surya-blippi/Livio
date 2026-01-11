@@ -190,6 +190,9 @@ export default function Dashboard() {
                         onUploadAsset={handleUploadAsset}
                         onRemoveAsset={(index) => state.setCollectedAssets(prev => prev.filter((_, i) => i !== index))}
                         script={state.inputText}
+                        setInputText={state.setInputText}
+                        onEnhance={handleEnhance}
+                        isEnhancing={isEnhancing}
                         scenes={state.scenes}
                         enableCaptions={state.enableCaptions}
                         setEnableCaptions={state.setEnableCaptions}

@@ -52,6 +52,9 @@ interface PreviewPanelProps {
 
     // Script & Storyboard
     script?: string;
+    setInputText?: (text: string) => void;
+    onEnhance?: () => void;
+    isEnhancing?: boolean;
     scenes?: Array<{ text: string; visual?: string }>;
 
     // Captions
@@ -83,6 +86,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
     collectedAssets,
     onUploadAsset, onRemoveAsset,
     script,
+    setInputText,
+    onEnhance,
+    isEnhancing,
     scenes,
 
     // Captions
@@ -505,18 +511,39 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                     <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
                             <h3 className="font-bold text-lg text-[var(--text-primary)]">Video Script</h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                            {script ? (
-                                <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none whitespace-pre-wrap font-medium">
-                                    {script}
-                                </div>
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center opacity-50 text-center">
-                                    <SparklesIcon className="w-12 h-12 mb-4 text-[var(--text-tertiary)]" />
-                                    <p>No script generated yet.<br />Use <strong>"Research & Write"</strong> to create one.</p>
-                                </div>
+                            {/* Write with AI Button */}
+                            {onEnhance && (
+                                <button
+                                    onClick={onEnhance}
+                                    disabled={isEnhancing}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold cursor-pointer shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                                >
+                                    {isEnhancing ? (
+                                        <>
+                                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>Writing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <SparklesIcon className="w-3.5 h-3.5" />
+                                            <span>Write with AI</span>
+                                        </>
+                                    )}
+                                </button>
                             )}
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar flex flex-col">
+                            {/* Editable Textarea */}
+                            <textarea
+                                value={script || ''}
+                                onChange={(e) => setInputText?.(e.target.value)}
+                                placeholder="Enter your script here or use 'Write with AI' to generate one from your topic..."
+                                className="flex-1 w-full p-4 border-2 border-gray-200 rounded-xl text-base leading-relaxed resize-none focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 min-h-[300px] bg-white"
+                            />
+                            {/* Helper Text */}
+                            <p className="text-xs text-[var(--text-tertiary)] mt-3 text-center">
+                                ✏️ Edit directly or use AI to generate • This script will be used for video generation
+                            </p>
                         </div>
                     </div>
                 );
