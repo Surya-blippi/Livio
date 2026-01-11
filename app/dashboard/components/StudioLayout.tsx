@@ -212,37 +212,103 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         hasStoryboard={hasStoryboard}
                         hasVideo={hasVideo}
                     />
-                    {/* Workflow Tiles - Compact gaps */}
+                    {/* Workflow Tiles - With Action Buttons */}
                     <div className="flex-1 flex flex-col gap-2 px-4 pt-4 pb-4 bg-[var(--surface-1)]">
-                        {[
-                            { id: 'script', label: 'Script', desc: 'AI-generated script', icon: '✨', active: hasScript, color: 'from-purple-500 to-purple-600' },
-                            { id: 'assets', label: 'Assets', desc: 'Images and media', icon: '🖼️', active: hasAssets, color: 'from-blue-500 to-blue-600' },
-                            { id: 'storyboard', label: 'Scenes', desc: 'Video storyboard', icon: '🎬', active: hasStoryboard, color: 'from-orange-500 to-orange-600' },
-                            { id: 'video', label: 'Video', desc: 'Final output', icon: '🎥', active: hasVideo, color: 'from-[var(--brand-primary)] to-lime-400' },
-                        ].map((step) => (
-                            <button
-                                key={step.id}
-                                onClick={() => step.active && setActiveSheet(step.id as MobileSheetType)}
-                                disabled={!step.active}
-                                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${step.active
-                                    ? `bg-gradient-to-r ${step.color} border-black shadow-[3px_3px_0px_#000]`
-                                    : 'bg-white border-gray-100 opacity-50'
-                                    }`}
-                            >
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${step.active ? 'bg-white/20' : 'bg-gray-100'}`}>
-                                    {step.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <p className={`font-black text-sm ${step.active ? 'text-white' : 'text-gray-400'}`}>{step.label}</p>
-                                    <p className={`text-xs ${step.active ? 'text-white/80' : 'text-gray-300'}`}>{step.desc}</p>
-                                </div>
-                                {step.active && (
-                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                    </svg>
-                                )}
-                            </button>
-                        ))}
+                        {/* Script Tile - Always clickable for editing */}
+                        <button
+                            onClick={() => setActiveSheet('script')}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasScript
+                                ? 'bg-gradient-to-r from-purple-500 to-purple-600 border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-purple-200 hover:border-purple-400'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasScript ? 'bg-white/20' : 'bg-purple-50'}`}>
+                                ✨
+                            </div>
+                            <div className="flex-1">
+                                <p className={`font-black text-sm ${hasScript ? 'text-white' : 'text-gray-600'}`}>Script</p>
+                                <p className={`text-xs ${hasScript ? 'text-white/80' : 'text-gray-400'}`}>
+                                    {hasScript ? 'Tap to edit' : 'Write or generate'}
+                                </p>
+                            </div>
+                            {/* Edit/Pencil Icon */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasScript ? 'bg-white/20' : 'bg-purple-100'}`}>
+                                <svg className={`w-4 h-4 ${hasScript ? 'text-white' : 'text-purple-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        {/* Assets Tile */}
+                        <button
+                            onClick={() => setActiveSheet('assets')}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasAssets
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-blue-200 hover:border-blue-400'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasAssets ? 'bg-white/20' : 'bg-blue-50'}`}>
+                                🖼️
+                            </div>
+                            <div className="flex-1">
+                                <p className={`font-black text-sm ${hasAssets ? 'text-white' : 'text-gray-600'}`}>Assets</p>
+                                <p className={`text-xs ${hasAssets ? 'text-white/80' : 'text-gray-400'}`}>
+                                    {hasAssets ? `${assets.length} images` : 'Upload images'}
+                                </p>
+                            </div>
+                            {/* Upload Icon */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasAssets ? 'bg-white/20' : 'bg-blue-100'}`}>
+                                <svg className={`w-4 h-4 ${hasAssets ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        {/* Storyboard Tile */}
+                        <button
+                            onClick={() => hasStoryboard && setActiveSheet('storyboard')}
+                            disabled={!hasStoryboard}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasStoryboard
+                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-gray-100 opacity-50'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasStoryboard ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                🎬
+                            </div>
+                            <div className="flex-1">
+                                <p className={`font-black text-sm ${hasStoryboard ? 'text-white' : 'text-gray-400'}`}>Scenes</p>
+                                <p className={`text-xs ${hasStoryboard ? 'text-white/80' : 'text-gray-300'}`}>Video storyboard</p>
+                            </div>
+                            {hasStoryboard && (
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            )}
+                        </button>
+
+                        {/* Video Tile */}
+                        <button
+                            onClick={() => hasVideo && setActiveSheet('video')}
+                            disabled={!hasVideo}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasVideo
+                                ? 'bg-gradient-to-r from-[var(--brand-primary)] to-lime-400 border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-gray-100 opacity-50'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasVideo ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                🎥
+                            </div>
+                            <div className="flex-1">
+                                <p className={`font-black text-sm ${hasVideo ? 'text-black' : 'text-gray-400'}`}>Video</p>
+                                <p className={`text-xs ${hasVideo ? 'text-black/70' : 'text-gray-300'}`}>Final output</p>
+                            </div>
+                            {hasVideo && (
+                                <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            )}
+                        </button>
                     </div>
                 </div>
 
