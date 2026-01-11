@@ -298,23 +298,26 @@ export const useDashboardState = () => {
 
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            const chunks: BlobPart[] = [];
-            recorder.ondataavailable = (e) => chunks.push(e.data);
-            recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
-                setVoiceFile(new File([blob], 'recording.webm', { type: 'audio/webm' }));
-                setSavedVoice(null); // Deselect saved voice to show recorded voice is active
-            };
-            recorder.start();
-            setAudioRecorder(recorder);
+            // Import WAV recorder dynamically to avoid SSR issues
+            const { getWavRecorder } = await import('@/lib/wavRecorder');
+            const recorder = getWavRecorder();
+            await recorder.start();
             setIsRecording(true);
+
+            // Store reference for stopping
+            // @ts-expect-error - storing custom recorder in state
+            setAudioRecorder(recorder as unknown as MediaRecorder);
         } catch { setError('Could not access microphone'); }
     };
 
     const stopRecording = () => {
-        if (audioRecorder) { audioRecorder.stop(); setIsRecording(false); }
+        if (audioRecorder && isRecording) {
+            // @ts-expect-error - our custom recorder has a stop that returns File
+            const wavFile = (audioRecorder as unknown as { stop: () => File }).stop();
+            setVoiceFile(wavFile);
+            setSavedVoice(null); // Deselect saved voice to show recorded voice is active
+            setIsRecording(false);
+        }
     };
 
     const handleVoiceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
