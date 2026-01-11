@@ -98,6 +98,9 @@ interface MobileOverlaysProps {
 
     // Script
     script: string;
+    setInputText: (text: string) => void;
+    onEnhance: () => void;
+    isEnhancing?: boolean;
 
     // Assets
     assets: Asset[];
@@ -150,6 +153,9 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     aspectRatio,
     setAspectRatio,
     script,
+    setInputText,
+    onEnhance,
+    isEnhancing,
     assets,
     onUploadAsset,
     onRemoveAsset,
@@ -524,14 +530,43 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                             {/* Content */}
                             <div className="flex-1 overflow-y-auto p-4">
 
-                                {/* Script View */}
+                                {/* Script View - Editable */}
                                 {activeSheet === 'script' && (
-                                    <div className="prose prose-sm max-w-none">
-                                        {script ? (
-                                            <p className="text-base leading-relaxed whitespace-pre-wrap">{script}</p>
-                                        ) : (
-                                            <p className="text-gray-400 text-center py-12">No script generated yet. Enter a topic and click Research.</p>
-                                        )}
+                                    <div className="h-full flex flex-col">
+                                        {/* Write with AI Button */}
+                                        <div className="flex gap-2 mb-4">
+                                            <button
+                                                onClick={() => { onEnhance(); }}
+                                                disabled={isEnhancing || !script}
+                                                className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
+                                            >
+                                                {isEnhancing ? (
+                                                    <>
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        <span>Writing...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <SparklesIcon className="w-4 h-4" />
+                                                        <span>Write with AI</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Editable Script Textarea */}
+                                        <textarea
+                                            value={script}
+                                            onChange={(e) => setInputText(e.target.value)}
+                                            placeholder="Enter your script here or use 'Write with AI' to generate one from your topic..."
+                                            className="flex-1 w-full p-4 border-2 border-gray-200 rounded-xl text-base leading-relaxed resize-none focus:border-[var(--brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20"
+                                            style={{ minHeight: '300px' }}
+                                        />
+
+                                        {/* Helper Text */}
+                                        <p className="text-xs text-gray-500 mt-2 text-center">
+                                            This script will be used for video generation
+                                        </p>
                                     </div>
                                 )}
 
