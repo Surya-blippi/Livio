@@ -49,6 +49,8 @@ interface StudioLayoutProps {
     onUploadAsset: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onRemoveAsset: (index: number) => void;
     scenes: any[];
+    onRegenerateScenes: () => void;
+    isRegeneratingScenes?: boolean;
 
     videoUrl?: string;
     videoHistory: any[];
@@ -121,6 +123,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     onUploadAsset,
     onRemoveAsset,
     scenes,
+    onRegenerateScenes,
+    isRegeneratingScenes,
     videoUrl,
     videoHistory,
     onSelectVideo,
@@ -353,6 +357,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                     onUploadAsset={onUploadAsset}
                     onRemoveAsset={onRemoveAsset}
                     scenes={scenes}
+                    onRegenerateScenes={onRegenerateScenes}
+                    isRegeneratingScenes={isRegeneratingScenes}
                     videoUrl={videoUrl}
                     videoHistory={videoHistory}
                     onSelectVideo={onSelectVideo}

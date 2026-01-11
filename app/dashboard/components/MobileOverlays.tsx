@@ -109,6 +109,8 @@ interface MobileOverlaysProps {
 
     // Storyboard
     scenes: Scene[];
+    onRegenerateScenes: () => void;
+    isRegeneratingScenes?: boolean;
 
     // Video
     videoUrl?: string;
@@ -160,6 +162,8 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     onUploadAsset,
     onRemoveAsset,
     scenes,
+    onRegenerateScenes,
+    isRegeneratingScenes,
     videoUrl,
     videoHistory,
     onSelectVideo,
@@ -602,6 +606,27 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                 {/* Storyboard View */}
                                 {activeSheet === 'storyboard' && (
                                     <div className="space-y-4">
+                                        {/* Refresh Button */}
+                                        <button
+                                            onClick={onRegenerateScenes}
+                                            disabled={isRegeneratingScenes}
+                                            className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 shadow-md"
+                                        >
+                                            {isRegeneratingScenes ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    <span>Updating...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
+                                                    <span>Refresh from Script</span>
+                                                </>
+                                            )}
+                                        </button>
+
                                         {scenes.length > 0 ? (
                                             scenes.map((scene, i) => (
                                                 <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-200">

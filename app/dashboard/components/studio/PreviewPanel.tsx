@@ -56,6 +56,8 @@ interface PreviewPanelProps {
     onEnhance?: () => void;
     isEnhancing?: boolean;
     scenes?: Array<{ text: string; visual?: string }>;
+    onRegenerateScenes?: () => void;
+    isRegeneratingScenes?: boolean;
 
     // Captions
     enableCaptions: boolean;
@@ -90,6 +92,8 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
     onEnhance,
     isEnhancing,
     scenes,
+    onRegenerateScenes,
+    isRegeneratingScenes,
 
     // Captions
     enableCaptions, setEnableCaptions,
@@ -553,6 +557,28 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                     <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
                             <h3 className="font-bold text-lg text-[var(--text-primary)]">Storyboard</h3>
+                            {/* Refresh Storyboard Button */}
+                            {onRegenerateScenes && (
+                                <button
+                                    onClick={onRegenerateScenes}
+                                    disabled={isRegeneratingScenes}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold cursor-pointer shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                                >
+                                    {isRegeneratingScenes ? (
+                                        <>
+                                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>Updating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            <span>Refresh from Script</span>
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                             {scenes && scenes.length > 0 ? (

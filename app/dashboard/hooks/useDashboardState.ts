@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
     generateScript,
+    regenerateScenes,
     cloneVoice,
     generateSpeechWithVoiceId,
     createVideo,
@@ -294,6 +295,26 @@ export const useDashboardState = () => {
             setError(handleApiError(err).message);
         }
         setIsProcessing(false);
+    };
+
+    // State for regenerating scenes
+    const [isRegeneratingScenes, setIsRegeneratingScenes] = useState(false);
+
+    const handleRegenerateScenes = async () => {
+        if (!inputText.trim()) { setError('Please enter a script first'); return; }
+        setIsRegeneratingScenes(true);
+        setProcessingMessage('Updating storyboard...');
+        setError('');
+        try {
+            const result = await regenerateScenes(inputText, duration);
+            if (result.scenes && result.scenes.length > 0) {
+                setScenes(result.scenes);
+            }
+        } catch (err) {
+            setError(handleApiError(err).message);
+        }
+        setIsRegeneratingScenes(false);
+        setProcessingMessage('');
     };
 
     const startRecording = async () => {
@@ -945,6 +966,8 @@ export const useDashboardState = () => {
         // Handlers
         handlePhotoUpload,
         handleEnhanceWithAI,
+        handleRegenerateScenes,
+        isRegeneratingScenes,
         handleVoiceUpload,
         handleReset,
         handleMakeStudioReady,

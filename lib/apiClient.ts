@@ -83,6 +83,17 @@ export const enhanceScript = async (topic: string, duration: number = 30): Promi
 };
 
 /**
+ * Regenerate scenes/storyboard from an existing script
+ * Use this when the script has been manually edited
+ */
+export const regenerateScenes = async (script: string, duration: number = 30): Promise<{ scenes: Scene[] }> => {
+    const response = await axios.post('/api/regenerate-scenes', { script, duration });
+    return {
+        scenes: response.data.scenes || []
+    };
+};
+
+/**
  * Clone voice using MiniMax FAL (returns voice ID for tracking)
  */
 export const cloneVoice = async (audioInput: File | string): Promise<{ voiceId: string; previewUrl: string; audioBase64: string }> => {

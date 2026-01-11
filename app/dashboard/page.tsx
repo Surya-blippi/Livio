@@ -194,6 +194,8 @@ export default function Dashboard() {
                         onEnhance={handleEnhance}
                         isEnhancing={isEnhancing}
                         scenes={state.scenes}
+                        onRegenerateScenes={state.handleRegenerateScenes}
+                        isRegeneratingScenes={state.isRegeneratingScenes}
                         enableCaptions={state.enableCaptions}
                         setEnableCaptions={state.setEnableCaptions}
                         captionStyle={state.captionStyle}
@@ -235,6 +237,8 @@ export default function Dashboard() {
                 onUploadAsset={handleUploadAsset}
                 onRemoveAsset={(index) => state.setCollectedAssets(prev => prev.filter((_, i) => i !== index))}
                 scenes={state.scenes}
+                onRegenerateScenes={state.handleRegenerateScenes}
+                isRegeneratingScenes={state.isRegeneratingScenes}
                 videoUrl={state.videoUrl}
                 videoHistory={state.videoHistory}
                 onSelectVideo={state.handleSelectVideo}
