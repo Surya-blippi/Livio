@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useUser, useAuth } from '@clerk/nextjs';
 import {
     generateScript,
     regenerateScenes,
@@ -44,6 +44,7 @@ import {
     uploadVoiceSample,
     getActiveVideoJobs,
     supabase,
+    createAuthenticatedClient,
     DbUser,
     DbVideo,
     DbVoice,
@@ -52,7 +53,14 @@ import {
 import { convertToMp3, needsConversion } from '@/lib/audioConverter';
 
 export const useDashboardState = () => {
-    const { user, isLoaded } = useUser();
+    const { user, isLoaded: isUserLoaded } = useUser();
+    const { getToken } = useAuth();
+
+    // Helper to get authenticated client
+    const getSupabase = useCallback(async () => {
+        const token = await getToken({ template: 'supabase' });
+        return createAuthenticatedClient(token || '');
+    }, [getToken]);
 
     // Theme state
     const [isDark, setIsDark] = useState(false);
@@ -127,27 +135,61 @@ export const useDashboardState = () => {
 
     // Initialization
     useEffect(() => {
-        if (isLoaded && user) {
+        if (isUserLoaded && user) {
             initializeUser();
         }
-    }, [isLoaded, user]);
+    }, [isUserLoaded, user, getSupabase]);
 
     const initializeUser = async () => {
-        if (!user) return;
-        const dbUserData = await getOrCreateUser(user.id, user.primaryEmailAddress?.emailAddress || '', user.fullName || undefined, user.imageUrl || undefined);
-        if (dbUserData) {
-            setDbUser(dbUserData);
-            const voices = await getAllVoices(dbUserData.id);
-            setAllVoices(voices);
-            const activeVoice = voices.find(v => v.is_active) || voices[0] || null;
-            if (activeVoice) setSavedVoice(activeVoice);
-            const videos = await getVideos(dbUserData.id);
-            setVideoHistory(videos);
-            const avatars = await getAvatars(dbUserData.id);
-            setSavedAvatars(avatars);
+        try {
+            if (!user) return;
 
-            // Check for and resume any in-progress video jobs
-            checkForActiveJobs(dbUserData.id);
+            const sb = await getSupabase();
+
+            const { data: existing } = await sb
+                .from('users')
+                .select('*')
+                .eq('clerk_id', user.id)
+                .single();
+
+            if (existing) {
+                setDbUser(existing);
+
+                // Load User Data
+                const [videos, voices, avatars] = await Promise.all([
+                    sb.from('videos').select('*').eq('user_id', existing.id).order('created_at', { ascending: false }),
+                    sb.from('voices').select('*').eq('user_id', existing.id),
+                    sb.from('avatars').select('*').eq('user_id', existing.id)
+                ]);
+
+                setAllVoices(voices.data || []);
+                const activeVoice = (voices.data || []).find(v => v.is_active) || (voices.data || [])[0] || null;
+                if (activeVoice) setSavedVoice(activeVoice);
+                setVideoHistory(videos.data || []);
+                setSavedAvatars(avatars.data || []);
+
+                // Check for and resume any in-progress video jobs
+                checkForActiveJobs(existing.id);
+            } else {
+                // Create new user
+                const newUserCtx = {
+                    clerk_id: user.id,
+                    email: user.primaryEmailAddress?.emailAddress || '',
+                    name: user.fullName || user.username || 'User',
+                    image_url: user.imageUrl
+                };
+
+                const { data: newUser, error } = await sb
+                    .from('users')
+                    .insert(newUserCtx)
+                    .select()
+                    .single();
+
+                if (newUser) setDbUser(newUser);
+            }
+        } catch (error) {
+            console.error('Error initializing user:', error);
+            setError('Failed to load user data.');
         }
     };
 
@@ -207,17 +249,18 @@ export const useDashboardState = () => {
     const uploadAvatar = async (file: File): Promise<string | null> => {
         if (!dbUser) return null;
         try {
+            const sb = await getSupabase();
             // 1. Upload to Storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${dbUser.id}/${Date.now()}.${fileExt}`;
-            const { data, error: uploadError } = await supabase.storage
+            const { data, error: uploadError } = await sb.storage
                 .from('avatars')
                 .upload(fileName, file, { upsert: true });
 
             if (uploadError) throw uploadError;
 
             // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
+            const { data: { publicUrl } } = sb.storage
                 .from('avatars')
                 .getPublicUrl(fileName);
 
@@ -595,76 +638,6 @@ export const useDashboardState = () => {
             let voiceIdToUse: string | undefined = undefined;
 
             if (mode === 'faceless') {
-                setProcessingMessage('Generating speech...');
-
-                // 1. If user uploaded/recorded a voice, clone it first
-                if (voiceFile) {
-                    setProcessingMessage('Cloning your voice...');
-                    const voiceData = await cloneVoice(voiceFile);
-                    voiceIdToUse = voiceData.voiceId;
-
-                    // Save the cloned voice for future use
-                    if (dbUser) {
-                        const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
-                        if (newVoice) {
-                            setSavedVoice(newVoice);
-                            setAllVoices(prev => [newVoice, ...prev]);
-                        }
-                    }
-                    setVoiceFile(null);
-                    setProcessingMessage('Generating speech...');
-                }
-            }
-            // 2. If user has a saved cloned voice, use that
-            else if (savedVoice) {
-                console.log('[Debug] Checking savedVoice:', savedVoice);
-                console.log('[Debug] savedVoice.voice_id:', savedVoice.voice_id);
-                console.log('[Debug] Type of voice_id:', typeof savedVoice.voice_id);
-
-                // Check if the voice is "pending" or missing ID
-                if (!savedVoice.voice_id || savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
-                    setProcessingMessage('Cloning your new voice...');
-                    console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
-
-                    try {
-                        // Use the URL directly for cloning (fast path)
-                        const voiceData = await cloneVoice(savedVoice.voice_sample_url);
-                        console.log('[Debug] Clone successful, new ID:', voiceData.voiceId);
-                        voiceIdToUse = voiceData.voiceId;
-
-                        // Update the voice record with the real ID
-                        const updatedVoice = await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
-
-                        // Update local state
-                        if (updatedVoice) {
-                            setSavedVoice(updatedVoice);
-                            setAllVoices(prev => prev.map(v => v.id === updatedVoice.id ? updatedVoice : v));
-                        }
-                    } catch (err) {
-                        console.error('Error cloning pending voice:', err);
-                        setError('Failed to process your voice. Please record again.');
-                        setIsProcessing(false);
-                        return;
-                    }
-                } else {
-                    console.log('[Debug] Using existing voice ID:', savedVoice.voice_id);
-                    voiceIdToUse = savedVoice.voice_id;
-                }
-            }
-            // 3. Last safety check
-            if (voiceIdToUse === 'pending') {
-                console.error('SafeGuard: Voice ID is still PENDING after checks');
-                setError('Voice cloning incomplete. Please try selecting the voice again.');
-                setIsProcessing(false);
-                return;
-            }
-
-            // 4. No voice - will use default preset (may error if preset not accessible)
-
-            let speechResult;
-
-            // For FACELESS video, we now skip client-side generation and let the server handle it scene-by-scene
-            if (mode === 'faceless') {
                 console.log(`[Video] Starting scene-based faceless video job with ${scenes.length} scenes`);
 
                 // Map scenes to assets (1:1 or loop assets)
@@ -682,16 +655,33 @@ export const useDashboardState = () => {
                 setProcessingStep(2);
                 setProcessingMessage('Creating video job...');
 
-                const { jobId } = await startFacelessVideoJob(
-                    facelessScenes,
-                    voiceIdToUse || 'Voice3d303ed71767974077', // Default voice if none
-                    aspectRatio,
-                    captionStyle,
-                    enableBackgroundMusic,
-                    enableCaptions,
-                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
-                    dbUser?.id
-                );
+                const sb = await getSupabase();
+                const selectedVoiceId = voiceIdToUse || 'Voice3d303ed71767974077'; // Default voice if none
+                const finalScenes = facelessScenes;
+
+                const { data: videoJob, error: jobError } = await sb
+                    .from('video_jobs')
+                    .insert({
+                        user_id: dbUser.id,
+                        status: 'pending',
+                        input_data: {
+                            scenes: finalScenes,
+                            voiceId: selectedVoiceId,
+                            aspectRatio,
+                            captionStyle: 'bold',
+                            enableBackgroundMusic,
+                            enableCaptions
+                        },
+                        progress: 0,
+                        progress_message: 'Initializing...'
+                    })
+                    .select()
+                    .single();
+
+                if (jobError) throw jobError;
+                if (!videoJob) throw new Error('Failed to create video job.');
+
+                const jobId = videoJob.id;
 
                 setProcessingMessage('Rendering video (this may take a few minutes)...');
 
@@ -863,14 +853,33 @@ export const useDashboardState = () => {
             }
 
             // Call job-based face video API (works on Vercel)
-            const { jobId } = await startFaceVideoJob(
-                sceneInputs,
-                faceImageUrl,
-                voiceIdForScenes,
-                enableBackgroundMusic,
-                enableCaptions,
-                dbUser?.id
-            );
+            const sb = await getSupabase();
+            const avatarUrl = faceImageUrl;
+            const selectedVoiceId = voiceIdForScenes;
+            const scenesToProcess = sceneInputs;
+
+            const { data: videoJob, error: jobError } = await sb
+                .from('video_jobs')
+                .insert({
+                    user_id: dbUser.id,
+                    status: 'pending',
+                    input_data: {
+                        scenes: scenesToProcess,
+                        faceImageUrl: avatarUrl,
+                        voiceId: selectedVoiceId,
+                        enableBackgroundMusic,
+                        enableCaptions
+                    },
+                    progress: 0,
+                    progress_message: 'Initializing...'
+                })
+                .select()
+                .single();
+
+            if (jobError) throw jobError;
+            if (!videoJob) throw new Error('Failed to create video job.');
+
+            const jobId = videoJob.id;
 
             setProcessingMessage('Processing video (this may take a few minutes)...');
 

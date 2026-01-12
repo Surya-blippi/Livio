@@ -3,7 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tfaumdiiljwnjmfnonrc.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmYXVtZGlpbGp3bmptZm5vbnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NzcwMzksImV4cCI6MjA3OTU1MzAzOX0.VbxwPIzu8kBb2MzrtT5gm17DdR5V5R_oLBn8wYwevCo';
 
+// Default anonymous client (use only for public info)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Authenticated client factory (for RLS)
+export const createAuthenticatedClient = (clerkToken: string) => {
+    return createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+            headers: { Authorization: `Bearer ${clerkToken}` },
+        },
+    });
+};
+
 
 // ==========================================
 // TYPE DEFINITIONS
