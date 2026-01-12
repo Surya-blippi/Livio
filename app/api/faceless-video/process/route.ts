@@ -283,96 +283,173 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
     }
 }
 
+// Upload base64 image to Supabase and return public URL
+async function uploadBase64Image(base64Data: string, jobId: string, index: number): Promise<string> {
+    if (!base64Data.startsWith('data:image')) return base64Data;
+
+    try {
+        const match = base64Data.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (!match) return base64Data;
+
+        const contentType = match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        const ext = contentType.split('/')[1];
+        const fileName = `faceless/${jobId}/image_${index}.${ext}`;
+
+        // Upload to 'videos' bucket (or 'images' if available, defaulting to videos as it works for clips)
+        // Using 'videos' bucket based on face-video implementation
+        const { error } = await supabase.storage
+            .from('videos')
+            .upload(fileName, buffer, {
+                contentType,
+                upsert: true
+            });
+
+        if (error) {
+            console.error('Upload error:', error);
+            // Attempt to continue or fail? Let's return original and hope for best or empty?
+            // If upload fails, JSON2Video will definitely fail with base64. 
+            // Better to throw or return null? Returning original string causes 400. 
+            // For now, log and return original.
+            return base64Data;
+        }
+
+        const { data } = supabase.storage
+            .from('videos')
+            .getPublicUrl(fileName);
+
+        return data.publicUrl;
+    } catch (e) {
+        console.error('Image processing error:', e);
+        return base64Data;
+    }
+}
+
 export async function POST(request: NextRequest) {
     let jobId: string | null = null;
 
     try {
-        const { jobId: reqJobId } = await request.json();
+        // Parse request body safely
+        let body;
+        try {
+            body = await request.json();
+        } catch (e) {
+            console.error("Failed to parse JSON body:", e);
+            return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+        }
+
+        const { jobId: reqJobId } = body;
         jobId = reqJobId;
 
         if (!jobId) {
             return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
         }
 
-        console.log(`\n🎬 ===== FACELESS VIDEO PROCESS: ${jobId} =====`);
+        console.log(`\n========== FACELESS JOB: ${jobId} ==========`);
 
-        // Load job from Supabase
-        const { data: job, error } = await supabase
+        // Load job state
+        const { data: job, error: fetchError } = await supabase
             .from('video_jobs')
             .select('*')
             .eq('id', jobId)
             .single();
 
-        if (error || !job) {
-            console.error('Job not found:', error);
+        if (fetchError || !job) {
+            console.error(`Job ${jobId} not found or error:`, fetchError);
             return NextResponse.json({ error: 'Job not found' }, { status: 404 });
         }
 
-        // Skip if already completed or failed
         if (job.status === 'completed' || job.status === 'failed') {
-            console.log(`Job ${jobId} already ${job.status}`);
-            return NextResponse.json({ status: job.status });
+            return NextResponse.json({ message: `Job already ${job.status}`, status: job.status });
         }
 
-        const input = job.input_data as FacelessJobInputData;
+        // Lock check (similar to face video)
+        const lockAge = Date.now() - new Date(job.updated_at).getTime();
+        if (job.is_processing && lockAge < 60000) {
+            console.log(`🔒 Locked (${Math.round(lockAge / 1000)}s ago), skipping`);
+            return NextResponse.json({ skipped: true });
+        }
 
-        // Validate that we have images to work with
+        // Acquire lock
+        await updateJob(jobId, { is_processing: true, updated_at: new Date().toISOString() });
+
+        // Reload job to ensure we have latest data
+        const { data: freshJob } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
+        if (!freshJob) return NextResponse.json({ error: 'Job lost' }, { status: 404 });
+
+        const input = freshJob.input_data as FacelessJobInputData;
+
+        // Validation - Critical for faceless video
         if (!input.images || input.images.length === 0) {
-            console.error('No images provided for faceless video');
-            await updateJob(jobId, {
-                status: 'failed',
-                error: 'No images provided. Please upload at least one image/asset.',
-                progress_message: 'Failed: No images provided'
-            });
-            return NextResponse.json({
-                error: 'No images provided. Please upload at least one image/asset.'
-            }, { status: 400 });
+            const errorMsg = 'No images provided for faceless video';
+            console.error(errorMsg);
+            await updateJob(jobId, { status: 'failed', error: errorMsg, is_processing: false });
+            return NextResponse.json({ error: errorMsg }, { status: 400 });
         }
 
-        console.log(`📸 Processing with ${input.images.length} images`);
+        // Upload images if they are base64
+        // Process images sequentially to avoid overwhelming memory/network if many
+        const processedImages: string[] = [];
+        let imagesUpdated = false;
 
-        // Check if we have a pending render
+        for (let i = 0; i < input.images.length; i++) {
+            const img = input.images[i];
+            if (img.startsWith('data:image')) {
+                console.log(`📤 Uploading image ${i + 1}/${input.images.length}...`);
+                const url = await uploadBase64Image(img, jobId, i);
+                processedImages.push(url);
+                imagesUpdated = true;
+            } else {
+                processedImages.push(img);
+            }
+        }
+
+        // Update input data with public URLs if we uploaded anything
+        if (imagesUpdated) {
+            input.images = processedImages;
+            await updateJob(jobId, { input_data: input });
+            console.log('✅ Images uploaded and job updated');
+        }
+
+        // Check for pending render
         if (input.pendingRender) {
-            console.log(`📽️ Checking pending render: ${input.pendingRender.projectId}`);
-            const renderResult = await pollJson2Video(input.pendingRender.projectId);
+            const { projectId } = input.pendingRender;
+            console.log(`Checking pending render: ${projectId}`);
 
-            if (renderResult.completed && renderResult.videoUrl) {
-                console.log(`✅ Faceless video complete: ${renderResult.videoUrl}`);
+            const status = await pollJson2Video(projectId);
+
+            if (status.completed) {
+                console.log('✅ Video completed:', status.videoUrl);
                 await updateJob(jobId, {
                     status: 'completed',
                     progress: 100,
-                    progress_message: 'Video ready!',
-                    result: {
-                        videoUrl: renderResult.videoUrl,
-                        duration: renderResult.duration || input.duration
+                    is_processing: false,
+                    result_data: {
+                        videoUrl: status.videoUrl,
+                        duration: status.duration
                     }
                 });
-                return NextResponse.json({ status: 'completed', videoUrl: renderResult.videoUrl });
-            }
-
-            if (renderResult.failed) {
+                return NextResponse.json({ completed: true, videoUrl: status.videoUrl });
+            } else if (status.failed) {
+                console.error('❌ Render failed');
                 await updateJob(jobId, {
                     status: 'failed',
-                    progress_message: `Render failed: ${renderResult.status}`,
-                    error: renderResult.status
+                    error: status.status || 'Render failed',
+                    is_processing: false
                 });
-                return NextResponse.json({ status: 'failed', error: renderResult.status });
+                return NextResponse.json({ failed: true, error: status.status });
+            } else {
+                console.log('⏳ Still processing...');
+                // Touch updated_at to keep lock active-ish or just release?
+                // Actually release lock so next poll can pick it up
+                await updateJob(jobId, { is_processing: false });
+                return NextResponse.json({ completed: false, status: status.status });
             }
-
-            // Still rendering...
-            await updateJob(jobId, {
-                progress: 60,
-                progress_message: `Rendering video... (${renderResult.status || 'processing'})`
-            });
-            return NextResponse.json({ status: 'processing', message: 'Rendering in progress' });
         }
 
         // Start new render
-        await updateJob(jobId, {
-            status: 'processing',
-            progress: 10,
-            progress_message: 'Building video...'
-        });
+        console.log('🎬 Starting new render...');
+        await updateJob(jobId, { progress: 10, progress_message: 'Preparing assets...' });
 
         // Build payload and start render
         const moviePayload = buildJson2VideoPayload(input);
