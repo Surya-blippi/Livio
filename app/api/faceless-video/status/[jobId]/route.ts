@@ -8,6 +8,9 @@ export async function GET(
     try {
         const { jobId } = await params;
 
+        console.log(`\n========== CHECK STATUS: ${jobId} ==========`);
+        console.log(`Debug: Service Key Present? ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
+
         if (!jobId) {
             return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
         }
@@ -20,7 +23,9 @@ export async function GET(
             .single();
 
         if (error || !job) {
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+            console.error(`Job ${jobId} not found in status check.`);
+            console.error(`Error details:`, error);
+            return NextResponse.json({ error: 'Job not found', details: error }, { status: 404 });
         }
 
         // Build response
