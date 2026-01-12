@@ -629,6 +629,8 @@ export const useDashboardState = () => {
 
     const handleCreateVideo = async () => {
         if (!inputText.trim()) { setError('Please enter a script'); return; }
+        if (!dbUser) { setError('Please sign in to create videos'); return; }
+
         setIsProcessing(true);
         setProcessingStep(1);
         setError('');
