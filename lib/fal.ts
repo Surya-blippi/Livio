@@ -29,3 +29,31 @@ export async function generateSceneTTS(text: string, voiceId: string): Promise<{
         throw error;
     }
 }
+
+export async function generateImage(prompt: string, aspectRatio: "16:9" | "9:16" | "1:1" = "9:16"): Promise<string> {
+    console.log(`🎨 Generating Image: "${prompt.substring(0, 30)}..." (${aspectRatio})`);
+
+    // Map aspect ratio to image size
+    const image_size = aspectRatio === '16:9' ? 'landscape_16_9'
+        : aspectRatio === '9:16' ? 'portrait_16_9'
+            : 'square_hd';
+
+    try {
+        const result = await fal.subscribe('fal-ai/flux/dev', {
+            input: {
+                prompt,
+                image_size,
+                num_inference_steps: 30,
+                guidance_scale: 3.5,
+                enable_safety_checker: false
+            },
+            logs: false
+        }) as unknown as { images: { url: string }[] };
+
+        if (!result.images?.[0]?.url) throw new Error('No image URL from Flux');
+        return result.images[0].url;
+    } catch (error) {
+        console.error("Image Generation Error:", error);
+        throw error;
+    }
+}
