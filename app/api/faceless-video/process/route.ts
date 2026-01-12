@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { generateImage } from '@/lib/fal';
+import { generateImage, generateSceneTTS } from '@/lib/fal';
 import {
     startJson2VideoRender,
     pollJson2Video,
@@ -41,6 +41,7 @@ interface FacelessJobInputData {
 
 // Update job in Supabase
 async function updateJob(jobId: string, updates: Record<string, unknown>) {
+    const supabase = getSupabaseAdmin();
     const { error } = await supabase
         .from('video_jobs')
         .update(updates)
@@ -51,6 +52,7 @@ async function updateJob(jobId: string, updates: Record<string, unknown>) {
 // Upload base64 image to Supabase and return public URL
 async function uploadBase64Image(base64Data: string, jobId: string, index: number): Promise<string> {
     if (!base64Data.startsWith('data:image')) return base64Data;
+    const supabase = getSupabaseAdmin();
 
     try {
         const match = base64Data.match(/^data:(image\/[a-z]+);base64,(.+)$/);
