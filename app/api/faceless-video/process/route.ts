@@ -158,6 +158,8 @@ export async function POST(request: NextRequest) {
         if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
 
         console.log(`\n========== FACELESS JOB: ${jobId} ==========`);
+        console.log(`Debug: Service Key Present? ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
+        console.log(`Debug: Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
 
         // Load job state
         const { data: job, error: fetchError } = await supabase
@@ -167,8 +169,9 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (fetchError || !job) {
-            console.error(`Job ${jobId} not found`);
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+            console.error(`Job ${jobId} not found. Error:`, fetchError);
+            console.error(`Fetch details - Code: ${fetchError?.code}, Message: ${fetchError?.message}`);
+            return NextResponse.json({ error: 'Job not found', details: fetchError }, { status: 404 });
         }
 
         if (job.status === 'completed' || job.status === 'failed') {
