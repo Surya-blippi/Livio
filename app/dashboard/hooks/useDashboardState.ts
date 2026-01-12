@@ -10,12 +10,13 @@ import {
     handleApiError,
     generateElevenLabsSpeech,
     generateDynamicSRT,
-    createCaptionVideoCloud,
     addBackgroundMusic,
     facePostProcess,
     generateOptimizedFaceVideo,
     startFaceVideoJob,
     pollFaceVideoJob,
+    startFacelessVideoJob,
+    pollFacelessVideoJob,
     FaceVideoSceneInput,
     WordTiming,
     collectAssets,
@@ -689,31 +690,41 @@ export const useDashboardState = () => {
                 }
 
                 setProcessingStep(2);
-                setProcessingMessage('Creating video...');
-                const audioBase64 = speechResult.audioUrl.split(',')[1];
+                setProcessingMessage('Creating video job...');
 
                 // Get scene timings if available (from scene-based generation)
                 const currentSceneTimings = 'sceneTimings' in speechResult ? (speechResult as { sceneTimings: SceneTiming[] }).sceneTimings : undefined;
 
-                const videoResult = await createCaptionVideoCloud(
-                    audioBase64,
+                // Use job-based faceless video generation (avoids Vercel timeout)
+                const { jobId } = await startFacelessVideoJob(
+                    speechResult.remoteAudioUrl || '',
                     enableCaptions ? speechResult.wordTimings : [],
                     speechResult.duration,
-                    enableBackgroundMusic,
                     collectedAssets.map(a => a.url),
                     aspectRatio,
                     currentSceneTimings,
                     captionStyle,
-                    (progress, status) => {
-                        setProcessingMessage(status);
-                    },
-                    speechResult.remoteAudioUrl,  // Pass remote audio URL for JSON2Video
-                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined // Pass specific background music URL
+                    enableBackgroundMusic,
+                    enableCaptions,
+                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
+                    dbUser?.id
                 );
+
+                setProcessingMessage('Rendering video (this may take a few minutes)...');
+
+                // Poll for job completion with progress updates
+                const videoResult = await pollFacelessVideoJob(
+                    jobId,
+                    (progress: number, message: string) => {
+                        setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
+                        setProcessingMessage(message);
+                    }
+                );
+
                 setVideoUrl(videoResult.videoUrl);
                 if (dbUser) {
                     const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
-                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', speechResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
+                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
                     await refreshVideoHistory();
                 }
                 // Reset processing state after faceless video is done

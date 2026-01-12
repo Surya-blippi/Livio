@@ -967,3 +967,147 @@ export const pollFaceVideoJob = async (
 
     throw new Error('Video generation timed out after 15 minutes');
 };
+
+// ============ FACELESS VIDEO JOB FUNCTIONS ============
+
+/**
+ * Faceless video job status response
+ */
+export interface FacelessVideoJobStatus {
+    jobId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    progressMessage: string;
+    result?: {
+        videoUrl: string;
+        duration: number;
+    };
+    error?: string;
+}
+
+/**
+ * Start a faceless video generation job (returns immediately)
+ */
+export const startFacelessVideoJob = async (
+    remoteAudioUrl: string,
+    wordTimings: WordTiming[],
+    duration: number,
+    images: string[],
+    aspectRatio: '9:16' | '16:9' | '1:1',
+    sceneTimings?: SceneTiming[],
+    captionStyle: string = 'bold-classic',
+    enableBackgroundMusic: boolean = false,
+    enableCaptions: boolean = true,
+    backgroundMusicUrl?: string,
+    userId?: string
+): Promise<{ jobId: string }> => {
+    const response = await axios.post('/api/faceless-video/start', {
+        remoteAudioUrl,
+        wordTimings,
+        duration,
+        images,
+        aspectRatio,
+        sceneTimings,
+        captionStyle,
+        enableBackgroundMusic,
+        enableCaptions,
+        backgroundMusicUrl,
+        userId
+    });
+
+    return { jobId: response.data.jobId };
+};
+
+/**
+ * Get the status of a faceless video job
+ */
+export const getFacelessVideoJobStatus = async (jobId: string): Promise<FacelessVideoJobStatus> => {
+    const response = await axios.get(`/api/faceless-video/status/${jobId}`);
+    return response.data;
+};
+
+/**
+ * Trigger processing of a faceless video job
+ */
+export const triggerFacelessVideoProcess = async (jobId: string): Promise<void> => {
+    try {
+        console.log(`[FacelessVideo] Triggering process for job ${jobId}`);
+        axios.post('/api/faceless-video/process', { jobId }).catch((err) => {
+            console.log(`[FacelessVideo] Trigger request sent:`, err?.message || 'ok');
+        });
+    } catch {
+        // Ignore - polling will catch any issues
+    }
+};
+
+/**
+ * Poll for faceless video job completion with progress callback
+ */
+export const pollFacelessVideoJob = async (
+    jobId: string,
+    onProgress?: (progress: number, message: string) => void,
+    pollIntervalMs: number = 3000,
+    maxPollTimeMs: number = 600000 // 10 minutes max
+): Promise<{
+    videoUrl: string;
+    duration: number;
+}> => {
+    console.log(`[FacelessVideo] Starting poll for job ${jobId}`);
+
+    // Initial trigger to start processing
+    await triggerFacelessVideoProcess(jobId);
+
+    // Wait a moment for the process to start
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const startTime = Date.now();
+    let lastTriggerTime = Date.now();
+    let consecutiveErrors = 0;
+
+    const RETRIGGER_INTERVAL_MS = 8000; // Retrigger every 8 seconds
+
+    while (Date.now() - startTime < maxPollTimeMs) {
+        try {
+            const status = await getFacelessVideoJobStatus(jobId);
+            consecutiveErrors = 0;
+
+            // Report progress
+            if (onProgress) {
+                onProgress(status.progress, status.progressMessage);
+            }
+
+            // Check if complete
+            if (status.status === 'completed' && status.result) {
+                console.log(`[FacelessVideo] Job complete: ${status.result.videoUrl}`);
+                return {
+                    videoUrl: status.result.videoUrl,
+                    duration: status.result.duration
+                };
+            }
+
+            // Check if failed
+            if (status.status === 'failed') {
+                throw new Error(status.error || 'Video generation failed');
+            }
+
+            // Retrigger processing periodically
+            if (status.status === 'processing' &&
+                Date.now() - lastTriggerTime > RETRIGGER_INTERVAL_MS) {
+                await triggerFacelessVideoProcess(jobId);
+                lastTriggerTime = Date.now();
+            }
+        } catch (pollError) {
+            consecutiveErrors++;
+            console.error(`[FacelessVideo] Poll error (${consecutiveErrors}):`, pollError);
+
+            if (consecutiveErrors > 10) {
+                throw new Error('Too many polling errors');
+            }
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    }
+
+    throw new Error('Video generation timed out after 10 minutes');
+};
