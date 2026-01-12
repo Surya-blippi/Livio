@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { renderFaceVideo, pollRender } from '@/lib/render';
-import { generateFaceVideo } from '@/lib/fal';
+import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
+import { generateSceneTTS } from '@/lib/fal';
 
 // Timeout for serverless function
 export const maxDuration = 55;
@@ -171,7 +172,8 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
         }
 
         const status = await resp.json();
-        console.log(`📊 Response: ${JSON.stringify(status).substring(0, 500)}`);
+        const debugStatus = JSON.stringify(status).substring(0, 500);
+        console.log(`📊 Response: ${debugStatus}`);
 
         if (status.movie && status.movie.status === 'done') {
             console.log(`✅ RENDER DONE! Video URL: ${status.movie.url}`);
@@ -205,6 +207,19 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
 // Upload to Supabase
 async function uploadToSupabase(videoUrl: string, fileName: string): Promise<string> {
     try {
+        // Need to use admin client here too? 
+        // Actually, for storage upload, if bucket is public/authenticated, logic is same.
+        // But let's use the admin client from getSupabaseAdmin() if possible, but uploaded buffer needs supabase-js client
+        // We will stick to 'getSupabaseAdmin()' here to be safe and consistent.
+
+        let supabase;
+        try {
+            supabase = getSupabaseAdmin();
+        } catch (e) {
+            console.error("Storage upload auth failed", e);
+            return videoUrl;
+        }
+
         const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 60000 });
         const { error } = await supabase.storage.from('videos').upload(`clips/${fileName}`, Buffer.from(response.data), {
             contentType: 'video/mp4', upsert: true
@@ -459,13 +474,19 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error(`❌ ERROR:`, error);
         if (jobId) {
-            await supabase.from('video_jobs').update({
-                status: 'failed',
-                error: error instanceof Error ? error.message : 'Unknown',
-                progress_message: 'Failed',
-                is_processing: false,
-                updated_at: new Date().toISOString()
-            }).eq('id', jobId);
+            let supabase;
+            try {
+                supabase = getSupabaseAdmin();
+                await supabase.from('video_jobs').update({
+                    status: 'failed',
+                    error: error instanceof Error ? error.message : 'Unknown',
+                    progress_message: 'Failed',
+                    is_processing: false,
+                    updated_at: new Date().toISOString()
+                }).eq('id', jobId);
+            } catch (e2) {
+                console.error("Failed to update job status to failed", e2);
+            }
         }
         return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown' }, { status: 500 });
     }
