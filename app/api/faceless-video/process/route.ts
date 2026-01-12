@@ -55,13 +55,23 @@ function buildJson2VideoPayload(input: FacelessJobInputData) {
     };
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
-    // Build scenes from sceneTimings or distribute evenly
     interface MovieScene {
         comment: string;
         duration: number;
         elements: Record<string, unknown>[];
     }
     const scenes: MovieScene[] = [];
+
+    // Helper to create Ken Burns effect
+    const getKenBurnsEffect = (index: number) => {
+        const effects = [
+            { zoom: { start: 1.0, end: 1.15 } },
+            { zoom: { start: 1.15, end: 1.0 } },
+            { zoom: { start: 1.0, end: 1.2 }, pan: { start: 'center', end: 'top-left' } },
+            { zoom: { start: 1.2, end: 1.0 }, pan: { start: 'top-right', end: 'center' } },
+        ];
+        return effects[index % effects.length];
+    };
 
     if (sceneTimings && sceneTimings.length > 0 && images.length >= sceneTimings.length) {
         // Scene-based: each scene has its own image and timing
@@ -75,8 +85,8 @@ function buildJson2VideoPayload(input: FacelessJobInputData) {
                     {
                         type: 'image',
                         src: images[i] || images[0],
-                        duration: -1,
-                        zoom: { direction: i % 2 === 0 ? 'in' : 'out', amount: 1.1 }
+                        resize: 'cover',
+                        ...getKenBurnsEffect(i)
                     }
                 ]
             });
@@ -92,17 +102,26 @@ function buildJson2VideoPayload(input: FacelessJobInputData) {
                     {
                         type: 'image',
                         src: images[i],
-                        duration: -1,
-                        zoom: { direction: i % 2 === 0 ? 'in' : 'out', amount: 1.1 }
+                        resize: 'cover',
+                        ...getKenBurnsEffect(i)
                     }
                 ]
             });
         }
     }
 
-    // Add captions to first scene
+    // Add captions to first scene (spanning entire video) if enabled
+    // Note: JSON2Video recommends splitting subtitles per scene for reliability, 
+    // but for continuous audio, adding to first scene with long duration works if handled correctly.
+    // However, safest bet is to use 'voice' element or just one long scene if audio is one track.
+    // Since we have multiple scenes for visual variety, we add a movie-level element for subtitles logic
+    // But JSON2Video structure puts elements inside scenes or at movie level.
+
+    // We will attach subtitles to the first scene but with duration covering the whole video
+    // This is a common pattern for "overlay" elements.
     if (enableCaptions && wordTimings.length > 0 && scenes.length > 0) {
         const captionElement = buildCaptionElement(wordTimings, captionStyle, width, height);
+        // Ensure caption element has no specific duration so it lasts as long as its content defined by start/end times
         scenes[0].elements.push(captionElement);
     }
 
@@ -110,21 +129,27 @@ function buildJson2VideoPayload(input: FacelessJobInputData) {
     const movie: Record<string, unknown> = {
         resolution: aspectRatio === '16:9' ? 'full-hd' : 'full-hd-vertical',
         quality: 'high',
-        scenes
+        scenes,
+        elements: [] // Movie level elements
     };
 
-    // Add audio track
-    movie.soundtrack = {
-        src: remoteAudioUrl,
-        volume: 1
-    };
+    // Add audio track as movie-level element
+    if (movie.elements && Array.isArray(movie.elements)) {
+        movie.elements.push({
+            type: 'audio',
+            src: remoteAudioUrl,
+            volume: 1.0
+        });
 
-    // Add background music if enabled
-    if (enableBackgroundMusic && backgroundMusicUrl) {
-        movie.background_music = {
-            src: backgroundMusicUrl,
-            volume: 0.15
-        };
+        // Add background music if enabled
+        if (enableBackgroundMusic && backgroundMusicUrl) {
+            movie.elements.push({
+                type: 'audio',
+                src: backgroundMusicUrl,
+                volume: 0.15,
+                loop: true
+            });
+        }
     }
 
     return movie;
@@ -139,45 +164,53 @@ function buildCaptionElement(wordTimings: WordTiming[], style: string, width: nu
         end: wt.endTime
     }));
 
-    // Style configuration
+    // Style configuration matching lib/json2video.ts
     const styleConfig: Record<string, unknown> = {
         'bold-classic': {
-            font_family: 'Montserrat',
-            font_weight: 800,
-            font_size: Math.round(height * 0.04),
-            fill_color: '#FFFFFF',
-            stroke_color: '#000000',
-            stroke_width: 3,
-            background_color: 'rgba(0,0,0,0.6)',
-            background_border_radius: 8
+            'font-family': 'Montserrat',
+            'font-weight': '800',
+            'font-size': Math.round(height * 0.05),
+            'font-color': '#FFFFFF',
+            'stroke-color': '#000000',
+            'stroke-width': 3,
+            'background-color': 'rgba(0,0,0,0.6)',
+            'background-border-radius': 8,
+            'position': 'bottom-center',
+            'y': Math.round(height * 0.15) // Offset from bottom
         },
         'minimal': {
-            font_family: 'Roboto',
-            font_weight: 400,
-            font_size: Math.round(height * 0.035),
-            fill_color: '#FFFFFF',
-            stroke_width: 0
+            'font-family': 'Roboto',
+            'font-weight': '400',
+            'font-size': Math.round(height * 0.04),
+            'font-color': '#FFFFFF',
+            'stroke-width': 0,
+            'position': 'bottom-center',
+            'y': Math.round(height * 0.1)
         },
         'neon': {
-            font_family: 'Poppins',
-            font_weight: 700,
-            font_size: Math.round(height * 0.045),
-            fill_color: '#00FF88',
-            stroke_color: '#000000',
-            stroke_width: 2
+            'font-family': 'Poppins',
+            'font-weight': '700',
+            'font-size': Math.round(height * 0.05),
+            'font-color': '#00FF88',
+            'stroke-color': '#000000',
+            'stroke-width': 2,
+            'position': 'bottom-center',
+            'y': Math.round(height * 0.15)
         }
     };
 
+    // Use cast to avoid type errors since we know the structure
     const selectedStyle = (styleConfig[style] || styleConfig['bold-classic']) as Record<string, unknown>;
 
     return {
         type: 'subtitles',
         settings: {
-            ...(selectedStyle as object),
-            position: 'center',
-            y: Math.round(height * 0.75),
-            max_width: Math.round(width * 0.9),
-            line_height: 1.3
+            ...selectedStyle,
+            // Common settings
+            'max-width': Math.round(width * 0.9),
+            'line-height': 1.3,
+            'vertical-alignment': 'center',
+            'horizontal-alignment': 'center'
         },
         text: textBlocks
     };
