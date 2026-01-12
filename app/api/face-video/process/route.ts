@@ -234,6 +234,15 @@ export async function POST(request: NextRequest) {
 
         console.log(`\n========== JOB: ${jobId} ==========`);
 
+        let supabase;
+        try {
+            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
+            supabase = getSupabaseAdmin();
+        } catch (e) {
+            console.error('Init Error:', e);
+            return NextResponse.json({ error: 'Configuration Error' }, { status: 500 });
+        }
+
         // Fetch job
         const { data: job, error: fetchErr } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
         if (fetchErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });

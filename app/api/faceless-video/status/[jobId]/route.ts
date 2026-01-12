@@ -9,10 +9,14 @@ export async function GET(
         const { jobId } = await params;
 
         console.log(`\n========== CHECK STATUS: ${jobId} ==========`);
-        console.log(`Debug: Service Key Present? ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
 
-        if (!jobId) {
-            return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+        let supabase;
+        try {
+            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
+            supabase = getSupabaseAdmin();
+        } catch (e) {
+            console.error('Failed to get Admin Client:', e);
+            return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         }
 
         // Load job from Supabase

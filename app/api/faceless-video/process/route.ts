@@ -158,8 +158,15 @@ export async function POST(request: NextRequest) {
         if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
 
         console.log(`\n========== FACELESS JOB: ${jobId} ==========`);
-        console.log(`Debug: Service Key Present? ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
-        console.log(`Debug: Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
+
+        let supabase;
+        try {
+            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
+            supabase = getSupabaseAdmin();
+        } catch (e) {
+            console.error('Failed to initialize Admin Client:', e);
+            return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
+        }
 
         // Load job state
         const { data: job, error: fetchError } = await supabase
