@@ -1,4 +1,3 @@
-```
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
@@ -46,7 +45,7 @@ async function updateJob(jobId: string, updates: Record<string, unknown>) {
         .from('video_jobs')
         .update(updates)
         .eq('id', jobId);
-    if (error) console.error(`Failed to update job ${ jobId }: `, error);
+    if (error) console.error(`Failed to update job ${jobId}: `, error);
 }
 
 // Upload base64 image to Supabase and return public URL
@@ -60,29 +59,29 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
         const contentType = match[1];
         const buffer = Buffer.from(match[2], 'base64');
         const ext = contentType.split('/')[1];
-        const fileName = `faceless / ${ jobId }/image_${index}.${ext}`;
+        const fileName = `faceless / ${jobId}/image_${index}.${ext}`;
 
-const { error } = await supabase.storage
-    .from('videos')
-    .upload(fileName, buffer, {
-        contentType,
-        upsert: true
-    });
+        const { error } = await supabase.storage
+            .from('videos')
+            .upload(fileName, buffer, {
+                contentType,
+                upsert: true
+            });
 
-if (error) {
-    console.error('Upload error:', error);
-    return base64Data;
-}
+        if (error) {
+            console.error('Upload error:', error);
+            return base64Data;
+        }
 
-const { data } = supabase.storage
-    .from('videos')
-    .getPublicUrl(fileName);
+        const { data } = supabase.storage
+            .from('videos')
+            .getPublicUrl(fileName);
 
-return data.publicUrl;
+        return data.publicUrl;
     } catch (e) {
-    console.error('Image processing error:', e);
-    return base64Data;
-}
+        console.error('Image processing error:', e);
+        return base64Data;
+    }
 }
 
 // Build JSON2Video movie payload
