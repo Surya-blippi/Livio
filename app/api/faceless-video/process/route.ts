@@ -283,6 +283,21 @@ export async function POST(request: NextRequest) {
 
         const input = job.input_data as FacelessJobInputData;
 
+        // Validate that we have images to work with
+        if (!input.images || input.images.length === 0) {
+            console.error('No images provided for faceless video');
+            await updateJob(jobId, {
+                status: 'failed',
+                error: 'No images provided. Please upload at least one image/asset.',
+                progress_message: 'Failed: No images provided'
+            });
+            return NextResponse.json({
+                error: 'No images provided. Please upload at least one image/asset.'
+            }, { status: 400 });
+        }
+
+        console.log(`📸 Processing with ${input.images.length} images`);
+
         // Check if we have a pending render
         if (input.pendingRender) {
             console.log(`📽️ Checking pending render: ${input.pendingRender.projectId}`);
