@@ -911,7 +911,7 @@ export const useDashboardState = () => {
                 setError(handleApiError(err).message);
                 setIsProcessing(false);
             } finally {
-                if (!error) setPreviewMode('video'); // Switch to video view on completion (or attempt)
+                if (!error) setPreviewMode('video');
             }
         };
 
