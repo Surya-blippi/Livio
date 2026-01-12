@@ -591,11 +591,11 @@ export const useDashboardState = () => {
         setError('');
 
         try {
+            // Determine voice ID to use
+            let voiceIdToUse: string | undefined = undefined;
+
             if (mode === 'faceless') {
                 setProcessingMessage('Generating speech...');
-
-                // Determine voice ID to use
-                let voiceIdToUse: string | undefined = undefined;
 
                 // 1. If user uploaded/recorded a voice, clone it first
                 if (voiceFile) {
@@ -614,370 +614,371 @@ export const useDashboardState = () => {
                     setVoiceFile(null);
                     setProcessingMessage('Generating speech...');
                 }
-                // 2. If user has a saved cloned voice, use that
-                else if (savedVoice) {
-                    console.log('[Debug] Checking savedVoice:', savedVoice);
-                    console.log('[Debug] savedVoice.voice_id:', savedVoice.voice_id);
-                    console.log('[Debug] Type of voice_id:', typeof savedVoice.voice_id);
+            }
+            // 2. If user has a saved cloned voice, use that
+            else if (savedVoice) {
+                console.log('[Debug] Checking savedVoice:', savedVoice);
+                console.log('[Debug] savedVoice.voice_id:', savedVoice.voice_id);
+                console.log('[Debug] Type of voice_id:', typeof savedVoice.voice_id);
 
-                    // Check if the voice is "pending" or missing ID
-                    if (!savedVoice.voice_id || savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
-                        setProcessingMessage('Cloning your new voice...');
-                        console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
-
-                        try {
-                            // Use the URL directly for cloning (fast path)
-                            const voiceData = await cloneVoice(savedVoice.voice_sample_url);
-                            console.log('[Debug] Clone successful, new ID:', voiceData.voiceId);
-                            voiceIdToUse = voiceData.voiceId;
-
-                            // Update the voice record with the real ID
-                            const updatedVoice = await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
-
-                            // Update local state
-                            if (updatedVoice) {
-                                setSavedVoice(updatedVoice);
-                                setAllVoices(prev => prev.map(v => v.id === updatedVoice.id ? updatedVoice : v));
-                            }
-                        } catch (err) {
-                            console.error('Error cloning pending voice:', err);
-                            setError('Failed to process your voice. Please record again.');
-                            setIsProcessing(false);
-                            return;
-                        }
-                    } else {
-                        console.log('[Debug] Using existing voice ID:', savedVoice.voice_id);
-                        voiceIdToUse = savedVoice.voice_id;
-                    }
-                }
-                // 3. Last safety check
-                if (voiceIdToUse === 'pending') {
-                    console.error('SafeGuard: Voice ID is still PENDING after checks');
-                    setError('Voice cloning incomplete. Please try selecting the voice again.');
-                    setIsProcessing(false);
-                    return;
-                }
-
-                // 4. No voice - will use default preset (may error if preset not accessible)
-
-                let speechResult;
-
-                // For FACELESS video, we now skip client-side generation and let the server handle it scene-by-scene
-                if (mode === 'faceless') {
-                    console.log(`[Video] Starting scene-based faceless video job with ${scenes.length} scenes`);
-
-                    // Map scenes to assets (1:1 or loop assets)
-                    const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
-                        text: scene.text,
-                        assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
-                    })) : [
-                        // Fallback if no scenes parsed (e.g. manual text only), treat whole text as one scene
-                        {
-                            text: inputText,
-                            assetUrl: collectedAssets[0]?.url
-                        }
-                    ];
-
-                    setProcessingStep(2);
-                    setProcessingMessage('Creating video job...');
-
-                    const { jobId } = await startFacelessVideoJob(
-                        facelessScenes,
-                        voiceIdToUse || 'Voice3d303ed71767974077', // Default voice if none
-                        aspectRatio,
-                        captionStyle,
-                        enableBackgroundMusic,
-                        enableCaptions,
-                        enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
-                        dbUser?.id
-                    );
-
-                    setProcessingMessage('Rendering video (this may take a few minutes)...');
-
-                    // Poll for job completion with progress updates
-                    const videoResult = await pollFacelessVideoJob(
-                        jobId,
-                        (progress: number, message: string) => {
-                            setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
-                            setProcessingMessage(message);
-                        }
-                    );
-
-                    setVideoUrl(videoResult.videoUrl);
-                    if (dbUser) {
-                        const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
-                        await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
-                        await refreshVideoHistory();
-                    }
-                    // Reset processing state after faceless video is done
-                    setIsProcessing(false);
-                    setProcessingStep(0);
-                    return; // EXIT HERE for faceless
-                }
-
-                // --- FACE VIDEO LOGIC BELOW ---
-                // We proceed to voice preparation/checking
-                // The backend handles scene-based TTS for Face Video
-                let speechUrl: string;
-
-                if (voiceFile) {
+                // Check if the voice is "pending" or missing ID
+                if (!savedVoice.voice_id || savedVoice.voice_id === 'pending' || savedVoice.voice_id === 'undefined') {
                     setProcessingMessage('Cloning your new voice...');
-                    const voiceData = await cloneVoice(voiceFile);
-                    if (dbUser) {
-                        const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
-                        if (newVoice) {
-                            setSavedVoice(newVoice);
-                            setAllVoices(prev => [newVoice, ...prev]);
-                        }
-                    }
-                    setProcessingStep(2);
-                    setProcessingMessage('Generating speech...');
-                    const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
-                    speechUrl = result.audioUrl;
-                    setVoiceFile(null);
-                } else if (hasClonedVoice && savedVoice) {
-                    setProcessingStep(2);
-                    setProcessingMessage('Generating speech...');
-
-                    let activeVoiceId = savedVoice.voice_id;
-
-                    // Handle pending voice in FACE mode
-                    if (!activeVoiceId || activeVoiceId === 'pending' || activeVoiceId === 'undefined') {
-                        console.log('[FaceMode] Cloning pending voice...');
-                        try {
-                            const voiceData = await cloneVoice(savedVoice.voice_sample_url);
-                            activeVoiceId = voiceData.voiceId;
-
-                            // Update DB
-                            if (dbUser) {
-                                await updateVoiceId(savedVoice.id, activeVoiceId, voiceData.previewUrl);
-                                // Update local state is optional here as we use activeVoiceId variable, but good for UI
-                                const updatedVoice = { ...savedVoice, voice_id: activeVoiceId, preview_url: voiceData.previewUrl };
-                                setSavedVoice(updatedVoice);
-                                setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
-                            }
-                        } catch (err) {
-                            console.error('Face mode cloning failed:', err);
-                            setError('Failed to process custom voice.');
-                            setIsProcessing(false);
-                            return;
-                        }
-                    }
+                    console.log('Cloning pending voice from:', savedVoice.voice_sample_url);
 
                     try {
-                        const result = await generateSpeechWithVoiceId(inputText, activeVoiceId);
-                        speechUrl = result.audioUrl;
-                        if (result.reCloned && result.newVoiceId && dbUser) {
-                            await updateVoiceId(savedVoice.id, result.newVoiceId, result.newPreviewUrl);
-                            const updatedVoice = { ...savedVoice, voice_id: result.newVoiceId, preview_url: result.newPreviewUrl };
+                        // Use the URL directly for cloning (fast path)
+                        const voiceData = await cloneVoice(savedVoice.voice_sample_url);
+                        console.log('[Debug] Clone successful, new ID:', voiceData.voiceId);
+                        voiceIdToUse = voiceData.voiceId;
+
+                        // Update the voice record with the real ID
+                        const updatedVoice = await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
+
+                        // Update local state
+                        if (updatedVoice) {
                             setSavedVoice(updatedVoice);
-                            setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                            setAllVoices(prev => prev.map(v => v.id === updatedVoice.id ? updatedVoice : v));
                         }
-                    } catch (voiceError: unknown) {
-                        const errorCode = (voiceError as Error & { code?: string }).code;
-                        if (errorCode === 'VOICE_EXPIRED') {
-                            setProcessingMessage('Voice expired, re-cloning...');
-                            const response = await fetch(savedVoice.voice_sample_url);
-                            const blob = await response.blob();
-                            const file = new File([blob], 'voice.webm', { type: blob.type || 'audio/webm' });
-                            const voiceData = await cloneVoice(file);
-                            if (dbUser) {
-                                await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
-                                const updatedVoice = { ...savedVoice, voice_id: voiceData.voiceId, preview_url: voiceData.previewUrl };
-                                setSavedVoice(updatedVoice);
-                                setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
-                            }
-                            const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
-                            speechUrl = result.audioUrl;
-                        } else {
-                            throw voiceError;
-                        }
+                    } catch (err) {
+                        console.error('Error cloning pending voice:', err);
+                        setError('Failed to process your voice. Please record again.');
+                        setIsProcessing(false);
+                        return;
                     }
                 } else {
-                    throw new Error('No voice available. Please record or upload a voice sample.');
+                    console.log('[Debug] Using existing voice ID:', savedVoice.voice_id);
+                    voiceIdToUse = savedVoice.voice_id;
                 }
+            }
+            // 3. Last safety check
+            if (voiceIdToUse === 'pending') {
+                console.error('SafeGuard: Voice ID is still PENDING after checks');
+                setError('Voice cloning incomplete. Please try selecting the voice again.');
+                setIsProcessing(false);
+                return;
+            }
 
-                // SCENE-BASED face mode: Perfect sync with individual TTS per scene
-                setProcessingStep(3);
-                setProcessingMessage('Preparing scene-based video...');
+            // 4. No voice - will use default preset (may error if preset not accessible)
 
-                if (photoPreview && dbUser) {
-                    await saveAvatar(dbUser.id, useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview, 'Avatar', true);
-                }
+            let speechResult;
 
-                // Determine image URL
-                const faceImageUrl = useStudioImage && studioReadyUrl
-                    ? studioReadyUrl
-                    : (photoPreview || '');
+            // For FACELESS video, we now skip client-side generation and let the server handle it scene-by-scene
+            if (mode === 'faceless') {
+                console.log(`[Video] Starting scene-based faceless video job with ${scenes.length} scenes`);
 
-                if (!faceImageUrl) {
-                    throw new Error('No photo available for face mode');
-                }
-
-                // Build scenes from script - alternate face/asset
-                // If we have scene timings from enhance, use those; otherwise split the script
-                const sceneInputs: FaceVideoSceneInput[] = [];
-
-                if (sceneTimings && sceneTimings.length > 0) {
-                    // Use scene data from enhanced script
-                    let assetIndex = 0;
-                    for (let i = 0; i < sceneTimings.length; i++) {
-                        const isAssetScene = i % 2 !== 0; // Alternate: face, asset, face, asset
-                        sceneInputs.push({
-                            text: sceneTimings[i].text,
-                            type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
-                            assetUrl: isAssetScene && collectedAssets.length > 0
-                                ? collectedAssets[assetIndex % collectedAssets.length].url
-                                : undefined
-                        });
-                        if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                // Map scenes to assets (1:1 or loop assets)
+                const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
+                    text: scene.text,
+                    assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
+                })) : [
+                    // Fallback if no scenes parsed (e.g. manual text only), treat whole text as one scene
+                    {
+                        text: inputText,
+                        assetUrl: collectedAssets[0]?.url
                     }
-                } else {
-                    // Fallback: Split script into sentences and alternate
-                    const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
-                    let assetIndex = 0;
-                    for (let i = 0; i < sentences.length; i++) {
-                        const isAssetScene = i % 2 !== 0;
-                        sceneInputs.push({
-                            text: sentences[i].trim() + '.',
-                            type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
-                            assetUrl: isAssetScene && collectedAssets.length > 0
-                                ? collectedAssets[assetIndex % collectedAssets.length].url
-                                : undefined
-                        });
-                        if (isAssetScene && collectedAssets.length > 0) assetIndex++;
-                    }
-                }
+                ];
 
-                console.log(`Face mode: Created ${sceneInputs.length} scenes (${sceneInputs.filter(s => s.type === 'face').length} face, ${sceneInputs.filter(s => s.type === 'asset').length} asset)`);
+                setProcessingStep(2);
+                setProcessingMessage('Creating video job...');
 
-                setProcessingStep(4);
-                setProcessingMessage(`Generating ${sceneInputs.length} scenes...`);
-
-                // Get voice ID from saved voice (required for face mode)
-                const voiceIdForScenes = savedVoice?.voice_id;
-
-                if (!voiceIdForScenes) {
-                    throw new Error('No voice ID available for scene generation. Please record or clone a voice first.');
-                }
-
-                // Call job-based face video API (works on Vercel)
-                const { jobId } = await startFaceVideoJob(
-                    sceneInputs,
-                    faceImageUrl,
-                    voiceIdForScenes,
+                const { jobId } = await startFacelessVideoJob(
+                    facelessScenes,
+                    voiceIdToUse || 'Voice3d303ed71767974077', // Default voice if none
+                    aspectRatio,
+                    captionStyle,
                     enableBackgroundMusic,
                     enableCaptions,
+                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
                     dbUser?.id
                 );
 
-                setProcessingMessage('Processing video (this may take a few minutes)...');
+                setProcessingMessage('Rendering video (this may take a few minutes)...');
 
                 // Poll for job completion with progress updates
-                const sceneResult = await pollFaceVideoJob(
+                const videoResult = await pollFacelessVideoJob(
                     jobId,
-                    (progress, message, sceneData) => {
-                        setProcessingStep(Math.floor(4 + (progress / 100) * 2)); // Steps 4-6
+                    (progress: number, message: string) => {
+                        setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
                         setProcessingMessage(message);
-                        if (sceneData) setSceneProgress(sceneData);
                     }
                 );
 
-                setVideoUrl(sceneResult.videoUrl);
-
-                // Save video with clip assets from WaveSpeed
+                setVideoUrl(videoResult.videoUrl);
                 if (dbUser) {
-                    // Merge existing collected assets with new clip assets
-                    const allAssets = [
-                        ...collectedAssets,
-                        ...(sceneResult.clipAssets || [])
-                    ];
-                    await saveVideo(
-                        dbUser.id,
-                        sceneResult.videoUrl,
-                        inputText,
-                        'face',
-                        sceneResult.duration,
-                        enableCaptions,
-                        enableBackgroundMusic,
-                        undefined,
-                        inputText,
-                        allAssets  // Save all assets including WaveSpeed clips
-                    );
+                    const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
+                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
                     await refreshVideoHistory();
                 }
+                // Reset processing state after faceless video is done
                 setIsProcessing(false);
-            } catch (err) {
-                setError(handleApiError(err).message);
-                setIsProcessing(false);
-            } finally {
-                if (!error) setPreviewMode('video');
+                setProcessingStep(0);
+                return; // EXIT HERE for faceless
             }
-        };
 
-        return {
-            // State
-            isDark, setIsDark,
-            mode, setMode,
-            duration, setDuration,
-            inputText, setInputText,
-            isEnhanced, setIsEnhanced,
-            enableCaptions, setEnableCaptions,
-            captionStyle, setCaptionStyle,
-            enableBackgroundMusic, setEnableBackgroundMusic,
-            aspectRatio, setAspectRatio,
-            photoFile, setPhotoFile,
-            photoPreview, setPhotoPreview,
-            voiceFile, setVoiceFile,
-            isRecording, startRecording, stopRecording,
-            videoUrl, setVideoUrl,
-            audioUrl,
-            captionsData,
-            wordTimings,
-            isProcessing,
-            processingMessage,
-            processingStep,
-            sceneProgress,
-            error, setError,
-            showHistory, setShowHistory,
-            collectedAssets, setCollectedAssets,
-            isCollectingAssets,
-            showAssetGallery, setShowAssetGallery,
-            assetSearchTerms,
-            scenes, setScenes,
-            sceneTimings, setSceneTimings,
-            studioReadyUrl, setStudioReadyUrl,
-            isGeneratingStudio,
-            useStudioImage, setUseStudioImage,
-            showImagePreview, setShowImagePreview,
-            dbUser,
-            savedVoice, setSavedVoice,
-            allVoices, setAllVoices,
-            videoHistory,
-            savedAvatars,
+            // --- FACE VIDEO LOGIC BELOW ---
+            // We proceed to voice preparation/checking
+            // The backend handles scene-based TTS for Face Video
+            let speechUrl: string;
 
-            // Derived
-            hasClonedVoice,
-            canGenerate,
+            if (voiceFile) {
+                setProcessingMessage('Cloning your new voice...');
+                const voiceData = await cloneVoice(voiceFile);
+                if (dbUser) {
+                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
+                    if (newVoice) {
+                        setSavedVoice(newVoice);
+                        setAllVoices(prev => [newVoice, ...prev]);
+                    }
+                }
+                setProcessingStep(2);
+                setProcessingMessage('Generating speech...');
+                const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
+                speechUrl = result.audioUrl;
+                setVoiceFile(null);
+            } else if (hasClonedVoice && savedVoice) {
+                setProcessingStep(2);
+                setProcessingMessage('Generating speech...');
 
-            // Handlers
-            handlePhotoUpload,
-            handleEnhanceWithAI,
-            handleRegenerateScenes,
-            isRegeneratingScenes,
-            handleVoiceUpload,
-            handleReset,
-            handleMakeStudioReady,
-            handleCollectAssets,
-            handleDeleteVideo,
-            handleDeleteAvatar,
-            handleDeleteVoice,
-            handleCreateVideo,
-            handleSelectVideo,
-            selectedVideo, setSelectedVideo,
-            onVoiceSelect,
-            handleConfirmVoice,
-            isConfirmingVoice,
-            previewMode, setPreviewMode
-        };
+                let activeVoiceId = savedVoice.voice_id;
+
+                // Handle pending voice in FACE mode
+                if (!activeVoiceId || activeVoiceId === 'pending' || activeVoiceId === 'undefined') {
+                    console.log('[FaceMode] Cloning pending voice...');
+                    try {
+                        const voiceData = await cloneVoice(savedVoice.voice_sample_url);
+                        activeVoiceId = voiceData.voiceId;
+
+                        // Update DB
+                        if (dbUser) {
+                            await updateVoiceId(savedVoice.id, activeVoiceId, voiceData.previewUrl);
+                            // Update local state is optional here as we use activeVoiceId variable, but good for UI
+                            const updatedVoice = { ...savedVoice, voice_id: activeVoiceId, preview_url: voiceData.previewUrl };
+                            setSavedVoice(updatedVoice);
+                            setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                        }
+                    } catch (err) {
+                        console.error('Face mode cloning failed:', err);
+                        setError('Failed to process custom voice.');
+                        setIsProcessing(false);
+                        return;
+                    }
+                }
+
+                try {
+                    const result = await generateSpeechWithVoiceId(inputText, activeVoiceId);
+                    speechUrl = result.audioUrl;
+                    if (result.reCloned && result.newVoiceId && dbUser) {
+                        await updateVoiceId(savedVoice.id, result.newVoiceId, result.newPreviewUrl);
+                        const updatedVoice = { ...savedVoice, voice_id: result.newVoiceId, preview_url: result.newPreviewUrl };
+                        setSavedVoice(updatedVoice);
+                        setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                    }
+                } catch (voiceError: unknown) {
+                    const errorCode = (voiceError as Error & { code?: string }).code;
+                    if (errorCode === 'VOICE_EXPIRED') {
+                        setProcessingMessage('Voice expired, re-cloning...');
+                        const response = await fetch(savedVoice.voice_sample_url);
+                        const blob = await response.blob();
+                        const file = new File([blob], 'voice.webm', { type: blob.type || 'audio/webm' });
+                        const voiceData = await cloneVoice(file);
+                        if (dbUser) {
+                            await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
+                            const updatedVoice = { ...savedVoice, voice_id: voiceData.voiceId, preview_url: voiceData.previewUrl };
+                            setSavedVoice(updatedVoice);
+                            setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
+                        }
+                        const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
+                        speechUrl = result.audioUrl;
+                    } else {
+                        throw voiceError;
+                    }
+                }
+            } else {
+                throw new Error('No voice available. Please record or upload a voice sample.');
+            }
+
+            // SCENE-BASED face mode: Perfect sync with individual TTS per scene
+            setProcessingStep(3);
+            setProcessingMessage('Preparing scene-based video...');
+
+            if (photoPreview && dbUser) {
+                await saveAvatar(dbUser.id, useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview, 'Avatar', true);
+            }
+
+            // Determine image URL
+            const faceImageUrl = useStudioImage && studioReadyUrl
+                ? studioReadyUrl
+                : (photoPreview || '');
+
+            if (!faceImageUrl) {
+                throw new Error('No photo available for face mode');
+            }
+
+            // Build scenes from script - alternate face/asset
+            // If we have scene timings from enhance, use those; otherwise split the script
+            const sceneInputs: FaceVideoSceneInput[] = [];
+
+            if (sceneTimings && sceneTimings.length > 0) {
+                // Use scene data from enhanced script
+                let assetIndex = 0;
+                for (let i = 0; i < sceneTimings.length; i++) {
+                    const isAssetScene = i % 2 !== 0; // Alternate: face, asset, face, asset
+                    sceneInputs.push({
+                        text: sceneTimings[i].text,
+                        type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
+                        assetUrl: isAssetScene && collectedAssets.length > 0
+                            ? collectedAssets[assetIndex % collectedAssets.length].url
+                            : undefined
+                    });
+                    if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                }
+            } else {
+                // Fallback: Split script into sentences and alternate
+                const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+                let assetIndex = 0;
+                for (let i = 0; i < sentences.length; i++) {
+                    const isAssetScene = i % 2 !== 0;
+                    sceneInputs.push({
+                        text: sentences[i].trim() + '.',
+                        type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
+                        assetUrl: isAssetScene && collectedAssets.length > 0
+                            ? collectedAssets[assetIndex % collectedAssets.length].url
+                            : undefined
+                    });
+                    if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                }
+            }
+
+            console.log(`Face mode: Created ${sceneInputs.length} scenes (${sceneInputs.filter(s => s.type === 'face').length} face, ${sceneInputs.filter(s => s.type === 'asset').length} asset)`);
+
+            setProcessingStep(4);
+            setProcessingMessage(`Generating ${sceneInputs.length} scenes...`);
+
+            // Get voice ID from saved voice (required for face mode)
+            const voiceIdForScenes = savedVoice?.voice_id;
+
+            if (!voiceIdForScenes) {
+                throw new Error('No voice ID available for scene generation. Please record or clone a voice first.');
+            }
+
+            // Call job-based face video API (works on Vercel)
+            const { jobId } = await startFaceVideoJob(
+                sceneInputs,
+                faceImageUrl,
+                voiceIdForScenes,
+                enableBackgroundMusic,
+                enableCaptions,
+                dbUser?.id
+            );
+
+            setProcessingMessage('Processing video (this may take a few minutes)...');
+
+            // Poll for job completion with progress updates
+            const sceneResult = await pollFaceVideoJob(
+                jobId,
+                (progress, message, sceneData) => {
+                    setProcessingStep(Math.floor(4 + (progress / 100) * 2)); // Steps 4-6
+                    setProcessingMessage(message);
+                    if (sceneData) setSceneProgress(sceneData);
+                }
+            );
+
+            setVideoUrl(sceneResult.videoUrl);
+
+            // Save video with clip assets from WaveSpeed
+            if (dbUser) {
+                // Merge existing collected assets with new clip assets
+                const allAssets = [
+                    ...collectedAssets,
+                    ...(sceneResult.clipAssets || [])
+                ];
+                await saveVideo(
+                    dbUser.id,
+                    sceneResult.videoUrl,
+                    inputText,
+                    'face',
+                    sceneResult.duration,
+                    enableCaptions,
+                    enableBackgroundMusic,
+                    undefined,
+                    inputText,
+                    allAssets  // Save all assets including WaveSpeed clips
+                );
+                await refreshVideoHistory();
+            }
+            setIsProcessing(false);
+        } catch (err) {
+            setError(handleApiError(err).message);
+            setIsProcessing(false);
+        } finally {
+            if (!error) setPreviewMode('video');
+        }
     };
+
+    return {
+        // State
+        isDark, setIsDark,
+        mode, setMode,
+        duration, setDuration,
+        inputText, setInputText,
+        isEnhanced, setIsEnhanced,
+        enableCaptions, setEnableCaptions,
+        captionStyle, setCaptionStyle,
+        enableBackgroundMusic, setEnableBackgroundMusic,
+        aspectRatio, setAspectRatio,
+        photoFile, setPhotoFile,
+        photoPreview, setPhotoPreview,
+        voiceFile, setVoiceFile,
+        isRecording, startRecording, stopRecording,
+        videoUrl, setVideoUrl,
+        audioUrl,
+        captionsData,
+        wordTimings,
+        isProcessing,
+        processingMessage,
+        processingStep,
+        sceneProgress,
+        error, setError,
+        showHistory, setShowHistory,
+        collectedAssets, setCollectedAssets,
+        isCollectingAssets,
+        showAssetGallery, setShowAssetGallery,
+        assetSearchTerms,
+        scenes, setScenes,
+        sceneTimings, setSceneTimings,
+        studioReadyUrl, setStudioReadyUrl,
+        isGeneratingStudio,
+        useStudioImage, setUseStudioImage,
+        showImagePreview, setShowImagePreview,
+        dbUser,
+        savedVoice, setSavedVoice,
+        allVoices, setAllVoices,
+        videoHistory,
+        savedAvatars,
+
+        // Derived
+        hasClonedVoice,
+        canGenerate,
+
+        // Handlers
+        handlePhotoUpload,
+        handleEnhanceWithAI,
+        handleRegenerateScenes,
+        isRegeneratingScenes,
+        handleVoiceUpload,
+        handleReset,
+        handleMakeStudioReady,
+        handleCollectAssets,
+        handleDeleteVideo,
+        handleDeleteAvatar,
+        handleDeleteVoice,
+        handleCreateVideo,
+        handleSelectVideo,
+        selectedVideo, setSelectedVideo,
+        onVoiceSelect,
+        handleConfirmVoice,
+        isConfirmingVoice,
+        previewMode, setPreviewMode
+    };
+};
