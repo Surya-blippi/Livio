@@ -197,7 +197,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
                             <div className="flex justify-between items-start">
                                 {steps.map((step, idx) => {
-                                    const isReady = step.active;
+                                    // Script and Assets are always clickable (for editing/uploading)
+                                    // Storyboard and Video only when they have content
+                                    const alwaysClickable = step.id === 'script' || step.id === 'assets';
+                                    const isReady = alwaysClickable || step.active;
+                                    const hasContent = step.active;
                                     return (
                                         <button
                                             key={step.id}
@@ -206,9 +210,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                             className={`group relative flex flex-col items-center gap-3 transition-all outline-none ${isReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-40 grayscale'}`}
                                         >
                                             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all duration-300 z-10 relative overflow-hidden bg-white ${isReady ? 'border-black shadow-[4px_4px_0px_#000] group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0px_#000] group-active:translate-y-0 group-active:shadow-[2px_2px_0px_#000]' : 'border-gray-200'}`}>
-                                                <step.icon className={`w-6 h-6 transition-colors ${isReady ? 'text-black' : 'text-gray-300'}`} />
+                                                <step.icon className={`w-6 h-6 transition-colors ${isReady ? (hasContent ? 'text-black' : 'text-gray-500') : 'text-gray-300'}`} />
                                             </div>
-                                            <div className={`text-[10px] font-black uppercase tracking-wider transition-colors bg-white px-2 py-0.5 rounded-full border-2 ${isReady ? 'border-black text-black group-hover:bg-[var(--brand-primary)]' : 'border-gray-100 text-gray-300'}`}>
+                                            <div className={`text-[10px] font-black uppercase tracking-wider transition-colors bg-white px-2 py-0.5 rounded-full border-2 ${isReady ? (hasContent ? 'border-black text-black group-hover:bg-[var(--brand-primary)]' : 'border-gray-400 text-gray-500 group-hover:border-black group-hover:text-black') : 'border-gray-100 text-gray-300'}`}>
                                                 {step.label}
                                             </div>
                                         </button>
