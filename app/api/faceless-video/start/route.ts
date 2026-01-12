@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
             .from('video_jobs')
             .insert({
                 user_id: userId || 'anonymous',
-                job_type: 'faceless',
                 status: 'pending',
                 input_data: {
+                    jobType: 'faceless', // Store job type in input_data
                     remoteAudioUrl,
                     wordTimings,
                     duration,
