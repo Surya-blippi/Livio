@@ -227,11 +227,77 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                             {mode === 'faceless' && <span className="text-[var(--brand-primary)] text-xl">✓</span>}
                                         </button>
 
+                                        {/* Current Look Preview & Actions */}
+                                        {mode === 'face' && avatarUrl && (
+                                            <div className="mb-6">
+                                                <p className="text-sm font-bold text-gray-500 mb-2">Current Look</p>
+                                                <div className="bg-white rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm">
+                                                    {/* Main Preview Image */}
+                                                    <div className="aspect-square w-full relative bg-gray-100">
+                                                        <img
+                                                            src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
+                                                            className="w-full h-full object-cover"
+                                                            alt="Current Face"
+                                                        />
+
+                                                        {/* Studio Badge */}
+                                                        {useStudioImage && (
+                                                            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                                                                <span>✨</span>
+                                                                <span>Studio Ready</span>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Loading Overlay */}
+                                                        {isGeneratingStudio && (
+                                                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10">
+                                                                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-2" />
+                                                                <p className="font-bold text-sm">Enhancing...</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Actions Footer */}
+                                                    <div className="p-3 bg-gray-50 border-t border-gray-100">
+                                                        {!studioReadyUrl ? (
+                                                            // Scenario 1: Uploaded but not Studio Ready yet
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <div className="text-xs text-gray-500 font-medium">
+                                                                    optimize for best results
+                                                                </div>
+                                                                <button
+                                                                    onClick={onMakeStudioReady}
+                                                                    disabled={isGeneratingStudio}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                                                                >
+                                                                    <SparklesIcon className="w-3 h-3" />
+                                                                    Enhance
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            // Scenario 2: Studio Ready Available (Toggle)
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-bold text-gray-700">
+                                                                    Use Studio Version
+                                                                </span>
+                                                                <button
+                                                                    onClick={toggleStudioImage}
+                                                                    className={`w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${useStudioImage ? 'bg-purple-600' : 'bg-gray-300'}`}
+                                                                >
+                                                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${useStudioImage ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* With Face Label */}
-                                        <p className="text-sm font-bold text-gray-500 mb-3">Or choose a face:</p>
+                                        <p className="text-sm font-bold text-gray-500 mb-3">Choose from Library:</p>
 
                                         {/* Avatar Grid with Upload First */}
-                                        <div className="grid grid-cols-4 gap-3 max-h-[160px] overflow-y-auto mb-4">
+                                        <div className="grid grid-cols-4 gap-3 max-h-[200px] overflow-y-auto mb-4">
                                             {/* Upload Button - First */}
                                             <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-[var(--brand-primary)] hover:bg-gray-50 transition-all">
                                                 <span className="text-2xl text-gray-400">+</span>
@@ -243,7 +309,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                             {uniqueAvatars.map((avatar) => (
                                                 <div key={avatar.id} className="relative group">
                                                     <button
-                                                        onClick={() => { onSelectAvatar(avatar); setMode('face'); onClose(); }}
+                                                        onClick={() => { onSelectAvatar(avatar); setMode('face'); }}
                                                         className={`w-full aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200 hover:border-gray-300'}`}
                                                     >
                                                         <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
@@ -263,53 +329,6 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                 </div>
                                             ))}
                                         </div>
-
-                                        {/* Studio Ready Section - shown when face mode with non-studio image */}
-                                        {mode === 'face' && avatarUrl && !useStudioImage && (
-                                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-200">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border-2 border-purple-300">
-                                                        <img src={avatarUrl} className="w-full h-full object-cover" alt="" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-bold text-sm text-purple-900">Transform to Studio Ready</p>
-                                                        <p className="text-[10px] text-purple-600">Optimize for AI video</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={onMakeStudioReady}
-                                                        disabled={isGeneratingStudio}
-                                                        className="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 flex items-center gap-1"
-                                                    >
-                                                        {isGeneratingStudio ? (
-                                                            <>
-                                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                                <span>...</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span>✨</span>
-                                                                <span>Enhance</span>
-                                                            </>
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Studio Ready Toggle - shown when both original and studio images exist */}
-                                        {mode === 'face' && avatarUrl && studioReadyUrl && (
-                                            <button
-                                                onClick={toggleStudioImage}
-                                                className="w-full mt-3 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between"
-                                            >
-                                                <span className="text-sm font-medium text-purple-900">
-                                                    {useStudioImage ? '✨ Using Studio Ready' : 'Use Studio Ready version'}
-                                                </span>
-                                                <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useStudioImage ? 'bg-purple-600' : 'bg-gray-300'}`}>
-                                                    <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${useStudioImage ? 'translate-x-4' : ''}`} />
-                                                </div>
-                                            </button>
-                                        )}
                                     </div>
                                 );
                             })()}
@@ -512,7 +531,8 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                 </div>
                             )}
                         </motion.div>
-                    )}
+                    )
+                    }
 
                     {/* Full Screen Sheets */}
                     {isFullScreen && (
