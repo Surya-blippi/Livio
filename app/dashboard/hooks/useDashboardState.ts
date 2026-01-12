@@ -175,7 +175,7 @@ export const useDashboardState = () => {
                 ]);
 
                 setAllVoices(voices.data || []);
-                const activeVoice = (voices.data || []).find(v => v.is_active) || (voices.data || [])[0] || null;
+                const activeVoice = (voices.data || []).find((v: DbVoice) => v.is_active) || (voices.data || [])[0] || null;
                 if (activeVoice) setSavedVoice(activeVoice);
                 setVideoHistory(videos.data || []);
                 setSavedAvatars(avatars.data || []);
