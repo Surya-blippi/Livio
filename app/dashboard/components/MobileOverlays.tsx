@@ -229,64 +229,60 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
 
                                         {/* Current Look Preview & Actions */}
                                         {mode === 'face' && avatarUrl && (
-                                            <div className="mb-6">
+                                            <div className="mb-4">
                                                 <p className="text-sm font-bold text-gray-500 mb-2">Current Look</p>
-                                                <div className="bg-white rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm">
+                                                <div className="relative h-48 w-full rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm bg-gray-100 group">
                                                     {/* Main Preview Image */}
-                                                    <div className="aspect-square w-full relative bg-gray-100">
-                                                        <img
-                                                            src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
-                                                            className="w-full h-full object-cover"
-                                                            alt="Current Face"
-                                                        />
+                                                    <img
+                                                        src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
+                                                        className="w-full h-full object-cover"
+                                                        alt="Current Face"
+                                                    />
 
-                                                        {/* Studio Badge */}
-                                                        {useStudioImage && (
-                                                            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                                                                <span>✨</span>
-                                                                <span>Studio Ready</span>
-                                                            </div>
-                                                        )}
+                                                    {/* Gradient Overlay for Text Readability */}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
-                                                        {/* Loading Overlay */}
-                                                        {isGeneratingStudio && (
-                                                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10">
-                                                                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-2" />
-                                                                <p className="font-bold text-sm">Enhancing...</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    {/* Studio Badge (Top Right) */}
+                                                    {useStudioImage && (
+                                                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                                                            <span>✨</span>
+                                                            <span>Studio Ready</span>
+                                                        </div>
+                                                    )}
 
-                                                    {/* Actions Footer */}
-                                                    <div className="p-3 bg-gray-50 border-t border-gray-100">
+                                                    {/* Loading Overlay */}
+                                                    {isGeneratingStudio && (
+                                                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white z-20">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-2" />
+                                                            <p className="font-bold text-xs">Enhancing...</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Action Button Overlay (Bottom Right) */}
+                                                    <div className="absolute bottom-2 right-2 z-10">
                                                         {!studioReadyUrl ? (
-                                                            // Scenario 1: Uploaded but not Studio Ready yet
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <div className="text-xs text-gray-500 font-medium">
-                                                                    optimize for best results
-                                                                </div>
-                                                                <button
-                                                                    onClick={onMakeStudioReady}
-                                                                    disabled={isGeneratingStudio}
-                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-                                                                >
-                                                                    <SparklesIcon className="w-3 h-3" />
-                                                                    Enhance
-                                                                </button>
-                                                            </div>
+                                                            // Scenario 1: Enhance Button
+                                                            <button
+                                                                onClick={onMakeStudioReady}
+                                                                disabled={isGeneratingStudio}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all"
+                                                            >
+                                                                <SparklesIcon className="w-3 h-3" />
+                                                                Make Studio Ready
+                                                            </button>
                                                         ) : (
-                                                            // Scenario 2: Studio Ready Available (Toggle)
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-xs font-bold text-gray-700">
-                                                                    Use Studio Version
+                                                            // Scenario 2: Toggle Button (Compact)
+                                                            <button
+                                                                onClick={toggleStudioImage}
+                                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-lg transition-all ${useStudioImage ? 'bg-white text-black border-white' : 'bg-black/50 text-white border-white/30 backdrop-blur-md'}`}
+                                                            >
+                                                                <span className="text-xs font-bold">
+                                                                    {useStudioImage ? 'On' : 'Off'}
                                                                 </span>
-                                                                <button
-                                                                    onClick={toggleStudioImage}
-                                                                    className={`w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${useStudioImage ? 'bg-purple-600' : 'bg-gray-300'}`}
-                                                                >
-                                                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${useStudioImage ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                                </button>
-                                                            </div>
+                                                                <div className={`w-6 h-3 rounded-full p-0.5 transition-colors ${useStudioImage ? 'bg-green-500' : 'bg-gray-400'}`}>
+                                                                    <div className={`w-2 h-2 rounded-full bg-white shadow-sm transform transition-transform ${useStudioImage ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                                </div>
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
