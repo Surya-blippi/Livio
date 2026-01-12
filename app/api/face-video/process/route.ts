@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 import { generateSceneTTS } from '@/lib/fal';
 

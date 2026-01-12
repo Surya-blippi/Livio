@@ -56,10 +56,22 @@ export const useDashboardState = () => {
     const { user, isLoaded: isUserLoaded } = useUser();
     const { getToken } = useAuth();
 
-    // Helper to get authenticated client
+    // Helper to get authenticated client - memoized to prevent multiple instances
+    const supabaseRef = useRef<any>(null);
+    const tokenRef = useRef<string | null>(null);
+
     const getSupabase = useCallback(async () => {
         const token = await getToken({ template: 'supabase' });
-        return createAuthenticatedClient(token || '');
+
+        // Return existing client if token hasn't changed (prevents Multiple GoTrueClient warning)
+        if (supabaseRef.current && tokenRef.current === token) {
+            return supabaseRef.current;
+        }
+
+        const client = createAuthenticatedClient(token || '');
+        supabaseRef.current = client;
+        tokenRef.current = token;
+        return client;
     }, [getToken]);
 
     // Theme state
