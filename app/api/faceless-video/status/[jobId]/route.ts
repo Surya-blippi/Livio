@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(
     request: NextRequest,
@@ -12,11 +12,11 @@ export async function GET(
 
         let supabase;
         try {
-            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
             supabase = getSupabaseAdmin();
         } catch (e) {
             console.error('Failed to get Admin Client:', e);
-            return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
+            const msg = e instanceof Error ? e.message : 'Unknown config error';
+            return NextResponse.json({ error: 'Server Config Error', details: msg }, { status: 500 });
         }
 
         // Load job from Supabase

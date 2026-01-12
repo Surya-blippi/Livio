@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
-import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
-import { generateSceneTTS } from '@/lib/fal';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { renderFaceVideo, pollRender } from '@/lib/render';
+import { generateFaceVideo } from '@/lib/fal';
 
 // Timeout for serverless function
 export const maxDuration = 55;
@@ -236,11 +235,11 @@ export async function POST(request: NextRequest) {
 
         let supabase;
         try {
-            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
             supabase = getSupabaseAdmin();
         } catch (e) {
             console.error('Init Error:', e);
-            return NextResponse.json({ error: 'Configuration Error' }, { status: 500 });
+            const msg = e instanceof Error ? e.message : 'Unknown config error';
+            return NextResponse.json({ error: 'Configuration Error', details: msg }, { status: 500 });
         }
 
         // Fetch job
