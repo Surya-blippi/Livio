@@ -231,7 +231,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                         {mode === 'face' && avatarUrl && (
                                             <div className="mb-4">
                                                 <p className="text-sm font-bold text-gray-500 mb-2">Current Look</p>
-                                                <div className="relative h-48 w-full rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm bg-gray-100 group">
+                                                <div className="relative w-56 aspect-square mx-auto rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm bg-gray-100 group">
                                                     {/* Main Preview Image */}
                                                     <img
                                                         src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
