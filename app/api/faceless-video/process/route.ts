@@ -1,36 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
 import { supabase } from '@/lib/supabase';
+import { generateSceneTTS } from '@/lib/fal';
+import {
+    startJson2VideoRender,
+    pollJson2Video,
+    Json2VideoMovie,
+    Json2VideoScene
+} from '@/lib/json2video';
 
 // Timeout for serverless function
 export const maxDuration = 55;
 
-const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
-
-interface SceneTiming {
+interface FacelessSceneInput {
     text: string;
-    startTime: number;
-    endTime: number;
+    assetUrl: string;
 }
 
-interface WordTiming {
-    word: string;
-    startTime: number;
-    endTime: number;
+interface ProcessedScene {
+    index: number;
+    text: string;
+    assetUrl: string;
+    audioUrl: string;
+    duration: number;
 }
 
 interface FacelessJobInputData {
-    remoteAudioUrl: string;
-    wordTimings: WordTiming[];
-    duration: number;
-    sceneTimings?: SceneTiming[];
-    images: string[];
+    scenes: FacelessSceneInput[];
+    voiceId: string;
     aspectRatio: '9:16' | '16:9' | '1:1';
     captionStyle: string;
     enableBackgroundMusic: boolean;
     enableCaptions: boolean;
     backgroundMusicUrl?: string;
-    // Processing state
+    // State managed during processing
+    processedScenes?: ProcessedScene[];
+    currentSceneIndex?: number;
     pendingRender?: { projectId: string; startedAt: number } | null;
 }
 
@@ -41,246 +45,6 @@ async function updateJob(jobId: string, updates: Record<string, unknown>) {
         .update(updates)
         .eq('id', jobId);
     if (error) console.error(`Failed to update job ${jobId}:`, error);
-}
-
-// Build JSON2Video movie payload for faceless video
-function buildJson2VideoPayload(input: FacelessJobInputData) {
-    const { images, remoteAudioUrl, wordTimings, duration, sceneTimings, aspectRatio, captionStyle, enableBackgroundMusic, enableCaptions, backgroundMusicUrl } = input;
-
-    // Calculate aspect ratio dimensions
-    const dimensions: Record<string, { width: number; height: number }> = {
-        '9:16': { width: 1080, height: 1920 },
-        '16:9': { width: 1920, height: 1080 },
-        '1:1': { width: 1080, height: 1080 }
-    };
-    const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
-
-    interface MovieScene {
-        comment: string;
-        duration: number;
-        elements: Record<string, unknown>[];
-    }
-    const scenes: MovieScene[] = [];
-
-    // Helper to create Ken Burns effect
-    const getKenBurnsEffect = (index: number) => {
-        const effects = [
-            { zoom: { start: 1.0, end: 1.15 } },
-            { zoom: { start: 1.15, end: 1.0 } },
-            { zoom: { start: 1.0, end: 1.2 }, pan: { start: 'center', end: 'top-left' } },
-            { zoom: { start: 1.2, end: 1.0 }, pan: { start: 'top-right', end: 'center' } },
-        ];
-        return effects[index % effects.length];
-    };
-
-    if (sceneTimings && sceneTimings.length > 0 && images.length >= sceneTimings.length) {
-        // Scene-based: each scene has its own image and timing
-        for (let i = 0; i < sceneTimings.length; i++) {
-            const st = sceneTimings[i];
-            const sceneDuration = st.endTime - st.startTime;
-            scenes.push({
-                comment: st.text.substring(0, 50),
-                duration: sceneDuration,
-                elements: [
-                    {
-                        type: 'image',
-                        src: images[i] || images[0],
-                        resize: 'cover',
-                        ...getKenBurnsEffect(i)
-                    }
-                ]
-            });
-        }
-    } else {
-        // Fallback: distribute duration evenly across images
-        const durationPerImage = duration / images.length;
-        for (let i = 0; i < images.length; i++) {
-            scenes.push({
-                comment: `Scene ${i + 1}`,
-                duration: durationPerImage,
-                elements: [
-                    {
-                        type: 'image',
-                        src: images[i],
-                        resize: 'cover',
-                        ...getKenBurnsEffect(i)
-                    }
-                ]
-            });
-        }
-    }
-
-    // Add captions to first scene (spanning entire video) if enabled
-    // Note: JSON2Video recommends splitting subtitles per scene for reliability, 
-    // but for continuous audio, adding to first scene with long duration works if handled correctly.
-    // However, safest bet is to use 'voice' element or just one long scene if audio is one track.
-    // Since we have multiple scenes for visual variety, we add a movie-level element for subtitles logic
-    // But JSON2Video structure puts elements inside scenes or at movie level.
-
-    // We will attach subtitles to the first scene but with duration covering the whole video
-    // This is a common pattern for "overlay" elements.
-    if (enableCaptions && wordTimings.length > 0 && scenes.length > 0) {
-        const captionElement = buildCaptionElement(wordTimings, captionStyle, width, height);
-        // Ensure caption element has no specific duration so it lasts as long as its content defined by start/end times
-        scenes[0].elements.push(captionElement);
-    }
-
-    // Build movie payload
-    const movie: Record<string, unknown> = {
-        resolution: aspectRatio === '16:9' ? 'full-hd' : 'full-hd-vertical',
-        quality: 'high',
-        scenes,
-        elements: [] // Movie level elements
-    };
-
-    // Add audio track as movie-level element
-    if (movie.elements && Array.isArray(movie.elements)) {
-        movie.elements.push({
-            type: 'audio',
-            src: remoteAudioUrl,
-            volume: 1.0
-        });
-
-        // Add background music if enabled
-        if (enableBackgroundMusic && backgroundMusicUrl) {
-            movie.elements.push({
-                type: 'audio',
-                src: backgroundMusicUrl,
-                volume: 0.15,
-                loop: true
-            });
-        }
-    }
-
-    return movie;
-}
-
-// Build caption element for JSON2Video
-function buildCaptionElement(wordTimings: WordTiming[], style: string, width: number, height: number) {
-    // Create text with word-by-word timing
-    const textBlocks = wordTimings.map(wt => ({
-        value: wt.word,
-        start: wt.startTime,
-        end: wt.endTime
-    }));
-
-    // Style configuration matching lib/json2video.ts
-    const styleConfig: Record<string, unknown> = {
-        'bold-classic': {
-            'font-family': 'Montserrat',
-            'font-weight': '800',
-            'font-size': Math.round(height * 0.05),
-            'font-color': '#FFFFFF',
-            'stroke-color': '#000000',
-            'stroke-width': 3,
-            'background-color': 'rgba(0,0,0,0.6)',
-            'background-border-radius': 8,
-            'position': 'bottom-center',
-            'y': Math.round(height * 0.15) // Offset from bottom
-        },
-        'minimal': {
-            'font-family': 'Roboto',
-            'font-weight': '400',
-            'font-size': Math.round(height * 0.04),
-            'font-color': '#FFFFFF',
-            'stroke-width': 0,
-            'position': 'bottom-center',
-            'y': Math.round(height * 0.1)
-        },
-        'neon': {
-            'font-family': 'Poppins',
-            'font-weight': '700',
-            'font-size': Math.round(height * 0.05),
-            'font-color': '#00FF88',
-            'stroke-color': '#000000',
-            'stroke-width': 2,
-            'position': 'bottom-center',
-            'y': Math.round(height * 0.15)
-        }
-    };
-
-    // Use cast to avoid type errors since we know the structure
-    const selectedStyle = (styleConfig[style] || styleConfig['bold-classic']) as Record<string, unknown>;
-
-    return {
-        type: 'subtitles',
-        settings: {
-            ...selectedStyle,
-            // Common settings
-            'max-width': Math.round(width * 0.9),
-            'line-height': 1.3,
-            'vertical-alignment': 'center',
-            'horizontal-alignment': 'center'
-        },
-        text: textBlocks
-    };
-}
-
-// Start JSON2Video render
-async function startJson2VideoRender(payload: Record<string, unknown>): Promise<string> {
-    console.log('🎬 Starting JSON2Video render for faceless video...');
-
-    // Add webhook if available
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (appUrl) {
-        if (!payload.exports) payload.exports = [];
-        if ((payload.exports as unknown[]).length === 0) (payload.exports as unknown[]).push({ destinations: [] });
-        const exports = payload.exports as { destinations?: { type: string; endpoint: string }[] }[];
-        exports[0].destinations = exports[0].destinations || [];
-        exports[0].destinations.push({
-            type: 'webhook',
-            endpoint: `${appUrl}/api/webhooks/json2video`
-        });
-    }
-
-    const response = await axios.post('https://api.json2video.com/v2/movies', payload, {
-        headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
-    });
-
-    const projectId = response.data.project;
-    console.log(`📽️ JSON2Video project: ${projectId}`);
-    return projectId;
-}
-
-// Poll JSON2Video
-async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean; status?: string }> {
-    console.log(`🔍 Checking JSON2Video: ${projectId}`);
-
-    try {
-        const url = `https://api.json2video.com/v2/movies?project=${projectId}&_t=${Date.now()}`;
-        const resp = await fetch(url, {
-            headers: { 'x-api-key': JSON2VIDEO_API_KEY },
-            cache: 'no-store'
-        });
-
-        if (!resp.ok) {
-            return { completed: false, status: `HTTP ${resp.status}` };
-        }
-
-        const status = await resp.json();
-
-        if (status.movie && status.movie.status === 'done') {
-            return { completed: true, videoUrl: status.movie.url, duration: status.movie.duration || 30 };
-        }
-
-        if (status.movie && status.movie.status === 'error') {
-            return { completed: false, failed: true, status: status.movie.message };
-        }
-
-        if (status.status === 'done' && status.movie) {
-            return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
-        }
-
-        if (status.status === 'error') {
-            return { completed: false, failed: true, status: status.message };
-        }
-
-        return { completed: false, status: status.status || 'processing' };
-
-    } catch (e) {
-        console.error('Poll error:', e instanceof Error ? e.message : e);
-        return { completed: false, status: 'connection error' };
-    }
 }
 
 // Upload base64 image to Supabase and return public URL
@@ -296,8 +60,6 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
         const ext = contentType.split('/')[1];
         const fileName = `faceless/${jobId}/image_${index}.${ext}`;
 
-        // Upload to 'videos' bucket (or 'images' if available, defaulting to videos as it works for clips)
-        // Using 'videos' bucket based on face-video implementation
         const { error } = await supabase.storage
             .from('videos')
             .upload(fileName, buffer, {
@@ -307,10 +69,6 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
 
         if (error) {
             console.error('Upload error:', error);
-            // Attempt to continue or fail? Let's return original and hope for best or empty?
-            // If upload fails, JSON2Video will definitely fail with base64. 
-            // Better to throw or return null? Returning original string causes 400. 
-            // For now, log and return original.
             return base64Data;
         }
 
@@ -325,11 +83,67 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
     }
 }
 
+// Build JSON2Video movie payload
+function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | '16:9' | '1:1', enableBgMusic: boolean, bgMusicUrl?: string): Json2VideoMovie {
+    const dimensions: Record<string, { width: number; height: number }> = {
+        '9:16': { width: 1080, height: 1920 },
+        '16:9': { width: 1920, height: 1080 },
+        '1:1': { width: 1080, height: 1080 }
+    };
+    const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
+
+    const movieScenes: Json2VideoScene[] = scenes.map((scene, i) => {
+        // Ken Burns Effect
+        const effects = [
+            { zoom: { start: 1.0, end: 1.15 } },
+            { zoom: { start: 1.15, end: 1.0 } },
+            { zoom: { start: 1.0, end: 1.2 }, pan: { start: 'center', end: 'top-left' } },
+            { zoom: { start: 1.2, end: 1.0 }, pan: { start: 'top-right', end: 'center' } },
+        ];
+        const effect = effects[i % effects.length];
+
+        return {
+            comment: scene.text.substring(0, 50),
+            duration: scene.duration,
+            elements: [
+                {
+                    type: 'image',
+                    src: scene.assetUrl,
+                    resize: 'cover',
+                    ...effect
+                },
+                {
+                    type: 'audio',
+                    src: scene.audioUrl,
+                    volume: 1.0
+                }
+            ]
+        };
+    });
+
+    // Add background music if enabled
+    const elements: any[] = [];
+    if (enableBgMusic && bgMusicUrl) {
+        elements.push({
+            type: 'audio',
+            src: bgMusicUrl,
+            volume: 0.15,
+            loop: true
+        });
+    }
+
+    return {
+        resolution: aspectRatio === '16:9' ? 'full-hd' : 'full-hd-vertical',
+        quality: 'high',
+        scenes: movieScenes,
+        elements
+    };
+}
+
 export async function POST(request: NextRequest) {
     let jobId: string | null = null;
 
     try {
-        // Parse request body safely
         let body;
         try {
             body = await request.json();
@@ -341,9 +155,7 @@ export async function POST(request: NextRequest) {
         const { jobId: reqJobId } = body;
         jobId = reqJobId;
 
-        if (!jobId) {
-            return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-        }
+        if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
 
         console.log(`\n========== FACELESS JOB: ${jobId} ==========`);
 
@@ -355,150 +167,137 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (fetchError || !job) {
-            console.error(`Job ${jobId} not found or error:`, fetchError);
+            console.error(`Job ${jobId} not found`);
             return NextResponse.json({ error: 'Job not found' }, { status: 404 });
         }
 
         if (job.status === 'completed' || job.status === 'failed') {
-            return NextResponse.json({ message: `Job already ${job.status}`, status: job.status });
+            return NextResponse.json({ message: `Already ${job.status}`, status: job.status });
         }
 
-        // Lock check (similar to face video)
+        // Lock check
         const lockAge = Date.now() - new Date(job.updated_at).getTime();
         if (job.is_processing && lockAge < 60000) {
             console.log(`🔒 Locked (${Math.round(lockAge / 1000)}s ago), skipping`);
             return NextResponse.json({ skipped: true });
         }
 
-        // Acquire lock
         await updateJob(jobId, { is_processing: true, updated_at: new Date().toISOString() });
 
-        // Reload job to ensure we have latest data
         const { data: freshJob } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
         if (!freshJob) return NextResponse.json({ error: 'Job lost' }, { status: 404 });
 
         const input = freshJob.input_data as FacelessJobInputData;
 
-        // Validation - Critical for faceless video
-        if (!input.images || input.images.length === 0) {
-            const errorMsg = 'No images provided for faceless video';
-            console.error(errorMsg);
+        // Validation
+        if (!input.scenes || input.scenes.length === 0) {
+            const errorMsg = 'No scenes provided for faceless video';
             await updateJob(jobId, { status: 'failed', error: errorMsg, is_processing: false });
             return NextResponse.json({ error: errorMsg }, { status: 400 });
         }
 
-        // Upload images if they are base64
-        // Process images sequentially to avoid overwhelming memory/network if many
-        const processedImages: string[] = [];
-        let imagesUpdated = false;
+        const totalScenes = input.scenes.length;
+        const processedScenes = input.processedScenes || [];
+        const currentIndex = input.currentSceneIndex || 0;
 
-        for (let i = 0; i < input.images.length; i++) {
-            const img = input.images[i];
-            if (img.startsWith('data:image')) {
-                console.log(`📤 Uploading image ${i + 1}/${input.images.length}...`);
-                const url = await uploadBase64Image(img, jobId, i);
-                processedImages.push(url);
-                imagesUpdated = true;
-            } else {
-                processedImages.push(img);
-            }
-        }
+        console.log(`Status: Scene ${currentIndex + 1}/${totalScenes}`);
 
-        // Update input data with public URLs if we uploaded anything
-        if (imagesUpdated) {
-            input.images = processedImages;
-            await updateJob(jobId, { input_data: input });
-            console.log('✅ Images uploaded and job updated');
-        }
-
-        // Check for pending render
+        // CHECK PENDING RENDER
         if (input.pendingRender) {
             const { projectId } = input.pendingRender;
-            console.log(`Checking pending render: ${projectId}`);
+            console.log(`Checking render: ${projectId}`);
 
             const status = await pollJson2Video(projectId);
 
             if (status.completed) {
-                console.log('✅ Video completed:', status.videoUrl);
+                const totalDuration = processedScenes.reduce((acc, s) => acc + s.duration, 0);
+                console.log(`✅ Video completed: ${status.videoUrl}`);
+
                 await updateJob(jobId, {
                     status: 'completed',
                     progress: 100,
                     is_processing: false,
-                    result_data: {
-                        videoUrl: status.videoUrl,
-                        duration: status.duration
-                    }
+                    result_data: { videoUrl: status.videoUrl, duration: totalDuration }
                 });
                 return NextResponse.json({ completed: true, videoUrl: status.videoUrl });
             } else if (status.failed) {
-                console.error('❌ Render failed');
-                await updateJob(jobId, {
-                    status: 'failed',
-                    error: status.status || 'Render failed',
-                    is_processing: false
-                });
+                console.error(`❌ Render failed: ${status.status}`);
+                await updateJob(jobId, { status: 'failed', error: status.status, is_processing: false });
                 return NextResponse.json({ failed: true, error: status.status });
             } else {
-                console.log('⏳ Still processing...');
-                // Touch updated_at to keep lock active-ish or just release?
-                // Actually release lock so next poll can pick it up
+                console.log('⏳ Still rendering...');
                 await updateJob(jobId, { is_processing: false });
                 return NextResponse.json({ completed: false, status: status.status });
             }
         }
 
-        // Start new render
-        console.log('🎬 Starting new render...');
-        await updateJob(jobId, { progress: 10, progress_message: 'Preparing assets...' });
+        // PROCESS SCENES
+        if (currentIndex < totalScenes) {
+            const sceneInput = input.scenes[currentIndex];
+            console.log(`Processing scene ${currentIndex + 1}: "${sceneInput.text.substring(0, 20)}..."`);
 
-        // Build payload and start render
-        const moviePayload = buildJson2VideoPayload(input);
+            try {
+                // 1. Upload Image if needed
+                let assetUrl = sceneInput.assetUrl;
+                if (assetUrl.startsWith('data:')) {
+                    console.log('  📤 Uploading asset...');
+                    assetUrl = await uploadBase64Image(assetUrl, jobId, currentIndex);
+                }
 
-        await updateJob(jobId, {
-            progress: 30,
-            progress_message: 'Starting render...'
-        });
+                // 2. Generate TTS
+                console.log('  🎤 Generating TTS...');
+                const { audioUrl, duration } = await generateSceneTTS(sceneInput.text, input.voiceId);
+
+                // 3. Save processed scene
+                processedScenes.push({
+                    index: currentIndex,
+                    text: sceneInput.text,
+                    assetUrl,
+                    audioUrl,
+                    duration
+                });
+
+                // 4. Update job state
+                const nextIndex = currentIndex + 1;
+                const progress = Math.min(90, Math.floor((nextIndex / totalScenes) * 90));
+
+                await updateJob(jobId, {
+                    input_data: { ...input, processedScenes, currentSceneIndex: nextIndex },
+                    progress,
+                    progress_message: `Processed scene ${nextIndex} of ${totalScenes}`,
+                    is_processing: false // Release lock immediately to allow next poll
+                });
+
+                console.log(`✅ Scene ${currentIndex + 1} processed`);
+                return NextResponse.json({ processed: true, sceneIndex: currentIndex });
+
+            } catch (err) {
+                console.error(`❌ Scene ${currentIndex} failed:`, err);
+                await updateJob(jobId, { status: 'failed', error: String(err), is_processing: false });
+                return NextResponse.json({ error: String(err) }, { status: 500 });
+            }
+        }
+
+        // ALL SCENES PROCESSED - START RENDER
+        console.log('🎬 All scenes ready. Building video payload...');
+        const moviePayload = buildJson2VideoPayload(processedScenes, input.aspectRatio, input.enableBackgroundMusic, input.backgroundMusicUrl);
 
         const projectId = await startJson2VideoRender(moviePayload);
 
         // Save pending render state
         await updateJob(jobId, {
-            progress: 50,
+            progress: 95,
             progress_message: 'Rendering video...',
-            input_data: { ...input, pendingRender: { projectId, startedAt: Date.now() } }
+            input_data: { ...input, processedScenes, pendingRender: { projectId, startedAt: Date.now() } },
+            is_processing: false
         });
 
-        // Wait a bit and check once
-        await new Promise(r => setTimeout(r, 5000));
-        const initialCheck = await pollJson2Video(projectId);
+        // Trigger an immediate check
+        return NextResponse.json({ rendering: true, projectId });
 
-        if (initialCheck.completed && initialCheck.videoUrl) {
-            await updateJob(jobId, {
-                status: 'completed',
-                progress: 100,
-                progress_message: 'Video ready!',
-                result: {
-                    videoUrl: initialCheck.videoUrl,
-                    duration: initialCheck.duration || input.duration
-                }
-            });
-            return NextResponse.json({ status: 'completed', videoUrl: initialCheck.videoUrl });
-        }
-
-        return NextResponse.json({ status: 'processing', projectId });
-
-    } catch (error) {
-        console.error('Faceless video process error:', error);
-        if (jobId) {
-            await updateJob(jobId, {
-                status: 'failed',
-                error: error instanceof Error ? error.message : 'Unknown error',
-                progress_message: 'Processing failed'
-            });
-        }
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Process failed' },
-            { status: 500 }
-        );
+    } catch (e) {
+        console.error('Process error:', e);
+        if (jobId) await updateJob(jobId!, { is_processing: false, error: String(e) });
+        return NextResponse.json({ error: String(e) }, { status: 500 });
     }
 }

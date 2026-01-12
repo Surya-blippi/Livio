@@ -662,75 +662,62 @@ export const useDashboardState = () => {
 
                 let speechResult;
 
-                // Use scene-based generation if we have scenes
-                if (scenes.length > 0) {
-                    console.log(`[Video] Using scene-based generation with ${scenes.length} scenes, voice: ${voiceIdToUse || 'default'}`);
-                    const sceneResult = await generateSceneBasedSpeech(scenes, voiceIdToUse);
-                    setAudioUrl(sceneResult.audioUrl);
-                    setWordTimings(sceneResult.wordTimings);
-                    setSceneTimings(sceneResult.sceneTimings);
+                // For FACELESS video, we now skip client-side generation and let the server handle it scene-by-scene
+                if (mode === 'faceless') {
+                    console.log(`[Video] Starting scene-based faceless video job with ${scenes.length} scenes`);
 
-                    if (enableCaptions && sceneResult.wordTimings.length > 0) {
-                        setCaptionsData(generateDynamicSRT(sceneResult.wordTimings));
+                    // Map scenes to assets (1:1 or loop assets)
+                    const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
+                        text: scene.text,
+                        assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
+                    })) : [
+                        // Fallback if no scenes parsed (e.g. manual text only), treat whole text as one scene
+                        {
+                            text: inputText,
+                            assetUrl: collectedAssets[0]?.url
+                        }
+                    ];
+
+                    setProcessingStep(2);
+                    setProcessingMessage('Creating video job...');
+
+                    const { jobId } = await startFacelessVideoJob(
+                        facelessScenes,
+                        voiceIdToUse || 'Voice3d303ed71767974077', // Default voice if none
+                        aspectRatio,
+                        captionStyle,
+                        enableBackgroundMusic,
+                        enableCaptions,
+                        enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
+                        dbUser?.id
+                    );
+
+                    setProcessingMessage('Rendering video (this may take a few minutes)...');
+
+                    // Poll for job completion with progress updates
+                    const videoResult = await pollFacelessVideoJob(
+                        jobId,
+                        (progress: number, message: string) => {
+                            setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
+                            setProcessingMessage(message);
+                        }
+                    );
+
+                    setVideoUrl(videoResult.videoUrl);
+                    if (dbUser) {
+                        const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
+                        await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
+                        await refreshVideoHistory();
                     }
-
-                    speechResult = sceneResult;
-                } else {
-                    // Fallback to regular speech generation
-                    console.log(`[Video] No scenes available, using regular speech generation, voice: ${voiceIdToUse || 'default'}`);
-                    const regularResult = await generateElevenLabsSpeech(inputText, voiceIdToUse);
-                    setAudioUrl(regularResult.audioUrl);
-                    setWordTimings(regularResult.wordTimings);
-
-                    if (enableCaptions && regularResult.wordTimings.length > 0) {
-                        setCaptionsData(generateDynamicSRT(regularResult.wordTimings));
-                    }
-
-                    speechResult = regularResult;
+                    // Reset processing state after faceless video is done
+                    setIsProcessing(false);
+                    setProcessingStep(0);
+                    return; // EXIT HERE for faceless
                 }
 
-                setProcessingStep(2);
-                setProcessingMessage('Creating video job...');
-
-                // Get scene timings if available (from scene-based generation)
-                const currentSceneTimings = 'sceneTimings' in speechResult ? (speechResult as { sceneTimings: SceneTiming[] }).sceneTimings : undefined;
-
-                // Use job-based faceless video generation (avoids Vercel timeout)
-                const { jobId } = await startFacelessVideoJob(
-                    speechResult.remoteAudioUrl || '',
-                    enableCaptions ? speechResult.wordTimings : [],
-                    speechResult.duration,
-                    collectedAssets.map(a => a.url),
-                    aspectRatio,
-                    currentSceneTimings,
-                    captionStyle,
-                    enableBackgroundMusic,
-                    enableCaptions,
-                    enableBackgroundMusic ? 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3' : undefined,
-                    dbUser?.id
-                );
-
-                setProcessingMessage('Rendering video (this may take a few minutes)...');
-
-                // Poll for job completion with progress updates
-                const videoResult = await pollFacelessVideoJob(
-                    jobId,
-                    (progress: number, message: string) => {
-                        setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
-                        setProcessingMessage(message);
-                    }
-                );
-
-                setVideoUrl(videoResult.videoUrl);
-                if (dbUser) {
-                    const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
-                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
-                    await refreshVideoHistory();
-                }
-                // Reset processing state after faceless video is done
-                setIsProcessing(false);
-                setProcessingStep(0);
-            } else {
+                // --- FACE VIDEO LOGIC BELOW ---
+                // We proceed to voice preparation/checking
+                // The backend handles scene-based TTS for Face Video
                 let speechUrl: string;
 
                 if (voiceFile) {
@@ -920,78 +907,77 @@ export const useDashboardState = () => {
                     await refreshVideoHistory();
                 }
                 setIsProcessing(false);
+            } catch (err) {
+                setError(handleApiError(err).message);
+                setIsProcessing(false);
+            } finally {
+                if (!error) setPreviewMode('video'); // Switch to video view on completion (or attempt)
             }
-        } catch (err) {
-            setError(handleApiError(err).message);
-            setIsProcessing(false);
-        } finally {
-            if (!error) setPreviewMode('video'); // Switch to video view on completion (or attempt)
-        }
+        };
+
+        return {
+            // State
+            isDark, setIsDark,
+            mode, setMode,
+            duration, setDuration,
+            inputText, setInputText,
+            isEnhanced, setIsEnhanced,
+            enableCaptions, setEnableCaptions,
+            captionStyle, setCaptionStyle,
+            enableBackgroundMusic, setEnableBackgroundMusic,
+            aspectRatio, setAspectRatio,
+            photoFile, setPhotoFile,
+            photoPreview, setPhotoPreview,
+            voiceFile, setVoiceFile,
+            isRecording, startRecording, stopRecording,
+            videoUrl, setVideoUrl,
+            audioUrl,
+            captionsData,
+            wordTimings,
+            isProcessing,
+            processingMessage,
+            processingStep,
+            sceneProgress,
+            error, setError,
+            showHistory, setShowHistory,
+            collectedAssets, setCollectedAssets,
+            isCollectingAssets,
+            showAssetGallery, setShowAssetGallery,
+            assetSearchTerms,
+            scenes, setScenes,
+            sceneTimings, setSceneTimings,
+            studioReadyUrl, setStudioReadyUrl,
+            isGeneratingStudio,
+            useStudioImage, setUseStudioImage,
+            showImagePreview, setShowImagePreview,
+            dbUser,
+            savedVoice, setSavedVoice,
+            allVoices, setAllVoices,
+            videoHistory,
+            savedAvatars,
+
+            // Derived
+            hasClonedVoice,
+            canGenerate,
+
+            // Handlers
+            handlePhotoUpload,
+            handleEnhanceWithAI,
+            handleRegenerateScenes,
+            isRegeneratingScenes,
+            handleVoiceUpload,
+            handleReset,
+            handleMakeStudioReady,
+            handleCollectAssets,
+            handleDeleteVideo,
+            handleDeleteAvatar,
+            handleDeleteVoice,
+            handleCreateVideo,
+            handleSelectVideo,
+            selectedVideo, setSelectedVideo,
+            onVoiceSelect,
+            handleConfirmVoice,
+            isConfirmingVoice,
+            previewMode, setPreviewMode
+        };
     };
-
-    return {
-        // State
-        isDark, setIsDark,
-        mode, setMode,
-        duration, setDuration,
-        inputText, setInputText,
-        isEnhanced, setIsEnhanced,
-        enableCaptions, setEnableCaptions,
-        captionStyle, setCaptionStyle,
-        enableBackgroundMusic, setEnableBackgroundMusic,
-        aspectRatio, setAspectRatio,
-        photoFile, setPhotoFile,
-        photoPreview, setPhotoPreview,
-        voiceFile, setVoiceFile,
-        isRecording, startRecording, stopRecording,
-        videoUrl, setVideoUrl,
-        audioUrl,
-        captionsData,
-        wordTimings,
-        isProcessing,
-        processingMessage,
-        processingStep,
-        sceneProgress,
-        error, setError,
-        showHistory, setShowHistory,
-        collectedAssets, setCollectedAssets,
-        isCollectingAssets,
-        showAssetGallery, setShowAssetGallery,
-        assetSearchTerms,
-        scenes, setScenes,
-        sceneTimings, setSceneTimings,
-        studioReadyUrl, setStudioReadyUrl,
-        isGeneratingStudio,
-        useStudioImage, setUseStudioImage,
-        showImagePreview, setShowImagePreview,
-        dbUser,
-        savedVoice, setSavedVoice,
-        allVoices, setAllVoices,
-        videoHistory,
-        savedAvatars,
-
-        // Derived
-        hasClonedVoice,
-        canGenerate,
-
-        // Handlers
-        handlePhotoUpload,
-        handleEnhanceWithAI,
-        handleRegenerateScenes,
-        isRegeneratingScenes,
-        handleVoiceUpload,
-        handleReset,
-        handleMakeStudioReady,
-        handleCollectAssets,
-        handleDeleteVideo,
-        handleDeleteAvatar,
-        handleDeleteVoice,
-        handleCreateVideo,
-        handleSelectVideo,
-        selectedVideo, setSelectedVideo,
-        onVoiceSelect,
-        handleConfirmVoice,
-        isConfirmingVoice,
-        previewMode, setPreviewMode
-    };
-};

@@ -5,7 +5,10 @@
  * to generate videos from scenes, images, audio, and captions.
  */
 
+import axios from 'axios';
+
 const JSON2VIDEO_API_BASE = 'https://api.json2video.com/v2';
+const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
 
 // ============ Type Definitions ============
 
@@ -44,6 +47,88 @@ export interface Json2VideoElement {
         background_color?: string;
         position?: string;
     };
+    loop?: boolean;
+    volume?: number;
+}
+
+// ... existing types ...
+
+// ============ API Functions ============
+
+/**
+ * Start a JSON2Video render job
+ */
+export async function startJson2VideoRender(payload: Json2VideoMovie): Promise<string> {
+    console.log('🎬 Starting JSON2Video render...');
+
+    // Add webhook if available
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+        if (!payload.exports) payload.exports = [];
+        if (payload.exports.length === 0) payload.exports.push({ destinations: [] });
+
+        const exports = payload.exports as { destinations?: { type: string; endpoint: string }[] }[];
+        if (!exports[0].destinations) exports[0].destinations = [];
+
+        // Avoid duplicate webhooks
+        if (!exports[0].destinations.some(d => d.type === 'webhook')) {
+            exports[0].destinations.push({
+                type: 'webhook',
+                endpoint: `${appUrl}/api/webhooks/json2video`
+            });
+        }
+    }
+
+    const response = await axios.post(`${JSON2VIDEO_API_BASE}/movies`, payload, {
+        headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
+    });
+
+    const projectId = response.data.project;
+    console.log(`📽️ JSON2Video project: ${projectId}`);
+    return projectId;
+}
+
+/**
+ * Poll JSON2Video for status
+ */
+export async function pollJson2Video(projectId: string): Promise<{ completed: boolean; videoUrl?: string; duration?: number; failed?: boolean; status?: string }> {
+    console.log(`🔍 Checking JSON2Video: ${projectId}`);
+
+    try {
+        const url = `${JSON2VIDEO_API_BASE}/movies?project=${projectId}&_t=${Date.now()}`;
+        const resp = await fetch(url, {
+            headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+            cache: 'no-store'
+        });
+
+        if (!resp.ok) {
+            return { completed: false, status: `HTTP ${resp.status}` };
+        }
+
+        const status = await resp.json();
+
+        if (status.movie && status.movie.status === 'done') {
+            return { completed: true, videoUrl: status.movie.url, duration: status.movie.duration || 30 };
+        }
+
+        if (status.movie && status.movie.status === 'error') {
+            return { completed: false, failed: true, status: status.movie.message };
+        }
+
+        if (status.status === 'done' && status.movie) {
+            return { completed: true, videoUrl: status.movie, duration: status.duration || 30 };
+        }
+
+        if (status.status === 'error') {
+            return { completed: false, failed: true, status: status.message };
+        }
+
+        return { completed: false, status: status.status || 'processing' };
+
+    } catch (e) {
+        console.error('Poll error:', e instanceof Error ? e.message : e);
+        return { completed: false, status: 'connection error' };
+    }
 }
 
 export interface Json2VideoScene {
@@ -58,7 +143,7 @@ export interface Json2VideoScene {
 }
 
 export interface Json2VideoMovie {
-    resolution?: 'sd' | 'hd' | 'full-hd' | 'custom';
+    resolution?: 'sd' | 'hd' | 'full-hd' | 'full-hd-vertical' | 'custom';
     width?: number;
     height?: number;
     quality?: 'high' | 'medium' | 'low';

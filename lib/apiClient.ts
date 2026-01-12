@@ -989,12 +989,9 @@ export interface FacelessVideoJobStatus {
  * Start a faceless video generation job (returns immediately)
  */
 export const startFacelessVideoJob = async (
-    remoteAudioUrl: string,
-    wordTimings: WordTiming[],
-    duration: number,
-    images: string[],
+    scenes: { text: string; assetUrl: string }[],
+    voiceId: string,
     aspectRatio: '9:16' | '16:9' | '1:1',
-    sceneTimings?: SceneTiming[],
     captionStyle: string = 'bold-classic',
     enableBackgroundMusic: boolean = false,
     enableCaptions: boolean = true,
@@ -1002,12 +999,9 @@ export const startFacelessVideoJob = async (
     userId?: string
 ): Promise<{ jobId: string }> => {
     const response = await axios.post('/api/faceless-video/start', {
-        remoteAudioUrl,
-        wordTimings,
-        duration,
-        images,
+        scenes,
+        voiceId,
         aspectRatio,
-        sceneTimings,
         captionStyle,
         enableBackgroundMusic,
         enableCaptions,

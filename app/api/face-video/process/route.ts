@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { fal } from '@fal-ai/client';
 import { supabase } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
+import { generateSceneTTS } from '@/lib/fal';
 
 // Timeout for serverless function
 export const maxDuration = 55;
@@ -10,8 +10,6 @@ export const maxDuration = 55;
 // Configuration
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_TIME_MS = 45000; // 45 seconds max polling
-
-fal.config({ credentials: process.env.FAL_KEY });
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
 const WAVESPEED_API_KEY = process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
@@ -55,22 +53,6 @@ interface JobInputData {
     enableCaptions: boolean;
     pendingScene?: PendingSceneState | null;
     pendingRender?: PendingRenderState | null;  // NEW
-}
-
-// Generate TTS
-async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`🎤 TTS: "${text.substring(0, 30)}..."`);
-    const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
-        input: {
-            text,
-            voice_setting: { voice_id: voiceId, speed: 1, vol: 1, pitch: 0 },
-            output_format: 'url'
-        },
-        logs: false
-    }) as unknown as { data: { audio: { url: string }; duration_ms?: number } };
-
-    if (!result.data?.audio?.url) throw new Error('No audio URL from TTS');
-    return { audioUrl: result.data.audio.url, duration: (result.data.duration_ms || 5000) / 1000 };
 }
 
 // Start WaveSpeed

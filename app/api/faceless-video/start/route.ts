@@ -13,12 +13,15 @@ interface WordTiming {
     endTime: number;
 }
 
+interface FacelessSceneInput {
+    text: string;
+    assetUrl: string;
+    assetType?: 'image' | 'video';
+}
+
 interface StartJobRequest {
-    remoteAudioUrl: string;
-    wordTimings: WordTiming[];
-    duration: number;
-    sceneTimings?: SceneTiming[];
-    images: string[];
+    scenes: FacelessSceneInput[];
+    voiceId: string;
     aspectRatio: '9:16' | '16:9' | '1:1';
     captionStyle?: string;
     enableBackgroundMusic?: boolean;
@@ -31,11 +34,8 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as StartJobRequest;
         const {
-            remoteAudioUrl,
-            wordTimings,
-            duration,
-            sceneTimings,
-            images,
+            scenes,
+            voiceId,
             aspectRatio,
             captionStyle,
             enableBackgroundMusic,
@@ -45,16 +45,15 @@ export async function POST(request: NextRequest) {
         } = body;
 
         // Validate required fields
-        if (!remoteAudioUrl || !images || images.length === 0) {
+        if (!scenes || scenes.length === 0) {
             return NextResponse.json(
-                { error: 'Missing required fields: remoteAudioUrl, images' },
+                { error: 'Missing required fields: scenes' },
                 { status: 400 }
             );
         }
 
         console.log('📝 Creating faceless video job...');
-        console.log(`   Images: ${images.length}`);
-        console.log(`   Duration: ${duration}s`);
+        console.log(`   Scenes: ${scenes.length}`);
         console.log(`   Aspect ratio: ${aspectRatio}`);
 
         // Create job in Supabase
@@ -65,11 +64,8 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
                 input_data: {
                     jobType: 'faceless', // Store job type in input_data
-                    remoteAudioUrl,
-                    wordTimings,
-                    duration,
-                    sceneTimings,
-                    images,
+                    scenes,
+                    voiceId,
                     aspectRatio,
                     captionStyle: captionStyle ?? 'bold-classic',
                     enableBackgroundMusic: enableBackgroundMusic ?? false,
