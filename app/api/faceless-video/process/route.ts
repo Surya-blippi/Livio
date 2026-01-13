@@ -164,11 +164,10 @@ function buildJson2VideoPayload(
     };
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
-    // define simplistic animations (stable fallback)
-    const getSceneElements = (i: number, assetUrl: string): { elements: any[], backgroundColor?: string } => {
-        // Cycle pan directions for variety
+    // define visual cut generator
+    const getVisualCutElements = (assetUrl: string, duration: number, panIndex: number, startTime: number): any[] => {
         const pans = ['left-right', 'right-left', 'top-bottom', 'bottom-top'];
-        const pan = pans[i % pans.length];
+        const pan = pans[panIndex % pans.length];
 
         const elements: any[] = [
             {
@@ -176,40 +175,51 @@ function buildJson2VideoPayload(
                 src: assetUrl,
                 resize: 'contain',
                 position: 'center-center',
-                zoom: 2, // Must be integer (Ken Burns effect level)
+                zoom: 2,
                 pan: pan,
+                start: startTime,
+                duration: duration,
                 'fade-in': 0.5,
                 'fade-out': 0.3
             }
         ];
 
-        // Add click sound only to the first scene
-        if (i === 0) {
-            elements.push({
-                type: 'audio',
-                src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3',
-                start: 0,
-                volume: 0.4
-            });
-        }
+        // Add click sound at the start of the cut
+        elements.push({
+            type: 'audio',
+            src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3',
+            start: startTime,
+            volume: 0.4
+        });
 
-        return {
-            backgroundColor: '#000000',
-            elements
-        };
+        return elements;
     };
 
-    // Build scenes using dynamic cycling templates
+    // Build scenes with visual cuts for better pacing
     const movieScenes: any[] = scenes.map((scene, i) => {
-        const { elements: baseElements, backgroundColor } = getSceneElements(i, scene.assetUrl);
+        const VISUAL_Duration_TARGET = 4; // Target ~4 seconds per visual cut
+        const numCuts = Math.max(1, Math.ceil(scene.duration / VISUAL_Duration_TARGET));
+        const cutDuration = scene.duration / numCuts;
+
+        let visualElements: any[] = [];
+
+        for (let k = 0; k < numCuts; k++) {
+            const cuts = getVisualCutElements(
+                scene.assetUrl,
+                cutDuration,
+                i + k, // Change pan direction for each cut
+                k * cutDuration // Start time relative to scene
+            );
+            visualElements.push(...cuts);
+        }
 
         return {
             comment: `Scene ${i + 1}`,
             duration: scene.duration,
-            'background-color': backgroundColor,
+            'background-color': '#000000',
             elements: [
-                ...baseElements,
-                // Always add the TTS narration
+                ...visualElements,
+                // Continuous TTS narration for the scene
                 {
                     type: 'audio',
                     src: scene.audioUrl,
