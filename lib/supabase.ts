@@ -530,7 +530,11 @@ export async function deleteDraft(draftId: string): Promise<void> {
 // VIDEO JOBS FUNCTIONS (for in-progress face videos)
 // ==========================================
 
+const STALE_JOB_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes - if no update in 15 min, job is stale
+const ABANDONED_JOB_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes - mark as failed
+
 // Get active (processing) video jobs for a user
+// Also cleans up stale jobs that are stuck in processing
 export async function getActiveVideoJobs(userId: string): Promise<DbVideoJob[]> {
     const { data, error } = await supabase
         .from('video_jobs')
@@ -545,7 +549,43 @@ export async function getActiveVideoJobs(userId: string): Promise<DbVideoJob[]> 
         return [];
     }
 
-    return data || [];
+    if (!data) return [];
+
+    const now = Date.now();
+    const validJobs: DbVideoJob[] = [];
+
+    for (const job of data) {
+        const updatedAt = new Date(job.updated_at).getTime();
+        const age = now - updatedAt;
+
+        // If job is older than 30 minutes without update, mark as failed
+        if (age > ABANDONED_JOB_TIMEOUT_MS) {
+            console.log(`[Cleanup] Marking abandoned job ${job.id} as failed (age: ${Math.round(age / 60000)}min)`);
+            await supabase
+                .from('video_jobs')
+                .update({
+                    status: 'failed',
+                    error: 'Job timed out - no progress for 30 minutes',
+                    is_processing: false
+                })
+                .eq('id', job.id);
+            continue; // Don't include in results
+        }
+
+        // If job is stale (>15 min) but not abandoned, reset lock so it can be resumed
+        if (age > STALE_JOB_TIMEOUT_MS && job.is_processing) {
+            console.log(`[Cleanup] Resetting stale lock on job ${job.id} (age: ${Math.round(age / 60000)}min)`);
+            await supabase
+                .from('video_jobs')
+                .update({ is_processing: false })
+                .eq('id', job.id);
+            job.is_processing = false;
+        }
+
+        validJobs.push(job);
+    }
+
+    return validJobs;
 }
 
 // Get a single video job by ID  
