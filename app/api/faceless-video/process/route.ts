@@ -169,7 +169,7 @@ function buildJson2VideoPayload(
         const templates = [
             // 1. Slide In from Right with Ken Burns
             () => [
-                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': '#0f0f23' },
+                { type: 'html', html: `<div style="width:100%; height:100%; background-color: #0f0f23;"></div>`, width, height },
                 {
                     type: 'image', src: assetUrl,
                     resize: 'cover', width: '100%', height: '100%', left: '100%', scale: '110%',
@@ -177,7 +177,7 @@ function buildJson2VideoPayload(
                     animate: { duration: 800, easing: 'easeOutCubic', left: '0%' },
                     pan: 'left-right', 'fade-out': 0.3
                 },
-                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%)' },
+                { type: 'html', html: `<div style="width:100%; height:100%; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);"></div>`, width, height },
                 { type: 'audio', src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3', start: 0, volume: 0.4 }
             ],
             // 2. Zoom In with Bounce
@@ -188,7 +188,7 @@ function buildJson2VideoPayload(
                     animate: { duration: 1000, easing: 'easeOutElastic', scale: '105%', opacity: 1 },
                     zoom: 1.1, 'fade-out': 0.5
                 },
-                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.5) 100%)' }
+                { type: 'html', html: `<div style="width:100%; height:100%; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.5) 100%);"></div>`, width, height }
             ],
             // 3. Slide Up from Bottom
             () => [
@@ -210,7 +210,7 @@ function buildJson2VideoPayload(
             ],
             // 5. Slide from Left with Parallax Feel
             () => [
-                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': '#1a1a2e' },
+                { type: 'html', html: `<div style="width:100%; height:100%; background-color: #1a1a2e;"></div>`, width, height },
                 {
                     type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
                     left: '-100%',

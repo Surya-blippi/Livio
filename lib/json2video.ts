@@ -13,7 +13,7 @@ const JSON2VIDEO_API_BASE = 'https://api.json2video.com/v2';
 // ============ Type Definitions ============
 
 export interface Json2VideoElement {
-    type: 'image' | 'video' | 'audio' | 'text' | 'subtitles' | 'voice' | 'component';
+    type: 'image' | 'video' | 'audio' | 'text' | 'subtitles' | 'voice' | 'component' | 'html';
     src?: string;
     duration?: number;
     start?: number;
@@ -28,6 +28,7 @@ export interface Json2VideoElement {
         end: string;
     };
     text?: string;
+    html?: string;
     settings?: Record<string, unknown>;
     style?: string;
     // For text elements
