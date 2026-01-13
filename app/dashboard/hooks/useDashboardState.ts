@@ -748,7 +748,8 @@ export const useDashboardState = () => {
                             aspectRatio,
                             captionStyle,
                             enableBackgroundMusic,
-                            enableCaptions
+                            enableCaptions,
+                            allAssets: collectedAssets.map(a => a.url)
                         }
                     })
                 });
