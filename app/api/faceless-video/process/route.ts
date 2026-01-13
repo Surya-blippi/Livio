@@ -176,7 +176,7 @@ function buildJson2VideoPayload(
                 src: assetUrl,
                 resize: 'contain',
                 position: 'center-center',
-                zoom: 1.15,
+                zoom: 2, // Must be integer (Ken Burns effect level)
                 pan: pan,
                 'fade-in': 0.5,
                 'fade-out': 0.3
