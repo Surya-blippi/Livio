@@ -40,8 +40,8 @@ export async function GET(
             progressMessage: job.progress_message || ''
         };
 
-        if (job.status === 'completed' && job.result) {
-            response.result = job.result;
+        if (job.status === 'completed' && job.result_data) {
+            response.result = job.result_data;
         }
 
         if (job.status === 'failed' && job.error) {
