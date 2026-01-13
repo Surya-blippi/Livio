@@ -693,7 +693,8 @@ export const useDashboardState = () => {
                     .from('video_jobs')
                     .insert({
                         user_id: dbUser.id,
-                        job_type: 'faceless', // Mark as faceless job for resume
+                        user_uuid: dbUser.id, // New column for proper FK reference
+                        job_type: 'faceless',
                         status: 'pending',
                         input_data: {
                             scenes: finalScenes,
@@ -893,7 +894,8 @@ export const useDashboardState = () => {
                 .from('video_jobs')
                 .insert({
                     user_id: dbUser.id,
-                    job_type: 'face', // Mark as face job for resume
+                    user_uuid: dbUser.id, // New column for proper FK reference
+                    job_type: 'face',
                     status: 'pending',
                     input_data: {
                         scenes: scenesToProcess,
