@@ -908,6 +908,12 @@ export const useDashboardState = () => {
             const selectedVoiceId = voiceIdForScenes;
             const scenesToProcess = sceneInputs;
 
+            console.log('Creating Face Job:', {
+                user_id: dbUser.id,
+                user_uuid: dbUser.id,
+                job_type: 'face',
+            });
+
             const { data: videoJob, error: jobError } = await sb
                 .from('video_jobs')
                 .insert({
