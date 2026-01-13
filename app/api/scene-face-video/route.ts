@@ -27,7 +27,7 @@ async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioU
             text,
             voice_setting: {
                 voice_id: voiceId,
-                speed: 1,
+                speed: 1.2,
                 vol: 1,
                 pitch: 0
             },
