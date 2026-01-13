@@ -351,6 +351,14 @@ export const useDashboardState = () => {
             if (publicUrl) {
                 setPhotoFile(null); // No longer needed as file
                 setPhotoPreview(publicUrl); // Update to real URL
+                setUseStudioImage(false); // Reset studio mode for new upload
+
+                if (dbUser) {
+                    const saved = await saveAvatar(dbUser.id, publicUrl, 'Original Upload', false);
+                    if (saved) {
+                        setSavedAvatars(prev => [saved, ...prev]);
+                    }
+                }
             }
         }
     };
@@ -467,7 +475,8 @@ export const useDashboardState = () => {
             if (!response.ok) throw new Error(data.error || 'Failed to generate studio image');
 
             setStudioReadyUrl(data.studioReadyUrl);
-            setUseStudioImage(true);
+            setPhotoPreview(data.studioReadyUrl); // Directly switch to new image
+            setUseStudioImage(true); // Mark current as studio (for badge)
 
             if (dbUser) {
                 // Save the STUDIO READY version

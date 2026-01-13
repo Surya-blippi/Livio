@@ -205,7 +205,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 onClick={() => setMode('face')}
                                 className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all cursor-pointer group ${mode === 'face' ? 'border-black shadow-[4px_4px_0px_#000]' : 'border-gray-200 hover:border-gray-400'}`}
                             >
-                                <img src={useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview} className="w-full h-full object-cover" />
+                                <img src={photoPreview} className="w-full h-full object-cover" />
 
                                 {/* Remove button */}
                                 <button
@@ -223,10 +223,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 {/* Studio Ready Badge or Label */}
                                 <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between">
                                     <span className="text-white text-xs font-bold">{useStudioImage ? '✨ Studio Ready' : 'Your Photo'}</span>
-                                    {studioReadyUrl && (
-                                        <button onClick={(e) => { e.stopPropagation(); toggleStudioImage(); }} className={`text-[10px] font-bold px-2 py-1 rounded-md ${useStudioImage ? 'bg-[var(--brand-primary)] text-black' : 'bg-white/20 text-white hover:bg-white/30'}`}>
-                                            {useStudioImage ? 'Enhanced' : 'Original'}
-                                        </button>
+                                    {studioReadyUrl && useStudioImage && (
+                                        <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-[var(--brand-primary)] text-black">
+                                            Enhanced
+                                        </span>
                                     )}
                                 </div>
                             </div>
