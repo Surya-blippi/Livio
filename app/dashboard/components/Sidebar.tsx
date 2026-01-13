@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserButton } from '@clerk/nextjs';
+import { useUser, useClerk } from '@clerk/nextjs';
 import Link from 'next/link';
 import { HomeIcon, HistoryIcon, VideoIcon, SparklesIcon, SettingsIcon } from './icons';
 
@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Bottom Section (Credits & Profile) */}
-            <div className="space-y-4">
+            <div className="space-y-4 relative">
                 {/* Visual Credits Card (Tolo Style) */}
                 <div className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border-subtle)] relative overflow-hidden group">
                     {/* Decorative background element */}
@@ -105,16 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-subtle)]">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[var(--surface-3)] flex items-center justify-center overflow-hidden">
-                            <UserButton afterSignOutUrl="/" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-[var(--text-primary)]">Abhay</span>
-                            <span className="text-[10px] text-[var(--text-tertiary)]">Workspace</span>
-                        </div>
-                    </div>
+                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-subtle)] relative">
+                    <UserMenu />
 
                     <button
                         onClick={() => setIsDark(!isDark)}
@@ -125,6 +117,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// Internal User Menu Component
+const UserMenu = () => {
+    const { user } = useUser();
+    const { signOut, openUserProfile } = useClerk();
+    const [isOpen, setIsOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={menuRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 hover:bg-[var(--surface-3)] p-1.5 -ml-1.5 rounded-lg transition-colors text-left"
+            >
+                <div className="w-8 h-8 rounded-full bg-[var(--surface-3)] flex items-center justify-center overflow-hidden border border-[var(--border-subtle)]">
+                    <img src={user?.imageUrl} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[80px]">
+                        {user?.firstName || 'My Account'}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-tertiary)]">Free Plan</span>
+                </div>
+            </button>
+
+            {/* Popover Menu */}
+            {isOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2 duration-200 z-50">
+                    <div className="p-2 space-y-1">
+                        <button
+                            onClick={() => openUserProfile()}
+                            className="w-full text-left px-3 py-2 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg flex items-center gap-2"
+                        >
+                            <SettingsIcon className="w-3.5 h-3.5" />
+                            Manage Account
+                        </button>
+                        <button
+                            onClick={() => signOut()}
+                            className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg flex items-center gap-2"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
