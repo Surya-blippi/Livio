@@ -670,6 +670,19 @@ export const useDashboardState = () => {
             if (mode === 'faceless') {
                 console.log(`[Video] Starting scene-based faceless video job with ${scenes.length} scenes`);
 
+                // Validate we have content to work with
+                if (scenes.length === 0 && !inputText.trim()) {
+                    setError('Please generate or enter a script first');
+                    setIsProcessing(false);
+                    return;
+                }
+
+                if (collectedAssets.length === 0) {
+                    setError('Please collect assets first (click the sparkle button)');
+                    setIsProcessing(false);
+                    return;
+                }
+
                 // Map scenes to assets (1:1 or loop assets)
                 const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
                     text: scene.text,
