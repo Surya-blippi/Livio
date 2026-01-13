@@ -708,13 +708,13 @@ export const useDashboardState = () => {
                     job_type: 'faceless',
                 }, null, 2));
 
-                const { data: videoJob, error: jobError } = await sb
-                    .from('video_jobs')
-                    .insert({
-                        user_id: dbUser.id,
-                        user_uuid: dbUser.id, // Proper FK reference for user mapping
+                // USE SERVER-SIDE API for insertion to avoid RLS/Type issues
+                const response = await fetch('/api/video-jobs/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         job_type: 'faceless',
-                        status: 'pending',
+                        user_id: dbUser.id,
                         input_data: {
                             scenes: finalScenes,
                             voiceId: selectedVoiceId,
@@ -722,14 +722,17 @@ export const useDashboardState = () => {
                             captionStyle,
                             enableBackgroundMusic,
                             enableCaptions
-                        },
-                        progress: 0,
-                        progress_message: 'Initializing...'
+                        }
                     })
-                    .select()
-                    .single();
+                });
 
-                if (jobError) throw jobError;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create job via API');
+                }
+
+                const { job: videoJob } = await response.json();
+
                 if (!videoJob) throw new Error('Failed to create video job.');
 
                 const jobId = videoJob.id;
@@ -914,27 +917,30 @@ export const useDashboardState = () => {
                 job_type: 'face',
             });
 
-            const { data: videoJob, error: jobError } = await sb
-                .from('video_jobs')
-                .insert({
-                    user_id: dbUser.id,
-                    user_uuid: dbUser.id, // Proper FK reference for user mapping
+            // USE SERVER-SIDE API for insertion to avoid RLS/Type issues
+            const response = await fetch('/api/video-jobs/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     job_type: 'face',
-                    status: 'pending',
+                    user_id: dbUser.id,
                     input_data: {
                         scenes: scenesToProcess,
                         faceImageUrl: avatarUrl,
                         voiceId: selectedVoiceId,
                         enableBackgroundMusic,
                         enableCaptions
-                    },
-                    progress: 0,
-                    progress_message: 'Initializing...'
+                    }
                 })
-                .select()
-                .single();
+            });
 
-            if (jobError) throw jobError;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to create job via API');
+            }
+
+            const { job: videoJob } = await response.json();
+
             if (!videoJob) throw new Error('Failed to create video job.');
 
             const jobId = videoJob.id;
