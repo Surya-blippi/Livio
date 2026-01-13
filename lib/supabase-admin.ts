@@ -11,6 +11,12 @@ export const getSupabaseAdmin = () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    // Debug logging - show env var presence and lengths (not actual values for security)
+    console.log(`🔑 Supabase Admin Init Debug:`);
+    console.log(`   URL present: ${!!supabaseUrl}, length: ${supabaseUrl?.length || 0}`);
+    console.log(`   Key present: ${!!supabaseServiceRoleKey}, length: ${supabaseServiceRoleKey?.length || 0}`);
+    console.log(`   Key starts with: ${supabaseServiceRoleKey?.substring(0, 10) || 'N/A'}...`);
+
     if (!supabaseUrl || !supabaseServiceRoleKey) {
         console.error('❌ FATAL: Service Role Key missing in getSupabaseAdmin()');
         console.error(`   URL: ${!!supabaseUrl}, Key: ${!!supabaseServiceRoleKey}`);
