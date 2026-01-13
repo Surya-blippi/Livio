@@ -227,9 +227,10 @@ export const useDashboardState = () => {
                         console.log('[Resume] Resuming faceless video job...');
                         const result = await pollFacelessVideoJob(
                             job.id,
-                            (progress, message) => {
+                            (progress, message, sceneData) => {
                                 setProcessingStep(Math.floor(2 + (progress / 100) * 4));
                                 setProcessingMessage(message);
+                                if (sceneData) setSceneProgress(sceneData);
                             }
                         );
                         setVideoUrl(result.videoUrl);
@@ -742,9 +743,10 @@ export const useDashboardState = () => {
                 // Poll for job completion with progress updates
                 const videoResult = await pollFacelessVideoJob(
                     jobId,
-                    (progress: number, message: string) => {
+                    (progress: number, message: string, sceneData) => {
                         setProcessingStep(Math.floor(2 + (progress / 100) * 4)); // Steps 2-6
                         setProcessingMessage(message);
+                        if (sceneData) setSceneProgress(sceneData);
                     }
                 );
 

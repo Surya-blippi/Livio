@@ -983,6 +983,11 @@ export interface FacelessVideoJobStatus {
         duration: number;
     };
     error?: string;
+    // Scene progress for checklist UI
+    totalScenes?: number;
+    currentSceneIndex?: number;
+    processedScenesCount?: number;
+    isRendering?: boolean;
 }
 
 /**
@@ -1039,7 +1044,7 @@ export const triggerFacelessVideoProcess = async (jobId: string): Promise<void> 
  */
 export const pollFacelessVideoJob = async (
     jobId: string,
-    onProgress?: (progress: number, message: string) => void,
+    onProgress?: (progress: number, message: string, sceneData?: { totalScenes: number; currentSceneIndex: number; processedScenesCount: number; isRendering: boolean }) => void,
     pollIntervalMs: number = 3000,
     maxPollTimeMs: number = 600000 // 10 minutes max
 ): Promise<{
@@ -1067,7 +1072,12 @@ export const pollFacelessVideoJob = async (
 
             // Report progress
             if (onProgress) {
-                onProgress(status.progress, status.progressMessage);
+                onProgress(status.progress, status.progressMessage, {
+                    totalScenes: status.totalScenes || 0,
+                    currentSceneIndex: status.currentSceneIndex || 0,
+                    processedScenesCount: status.processedScenesCount || 0,
+                    isRendering: status.isRendering || false
+                });
             }
 
             // Check if complete

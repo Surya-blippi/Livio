@@ -37,7 +37,12 @@ export async function GET(
             jobId: job.id,
             status: job.status,
             progress: job.progress || 0,
-            progressMessage: job.progress_message || ''
+            progressMessage: job.progress_message || '',
+            // Expose scene progress if available
+            currentSceneIndex: job.input_data?.currentSceneIndex,
+            totalScenes: job.input_data?.scenes?.length,
+            processedScenesCount: job.input_data?.processedScenes?.length,
+            isRendering: !!job.input_data?.pendingRender
         };
 
         if (job.status === 'completed' && job.result_data) {
