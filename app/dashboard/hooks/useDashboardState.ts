@@ -205,31 +205,47 @@ export const useDashboardState = () => {
         }
     };
 
-    // Resume in-progress video jobs (e.g., after browser crash)
+    // Resume in-progress video jobs (e.g., after browser refresh)
     const checkForActiveJobs = async (userId: string) => {
         try {
             const activeJobs = await getActiveVideoJobs(userId);
             if (activeJobs.length > 0) {
                 const job = activeJobs[0]; // Resume the most recent one
-                console.log(`[Resume] Found active job: ${job.id}, status: ${job.status}`);
+                console.log(`[Resume] Found active job: ${job.id}, status: ${job.status}, type: ${job.job_type}`);
+
+                // Determine job type (from job_type field or by checking input_data)
+                const jobType = job.job_type || (job.input_data?.faceImageUrl ? 'face' : 'faceless');
 
                 // Set UI to processing state
                 setIsProcessing(true);
                 setProcessingMessage(job.progress_message || 'Resuming video generation...');
                 setProcessingStep(Math.floor((job.progress / 100) * 6));
 
-                // Resume polling for this job
+                // Resume polling for this job based on type
                 try {
-                    const result = await pollFaceVideoJob(
-                        job.id,
-                        (progress, message, sceneData) => {
-                            setProcessingStep(Math.floor(4 + (progress / 100) * 2));
-                            setProcessingMessage(message);
-                            if (sceneData) setSceneProgress(sceneData);
-                        }
-                    );
+                    if (jobType === 'faceless') {
+                        console.log('[Resume] Resuming faceless video job...');
+                        const result = await pollFacelessVideoJob(
+                            job.id,
+                            (progress, message) => {
+                                setProcessingStep(Math.floor(2 + (progress / 100) * 4));
+                                setProcessingMessage(message);
+                            }
+                        );
+                        setVideoUrl(result.videoUrl);
+                    } else {
+                        console.log('[Resume] Resuming face video job...');
+                        const result = await pollFaceVideoJob(
+                            job.id,
+                            (progress, message, sceneData) => {
+                                setProcessingStep(Math.floor(4 + (progress / 100) * 2));
+                                setProcessingMessage(message);
+                                if (sceneData) setSceneProgress(sceneData);
+                            }
+                        );
+                        setVideoUrl(result.videoUrl);
+                    }
 
-                    setVideoUrl(result.videoUrl);
                     setProcessingMessage('Video ready!');
                     setPreviewMode('video');
                     await refreshVideoHistory();
@@ -677,12 +693,13 @@ export const useDashboardState = () => {
                     .from('video_jobs')
                     .insert({
                         user_id: dbUser.id,
+                        job_type: 'faceless', // Mark as faceless job for resume
                         status: 'pending',
                         input_data: {
                             scenes: finalScenes,
                             voiceId: selectedVoiceId,
                             aspectRatio,
-                            captionStyle: 'bold',
+                            captionStyle,
                             enableBackgroundMusic,
                             enableCaptions
                         },
@@ -876,6 +893,7 @@ export const useDashboardState = () => {
                 .from('video_jobs')
                 .insert({
                     user_id: dbUser.id,
+                    job_type: 'face', // Mark as face job for resume
                     status: 'pending',
                     input_data: {
                         scenes: scenesToProcess,

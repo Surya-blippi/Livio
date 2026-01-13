@@ -81,6 +81,7 @@ export interface DbVideoDraft {
 export interface DbVideoJob {
     id: string;
     user_id: string;
+    job_type?: 'face' | 'faceless'; // Type of job for resume functionality
     status: 'pending' | 'processing' | 'completed' | 'failed';
     progress: number;
     progress_message: string;
@@ -88,6 +89,10 @@ export interface DbVideoJob {
         scenes: { text: string; type: 'face' | 'asset' }[];
         faceImageUrl?: string;
         voiceId?: string;
+        aspectRatio?: '9:16' | '16:9' | '1:1';
+        captionStyle?: string;
+        enableBackgroundMusic?: boolean;
+        enableCaptions?: boolean;
     };
     result_data?: {
         videoUrl: string;
@@ -96,6 +101,7 @@ export interface DbVideoJob {
     error?: string;
     created_at: string;
     updated_at: string;
+    is_processing?: boolean;
 }
 
 
