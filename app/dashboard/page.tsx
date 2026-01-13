@@ -200,6 +200,8 @@ export default function Dashboard() {
                         setEnableCaptions={state.setEnableCaptions}
                         captionStyle={state.captionStyle}
                         setCaptionStyle={state.setCaptionStyle}
+                        enableBackgroundMusic={state.enableBackgroundMusic}
+                        setEnableBackgroundMusic={state.setEnableBackgroundMusic}
                     />
                 }
 
