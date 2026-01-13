@@ -6,9 +6,9 @@
  */
 
 import axios from 'axios';
+import { getJson2VideoApiKey, getAppUrl } from '@/lib/config';
 
 const JSON2VIDEO_API_BASE = 'https://api.json2video.com/v2';
-const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
 
 // ============ Type Definitions ============
 
@@ -80,7 +80,7 @@ export async function startJson2VideoRender(payload: Json2VideoMovie): Promise<s
     }
 
     const response = await axios.post(`${JSON2VIDEO_API_BASE}/movies`, payload, {
-        headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
+        headers: { 'x-api-key': getJson2VideoApiKey(), 'Content-Type': 'application/json' }
     });
 
     const projectId = response.data.project;
@@ -97,7 +97,7 @@ export async function pollJson2Video(projectId: string): Promise<{ completed: bo
     try {
         const url = `${JSON2VIDEO_API_BASE}/movies?project=${projectId}&_t=${Date.now()}`;
         const resp = await fetch(url, {
-            headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+            headers: { 'x-api-key': getJson2VideoApiKey() },
             cache: 'no-store'
         });
 

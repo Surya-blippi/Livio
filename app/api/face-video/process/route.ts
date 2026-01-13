@@ -3,6 +3,7 @@ import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 import { generateSceneTTS } from '@/lib/fal';
+import { getWavespeedApiKey, getJson2VideoApiKey } from '@/lib/config';
 
 // Timeout for serverless function
 export const maxDuration = 55;
@@ -12,8 +13,6 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_TIME_MS = 45000; // 45 seconds max polling
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-const WAVESPEED_API_KEY = process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
-const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
 
 interface SceneInput {
     text: string;
@@ -67,7 +66,7 @@ async function startWaveSpeed(imageDataUrl: string, audioUrl: string): Promise<s
         resolution: '480p',
         seed: -1
     }, {
-        headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${getWavespeedApiKey()}`, 'Content-Type': 'application/json' },
         timeout: 30000
     });
 
@@ -85,7 +84,7 @@ async function pollWaveSpeed(predictionId: string): Promise<{ completed: boolean
         try {
             const resp = await axios.get(
                 `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`,
-                { headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }, timeout: 10000 }
+                { headers: { 'Authorization': `Bearer ${getWavespeedApiKey()}` }, timeout: 10000 }
             );
             const data = resp.data.data || resp.data;
             console.log(`📊 Status: ${data.status}`);
@@ -144,7 +143,7 @@ async function startJson2VideoRender(
     }
 
     const response = await axios.post('https://api.json2video.com/v2/movies', moviePayload, {
-        headers: { 'x-api-key': JSON2VIDEO_API_KEY, 'Content-Type': 'application/json' }
+        headers: { 'x-api-key': getJson2VideoApiKey(), 'Content-Type': 'application/json' }
     });
 
     const projectId = response.data.project;
@@ -162,7 +161,7 @@ async function pollJson2Video(projectId: string): Promise<{ completed: boolean; 
         console.log(`📡 Requesting: ${url}`);
 
         const resp = await fetch(url, {
-            headers: { 'x-api-key': JSON2VIDEO_API_KEY },
+            headers: { 'x-api-key': getJson2VideoApiKey() },
             cache: 'no-store'
         });
 
