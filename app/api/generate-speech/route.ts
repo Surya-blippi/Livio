@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
                         text: script,
                         voice_setting: {
                             voice_id: customVoiceId,
-                            speed: 1,
+                            speed: 1.2,
                             vol: 1,
                             pitch: 0
                         },

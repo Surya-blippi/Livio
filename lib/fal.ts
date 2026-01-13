@@ -16,7 +16,7 @@ export async function generateSceneTTS(text: string, voiceId: string): Promise<{
         const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
             input: {
                 text,
-                voice_setting: { voice_id: cleanVoiceId, speed: 1, vol: 1, pitch: 0 },
+                voice_setting: { voice_id: cleanVoiceId, speed: 1.2, vol: 1, pitch: 0 },
                 output_format: 'url'
             },
             logs: false
