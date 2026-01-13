@@ -18,9 +18,14 @@ export interface SceneScript {
  * Create a Manus AI task to research and write a scene-based script
  */
 async function createEnhanceTask(topic: string, duration: number): Promise<string | null> {
-    // Calculate approximate word count based on duration (about 2.5 words per second for natural speech)
-    const wordCount = Math.round(duration * 2.5);
-    // Calculate number of scenes based on duration (roughly 1 scene per 5-7 seconds)
+    // Calculate target word count range based on duration
+    let wordCountRange = '';
+    if (duration <= 15) wordCountRange = '30-45 words';
+    else if (duration <= 30) wordCountRange = '65-80 words';
+    else if (duration <= 60) wordCountRange = '130-160 words';
+    else wordCountRange = `${Math.floor(duration * 2.2)}-${Math.floor(duration * 2.7)} words`;
+
+    // Calculate number of scenes based on duration
     const numScenes = Math.max(3, Math.min(6, Math.round(duration / 6)));
 
     const prompt = `Research "${topic}" and write a ${duration}-second video script broken into ${numScenes} SCENES.
@@ -41,13 +46,17 @@ SCENE STRUCTURE:
 - Scene ${numScenes}: ENDING - End with something memorable (twist, open question, powerful statement)
 
 RULES:
-- Total of approximately ${wordCount} words across all scenes
+- Total LENGTH: STRICTLY ${wordCountRange} across all scenes
 - Each scene should be 1-3 sentences
 - Keywords should be visual (good for image search)
 - Write for spoken delivery (natural, conversational)
 - Make it feel like a mini-documentary
 
-CRITICAL: Output ONLY valid JSON. No text before or after. No markdown code blocks.`;
+CRITICAL: 
+- Output ONLY valid JSON.
+- DO NOT write "Here is the JSON" or "I have researched...".
+- NO markdown code blocks (like \`\`\`json).
+- JUST THE RAW JSON OBJECT.`;
 
     try {
         console.log('[Manus Enhance] Creating task...');
