@@ -164,105 +164,39 @@ function buildJson2VideoPayload(
     };
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
-    // define dynamic animations matching user reference (no html/shape elements)
+    // define simplistic animations (stable fallback)
     const getSceneElements = (i: number, assetUrl: string): { elements: any[], backgroundColor?: string } => {
-        const templates = [
-            // 1. Slide In from Right with Ken Burns
-            () => ({
-                backgroundColor: '#0f0f23',
-                elements: [
-                    {
-                        type: 'image', src: assetUrl,
-                        resize: 'cover', width: '100%', height: '100%', left: '100%', scale: '110%',
-                        position: 'center-center',
-                        animate: { duration: 800, easing: 'easeOutCubic', left: '0%' },
-                        pan: 'left-right', 'fade-out': 0.3
-                    },
-                    // Removed vignette overlay as 'shape/html' fails. 
-                    // If vignette is critical, we need an IMAGE asset overlay or CSS filter if supported.
-                    { type: 'audio', src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3', start: 0, volume: 0.4 }
-                ]
-            }),
-            // 2. Zoom In with Bounce
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        scale: '80%', opacity: 0,
-                        animate: { duration: 1000, easing: 'easeOutElastic', scale: '105%', opacity: 1 },
-                        zoom: 1.1, 'fade-out': 0.5
-                    }
-                ]
-            }),
-            // 3. Slide Up from Bottom
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        top: '100%',
-                        animate: { duration: 700, easing: 'easeOutCubic', top: '0%' },
-                        pan: 'top-bottom', 'fade-out': 0.4
-                    }
-                ]
-            }),
-            // 4. Scale Pop with Rotation
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        scale: '150%', rotate: '-5deg', opacity: 0,
-                        animate: { duration: 900, easing: 'easeOutBack', scale: '100%', rotate: '0deg', opacity: 1 },
-                        zoom: 1.05, 'fade-out': 0.5
-                    }
-                ]
-            }),
-            // 5. Slide from Left with Parallax Feel
-            () => ({
-                backgroundColor: '#1a1a2e',
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        left: '-100%',
-                        animate: { duration: 800, easing: 'easeOutCubic', left: '0%' },
-                        pan: 'right-left', 'fade-out': 0.4
-                    }
-                ]
-            }),
-            // 6. Dramatic Zoom Out Reveal
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        scale: '200%',
-                        animate: { duration: 1500, easing: 'easeOutQuad', scale: '100%' },
-                        'fade-in': 0.3, 'fade-out': 0.5
-                    }
-                ]
-            }),
-            // 7. Split Reveal (using clip)
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        clip: 'inset(0 100% 0 0)',
-                        animate: { duration: 800, easing: 'easeOutCubic', clip: 'inset(0 0% 0 0)' },
-                        zoom: 1.08, 'fade-out': 0.4
-                    }
-                ]
-            }),
-            // 8. Bounce Drop from Top
-            () => ({
-                elements: [
-                    {
-                        type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
-                        top: '-100%',
-                        animate: { duration: 1000, easing: 'easeOutBounce', top: '0%' },
-                        pan: 'bottom-top', 'fade-out': 0.5
-                    }
-                ]
-            })
+        // Cycle pan directions for variety
+        const pans = ['left-right', 'right-left', 'top-bottom', 'bottom-top'];
+        const pan = pans[i % pans.length];
+
+        const elements: any[] = [
+            {
+                type: 'image',
+                src: assetUrl,
+                resize: 'contain',
+                position: 'center-center',
+                zoom: 1.15,
+                pan: pan,
+                'fade-in': 0.5,
+                'fade-out': 0.3
+            }
         ];
-        return templates[i % templates.length]();
+
+        // Add click sound only to the first scene
+        if (i === 0) {
+            elements.push({
+                type: 'audio',
+                src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3',
+                start: 0,
+                volume: 0.4
+            });
+        }
+
+        return {
+            backgroundColor: '#000000',
+            elements
+        };
     };
 
     // Build scenes using dynamic cycling templates
