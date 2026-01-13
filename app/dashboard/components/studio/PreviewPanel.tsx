@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DbVoice, DbAvatar } from '@/lib/supabase';
 import { MicIcon, PlayIcon, ImageIcon, SparklesIcon, VideoIcon, DownloadIcon } from '../icons';
 
 
 // Define the modes this panel can be in
-export type PreviewMode = 'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions';
+export type PreviewMode = 'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions' | 'music';
 
 interface PreviewPanelProps {
     previewMode: PreviewMode;
@@ -64,6 +64,10 @@ interface PreviewPanelProps {
     setEnableCaptions: (enabled: boolean) => void;
     captionStyle: string;
     setCaptionStyle: (style: string) => void;
+
+    // Music
+    enableBackgroundMusic: boolean;
+    setEnableBackgroundMusic: (enabled: boolean) => void;
 }
 
 export const PreviewPanel: React.FC<PreviewPanelProps> = ({
@@ -97,10 +101,26 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
     // Captions
     enableCaptions, setEnableCaptions,
-    captionStyle, setCaptionStyle
+    captionStyle, setCaptionStyle,
+    enableBackgroundMusic, setEnableBackgroundMusic
 }) => {
     const [playingVoice, setPlayingVoice] = useState<string | null>(null);
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+    // Music State
+    const musicAudioRef = useRef<HTMLAudioElement | null>(null);
+    const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+
+    // Stop music when switching modes or disabling
+    useEffect(() => {
+        if (previewMode !== 'music' || !enableBackgroundMusic) {
+            if (musicAudioRef.current) {
+                musicAudioRef.current.pause();
+                musicAudioRef.current.currentTime = 0;
+            }
+            setIsMusicPlaying(false);
+        }
+    }, [previewMode, enableBackgroundMusic]);
 
     const togglePreview = (url: string | undefined, id: string) => {
         if (!url) return;
@@ -677,6 +697,98 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                             >
                                                 ARE ENABLED!
                                             </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'music':
+                return (
+                    <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
+                            <h3 className="font-bold text-lg text-[var(--text-primary)]">Background Music</h3>
+                        </div>
+
+                        <div className="flex-1 p-6 custom-scrollbar">
+                            <div className="flex flex-col gap-4">
+                                {/* Toggle Card */}
+                                <div
+                                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${enableBackgroundMusic ? 'border-black bg-[var(--surface-1)] shadow-[4px_4px_0px_#000]' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
+                                    onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${enableBackgroundMusic ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-200 text-gray-400'}`}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M9 18V5l12-2v13" />
+                                                <circle cx="6" cy="18" r="3" />
+                                                <circle cx="18" cy="16" r="3" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-[var(--text-primary)] mb-0.5">Background Music</h4>
+                                            <p className="text-xs text-[var(--text-secondary)]">
+                                                {enableBackgroundMusic ? 'Enabled' : 'Add atmosphere to your video'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Toggle Switch */}
+                                    <div className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ${enableBackgroundMusic ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                        <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${enableBackgroundMusic ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </div>
+                                </div>
+
+                                {/* Preview Card */}
+                                {enableBackgroundMusic && (
+                                    <div className="mt-2 p-6 bg-[#0F172A] rounded-xl border border-gray-800 text-white shadow-lg animate-in zoom-in duration-200">
+                                        <div className="flex items-center gap-5">
+                                            {/* Album Art */}
+                                            <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-inner">
+                                                <span className="text-4xl filter drop-shadow-md">🎵</span>
+                                            </div>
+
+                                            {/* Info & Controls */}
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-lg mb-0.5 text-white">Feeling Blue</h4>
+                                                <p className="text-xs text-indigo-200 mb-3">Upbeat • Pop • Energetic</p>
+
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const audio = musicAudioRef.current;
+                                                            if (!audio) return;
+
+                                                            if (isMusicPlaying) {
+                                                                audio.pause();
+                                                                setIsMusicPlaying(false);
+                                                            } else {
+                                                                audio.play().catch(e => console.error("Play error:", e));
+                                                                setIsMusicPlaying(true);
+                                                            }
+                                                        }}
+                                                        className="w-10 h-10 rounded-full bg-white text-indigo-900 flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow shadow-indigo-500/20"
+                                                    >
+                                                        {isMusicPlaying ? (
+                                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                                                        ) : (
+                                                            <PlayIcon className="w-5 h-5 ml-1" />
+                                                        )}
+                                                    </button>
+
+                                                    {/* Audio Element */}
+                                                    <audio
+                                                        ref={musicAudioRef}
+                                                        src="/Feeling Blue.mp3"
+                                                        onEnded={() => setIsMusicPlaying(false)}
+                                                        onPause={() => setIsMusicPlaying(false)}
+                                                        onPlay={() => setIsMusicPlaying(true)}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

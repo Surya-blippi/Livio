@@ -164,34 +164,106 @@ function buildJson2VideoPayload(
     };
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
-    // Build scenes with Ken Burns zoom effect and click sound
+    // define dynamic animations
+    const getSceneElements = (i: number, assetUrl: string): any[] => {
+        const templates = [
+            // 1. Slide In from Right with Ken Burns
+            () => [
+                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': '#0f0f23' },
+                {
+                    type: 'image', src: assetUrl,
+                    resize: 'cover', width: '100%', height: '100%', left: '100%', scale: '110%',
+                    position: 'center-center',
+                    animate: { duration: 800, easing: 'easeOutCubic', left: '0%' },
+                    pan: 'left-right', 'fade-out': 0.3
+                },
+                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%)' },
+                { type: 'audio', src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3', start: 0, volume: 0.4 }
+            ],
+            // 2. Zoom In with Bounce
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    scale: '80%', opacity: 0,
+                    animate: { duration: 1000, easing: 'easeOutElastic', scale: '105%', opacity: 1 },
+                    zoom: 1.1, 'fade-out': 0.5
+                },
+                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.5) 100%)' }
+            ],
+            // 3. Slide Up from Bottom
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    top: '100%',
+                    animate: { duration: 700, easing: 'easeOutCubic', top: '0%' },
+                    pan: 'top-bottom', 'fade-out': 0.4
+                }
+            ],
+            // 4. Scale Pop with Rotation
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    scale: '150%', rotate: '-5deg', opacity: 0,
+                    animate: { duration: 900, easing: 'easeOutBack', scale: '100%', rotate: '0deg', opacity: 1 },
+                    zoom: 1.05, 'fade-out': 0.5
+                }
+            ],
+            // 5. Slide from Left with Parallax Feel
+            () => [
+                { type: 'shape', shape: 'rectangle', width, height, 'fill-color': '#1a1a2e' },
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    left: '-100%',
+                    animate: { duration: 800, easing: 'easeOutCubic', left: '0%' },
+                    pan: 'right-left', 'fade-out': 0.4
+                }
+            ],
+            // 6. Dramatic Zoom Out Reveal
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    scale: '200%',
+                    animate: { duration: 1500, easing: 'easeOutQuad', scale: '100%' },
+                    'fade-in': 0.3, 'fade-out': 0.5
+                }
+            ],
+            // 7. Split Reveal (using clip)
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    clip: 'inset(0 100% 0 0)',
+                    animate: { duration: 800, easing: 'easeOutCubic', clip: 'inset(0 0% 0 0)' },
+                    zoom: 1.08, 'fade-out': 0.4
+                }
+            ],
+            // 8. Bounce Drop from Top
+            () => [
+                {
+                    type: 'image', src: assetUrl, resize: 'cover', position: 'center-center',
+                    top: '-100%',
+                    animate: { duration: 1000, easing: 'easeOutBounce', top: '0%' },
+                    pan: 'bottom-top', 'fade-out': 0.5
+                }
+            ]
+        ];
+        return templates[i % templates.length]();
+    };
+
+    // Build scenes using dynamic cycling templates
     const movieScenes: any[] = scenes.map((scene, i) => {
-        const zoomLevels = [4, 3, 5, 2];
-        const zoom = zoomLevels[i % zoomLevels.length];
+        const baseElements = getSceneElements(i, scene.assetUrl);
 
         return {
             comment: `Scene ${i + 1}`,
             duration: scene.duration,
             elements: [
-                {
-                    type: 'image',
-                    src: scene.assetUrl,
-                    resize: 'cover',
-                    zoom,
-                    'fade-in': 0.5,
-                    'fade-out': 0.5
-                },
+                ...baseElements,
+                // Always add the TTS narration
                 {
                     type: 'audio',
                     src: scene.audioUrl,
                     volume: 1.0,
                     start: 0
-                },
-                {
-                    type: 'audio',
-                    src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3',
-                    start: 0,
-                    volume: 0.4
                 }
             ]
         };

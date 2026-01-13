@@ -30,7 +30,7 @@ interface EditorPanelProps {
     duration: number;
     setDuration: (duration: number) => void;
 
-    setPreviewMode: (mode: 'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions') => void;
+    setPreviewMode: (mode: 'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions' | 'music') => void;
     onEnhance: () => void;
     onCollectAssets: () => void;
     isCollectingAssets: boolean;
@@ -334,7 +334,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                         CC
                                     </button>
                                     <button
-                                        onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
+                                        onClick={() => setPreviewMode('music')}
                                         className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${enableBackgroundMusic ? 'bg-[var(--brand-primary)] text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
                                         title="Music"
                                     >

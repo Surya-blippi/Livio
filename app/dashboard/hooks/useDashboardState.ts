@@ -88,7 +88,7 @@ export const useDashboardState = () => {
     const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
     const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
     const [originalTopic, setOriginalTopic] = useState(''); // Store the topic before enhancement
-    const [previewMode, setPreviewMode] = useState<'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions'>('idle');
+    const [previewMode, setPreviewMode] = useState<'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions' | 'music'>('idle');
 
     // Photo state
     const [photoFile, setPhotoFile] = useState<File | null>(null);
