@@ -96,15 +96,7 @@ function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | 
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
     const movieScenes: Json2VideoScene[] = scenes.map((scene, i) => {
-        // Ken Burns Effect
-        const effects = [
-            { zoom: { start: 1.0, end: 1.15 } },
-            { zoom: { start: 1.15, end: 1.0 } },
-            { zoom: { start: 1.0, end: 1.2 }, pan: { start: 'center', end: 'top-left' } },
-            { zoom: { start: 1.2, end: 1.0 }, pan: { start: 'top-right', end: 'center' } },
-        ];
-        const effect = effects[i % effects.length];
-
+        // Keep it simple - no Ken Burns effects for now to ensure API compatibility
         return {
             comment: scene.text.substring(0, 50),
             duration: scene.duration,
@@ -112,8 +104,7 @@ function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | 
                 {
                     type: 'image',
                     src: scene.assetUrl,
-                    resize: 'cover',
-                    ...effect
+                    resize: 'cover'
                 },
                 {
                     type: 'audio',
