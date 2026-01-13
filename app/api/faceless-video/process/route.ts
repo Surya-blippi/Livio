@@ -85,9 +85,78 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
         return base64Data;
     }
 }
+// Caption style configurations for JSON2Video subtitles
+function getCaptionSettings(styleName: string): Record<string, unknown> {
+    const styles: Record<string, Record<string, unknown>> = {
+        'bold-classic': {
+            'style': 'classic',
+            'font-family': 'Bangers',
+            'font-size': 120,
+            'word-color': '#FFD700',
+            'line-color': '#FFFFFF',
+            'outline-color': '#000000',
+            'outline-width': 2,
+            'shadow-color': '#000000',
+            'shadow-offset': 5,
+            'position': 'bottom-center',
+            'max-words-per-line': 3,
+        },
+        'clean-cut': {
+            'style': 'classic-progressive',
+            'font-family': 'NotoSans Bold',
+            'font-size': 80,
+            'word-color': '#000000',
+            'line-color': '#555555',
+            'outline-color': '#FFFFFF',
+            'outline-width': 4,
+            'max-words-per-line': 3
+        },
+        'modern-pop': {
+            'style': 'classic-progressive',
+            'font-size': 75,
+            'font-family': 'Roboto',
+            'font-weight': '900',
+            'word-color': '#FFFF00',
+            'line-color': '#FFFFFF',
+            'outline-color': '#000000',
+            'outline-width': 4,
+            'position': 'bottom-center',
+            'max-words-per-line': 4,
+        },
+        'minimal': {
+            'style': 'classic',
+            'font-size': 60,
+            'font-family': 'Arial',
+            'word-color': '#FFFFFF',
+            'line-color': '#FFFFFF',
+            'outline-color': '#000000',
+            'outline-width': 2,
+            'position': 'bottom-center',
+            'max-words-per-line': 5,
+        },
+        'vibrant': {
+            'style': 'boxed-line',
+            'font-size': 85,
+            'font-family': 'Oswald Bold',
+            'word-color': '#FFD700',
+            'box-color': '#FF4500DD',
+            'position': 'bottom-center',
+            'max-words-per-line': 3,
+            'all-caps': true,
+        },
+    };
+    return styles[styleName] || styles['bold-classic'];
+}
 
-// Build JSON2Video movie payload
-function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | '16:9' | '1:1', enableBgMusic: boolean, bgMusicUrl?: string): Json2VideoMovie {
+// Build JSON2Video movie payload with captions and background music support
+function buildJson2VideoPayload(
+    scenes: ProcessedScene[],
+    aspectRatio: '9:16' | '16:9' | '1:1',
+    enableBgMusic: boolean,
+    bgMusicUrl?: string,
+    enableCaptions?: boolean,
+    captionStyle?: string
+): Json2VideoMovie {
     const dimensions: Record<string, { width: number; height: number }> = {
         '9:16': { width: 1080, height: 1920 },
         '16:9': { width: 1920, height: 1080 },
@@ -96,7 +165,6 @@ function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | 
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
     const movieScenes: Json2VideoScene[] = scenes.map((scene, i) => {
-        // Keep it simple - no Ken Burns effects for now to ensure API compatibility
         return {
             comment: scene.text.substring(0, 50),
             duration: scene.duration,
@@ -115,14 +183,30 @@ function buildJson2VideoPayload(scenes: ProcessedScene[], aspectRatio: '9:16' | 
         };
     });
 
-    // Add background music if enabled
+    // Movie-level elements (audio, subtitles)
     const elements: any[] = [];
+
+    // Add background music if enabled
     if (enableBgMusic && bgMusicUrl) {
+        console.log('🎵 Adding background music:', bgMusicUrl);
         elements.push({
             type: 'audio',
             src: bgMusicUrl,
             volume: 0.15,
             loop: true
+        });
+    }
+
+    // Add captions/subtitles if enabled (auto-transcribe from audio)
+    if (enableCaptions) {
+        console.log('📝 Adding captions with style:', captionStyle || 'bold-classic');
+        const captionSettings = getCaptionSettings(captionStyle || 'bold-classic');
+        elements.push({
+            type: 'subtitles',
+            settings: {
+                'transcribe': true, // Auto-transcribe from audio
+                ...captionSettings
+            }
         });
     }
 
@@ -284,7 +368,14 @@ export async function POST(request: NextRequest) {
 
         // ALL SCENES PROCESSED - START RENDER
         console.log('🎬 All scenes ready. Building video payload...');
-        const moviePayload = buildJson2VideoPayload(processedScenes, input.aspectRatio, input.enableBackgroundMusic, input.backgroundMusicUrl);
+        const moviePayload = buildJson2VideoPayload(
+            processedScenes,
+            input.aspectRatio,
+            input.enableBackgroundMusic,
+            input.backgroundMusicUrl,
+            input.enableCaptions,
+            input.captionStyle
+        );
 
         const projectId = await startJson2VideoRender(moviePayload);
 
