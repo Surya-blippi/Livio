@@ -266,9 +266,27 @@ export const useDashboardState = () => {
     const refreshVideoHistory = async () => {
         if (dbUser) {
             console.log('[Dashboard] Refreshing video history for user:', dbUser.id);
-            const videos = await getVideos(dbUser.id);
-            console.log('[Dashboard] Fetched videos:', videos.length);
-            setVideoHistory(videos);
+            try {
+                const sb = await getSupabase();
+                const { data: videos, error } = await sb
+                    .from('videos')
+                    .select('id, user_id, script, topic, mode, duration, has_captions, has_music, thumbnail_url, created_at')
+                    .eq('user_id', dbUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                if (error) {
+                    console.error('[Dashboard] Failed to fetch history:', error);
+                    return;
+                }
+
+                // Add empty video_url as per previous type contract (fetched on demand)
+                const formattedVideos = (videos || []).map((v: any) => ({ ...v, video_url: '' }));
+                console.log('[Dashboard] Fetched videos:', formattedVideos.length);
+                setVideoHistory(formattedVideos);
+            } catch (e) {
+                console.error('[Dashboard] Error refreshing history:', e);
+            }
         } else {
             console.warn('[Dashboard] Cannot refresh history: dbUser is null');
         }
