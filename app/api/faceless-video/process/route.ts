@@ -361,20 +361,7 @@ export async function POST(request: NextRequest) {
                     text: s.text
                 }));
 
-                // Update job status
-                await updateJob(jobId, {
-                    status: 'completed',
-                    progress: 100,
-                    is_processing: false,
-                    progress_message: 'Video ready!',
-                    result_data: {
-                        videoUrl: status.videoUrl,
-                        duration: totalDuration,
-                        assets: sceneAssets
-                    }
-                });
-
-                // Save to permanent 'videos' table (matching face video behavior)
+                // Save to permanent 'videos' table FIRST (to avoid race condition with frontend polling)
                 try {
                     const script = processedScenes.map(s => s.text).join('\n\n');
                     await supabase.from('videos').insert({
@@ -392,8 +379,20 @@ export async function POST(request: NextRequest) {
                     console.log('✅ Video saved to history');
                 } catch (saveErr) {
                     console.error('Failed to save video to history:', saveErr);
-                    // Don't fail the job, just log the error
                 }
+
+                // Update job status
+                await updateJob(jobId, {
+                    status: 'completed',
+                    progress: 100,
+                    is_processing: false,
+                    progress_message: 'Video ready!',
+                    result_data: {
+                        videoUrl: status.videoUrl,
+                        duration: totalDuration,
+                        assets: sceneAssets
+                    }
+                });
 
                 return NextResponse.json({ completed: true, videoUrl: status.videoUrl });
             } else if (status.failed) {
