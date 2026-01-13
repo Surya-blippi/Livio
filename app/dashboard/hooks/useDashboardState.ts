@@ -693,7 +693,7 @@ export const useDashboardState = () => {
                     .from('video_jobs')
                     .insert({
                         user_id: dbUser.id,
-                        user_uuid: dbUser.id, // New column for proper FK reference
+                        user_uuid: dbUser.id, // Proper FK reference for user mapping
                         job_type: 'faceless',
                         status: 'pending',
                         input_data: {
@@ -893,7 +893,7 @@ export const useDashboardState = () => {
                 .from('video_jobs')
                 .insert({
                     user_id: dbUser.id,
-                    user_uuid: dbUser.id, // New column for proper FK reference
+                    user_uuid: dbUser.id, // Proper FK reference for user mapping
                     job_type: 'face',
                     status: 'pending',
                     input_data: {
