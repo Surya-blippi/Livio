@@ -380,7 +380,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                         onClick={() => setMode('face')}
                                         className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer group ${mode === 'face' ? 'border-black shadow-[4px_4px_0px_#000]' : 'border-gray-200 hover:border-gray-400'}`}
                                     >
-                                        <img src={useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview} className="w-full h-full object-cover" />
+                                        <img src={photoPreview} className="w-full h-full object-cover" />
 
                                         {/* Remove button */}
                                         <button

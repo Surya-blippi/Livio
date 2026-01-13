@@ -372,17 +372,18 @@ export async function saveAvatar(
     userId: string,
     imageUrl: string,
     name?: string,
-    isDefault?: boolean
+    isDefault?: boolean,
+    client: any = supabase // Use authenticated client if provided
 ): Promise<DbAvatar | null> {
     // If setting as default, unset others
     if (isDefault) {
-        await supabase
+        await client
             .from('avatars')
             .update({ is_default: false })
             .eq('user_id', userId);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('avatars')
         .insert({
             user_id: userId,

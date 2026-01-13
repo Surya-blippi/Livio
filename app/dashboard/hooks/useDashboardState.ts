@@ -315,14 +315,7 @@ export const useDashboardState = () => {
                 .from('avatars')
                 .getPublicUrl(fileName);
 
-            // 3. Save to DB
-            const savedAvatar = await saveAvatar(dbUser.id, publicUrl, 'Uploaded Avatar', false);
-
-            // 4. Update Saved Avatars List
-            if (savedAvatar) {
-                setSavedAvatars(prev => [savedAvatar, ...prev]);
-            }
-
+            // 3. Return Public URL (Saving handled by caller with auth client)
             return publicUrl;
         } catch (err) {
             console.error('Avatar upload failed:', err);
@@ -354,7 +347,8 @@ export const useDashboardState = () => {
                 setUseStudioImage(false); // Reset studio mode for new upload
 
                 if (dbUser) {
-                    const saved = await saveAvatar(dbUser.id, publicUrl, 'Original Upload', false);
+                    const sb = await getSupabase();
+                    const saved = await saveAvatar(dbUser.id, publicUrl, 'Original Upload', false, sb);
                     if (saved) {
                         setSavedAvatars(prev => [saved, ...prev]);
                     }
@@ -480,7 +474,8 @@ export const useDashboardState = () => {
 
             if (dbUser) {
                 // Save the STUDIO READY version
-                const savedStudioAvatar = await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true);
+                const sb = await getSupabase();
+                const savedStudioAvatar = await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true, sb);
                 if (savedStudioAvatar) {
                     setSavedAvatars(prev => [savedStudioAvatar, ...prev]);
                 }
