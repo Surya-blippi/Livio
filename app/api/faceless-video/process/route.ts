@@ -164,20 +164,34 @@ function buildJson2VideoPayload(
     };
     const { width, height } = dimensions[aspectRatio] || { width: 1080, height: 1920 };
 
-    const movieScenes: Json2VideoScene[] = scenes.map((scene, i) => {
+    // Build scenes with Ken Burns zoom effect and click sound
+    const movieScenes: any[] = scenes.map((scene, i) => {
+        const zoomLevels = [4, 3, 5, 2];
+        const zoom = zoomLevels[i % zoomLevels.length];
+
         return {
-            comment: scene.text.substring(0, 50),
+            comment: `Scene ${i + 1}`,
             duration: scene.duration,
             elements: [
                 {
                     type: 'image',
                     src: scene.assetUrl,
-                    resize: 'cover'
+                    resize: 'cover',
+                    zoom,
+                    'fade-in': 0.5,
+                    'fade-out': 0.5
                 },
                 {
                     type: 'audio',
                     src: scene.audioUrl,
-                    volume: 1.0
+                    volume: 1.0,
+                    start: 0
+                },
+                {
+                    type: 'audio',
+                    src: 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/clickit.mp3',
+                    start: 0,
+                    volume: 0.4
                 }
             ]
         };
@@ -186,32 +200,38 @@ function buildJson2VideoPayload(
     // Movie-level elements (audio, subtitles)
     const elements: any[] = [];
 
-    // Add background music if enabled
-    if (enableBgMusic && bgMusicUrl) {
-        console.log('🎵 Adding background music:', bgMusicUrl);
+    // Add background music if enabled (using exact reference format)
+    if (enableBgMusic) {
+        const musicUrl = bgMusicUrl || 'https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Bgmusic/Feeling%20Blue.mp3';
+        console.log('🎵 Adding background music:', musicUrl);
         elements.push({
             type: 'audio',
-            src: bgMusicUrl,
-            volume: 0.15,
-            loop: true
+            src: musicUrl,
+            start: 0,
+            duration: -2,
+            volume: 0.12,
+            'fade-in': 1,
+            'fade-out': 2,
+            'loop': -1
         });
     }
 
-    // Add captions/subtitles if enabled (auto-transcribe from audio)
+    // Add captions/subtitles if enabled (using exact reference format)
     if (enableCaptions) {
         console.log('📝 Adding captions with style:', captionStyle || 'bold-classic');
         const captionSettings = getCaptionSettings(captionStyle || 'bold-classic');
         elements.push({
             type: 'subtitles',
-            settings: {
-                'transcribe': true, // Auto-transcribe from audio
-                ...captionSettings
-            }
+            language: 'auto',
+            settings: captionSettings
         });
     }
 
     return {
-        resolution: aspectRatio === '16:9' ? 'full-hd' : 'full-hd-vertical',
+        resolution: 'custom',
+        width,
+        height,
+        fps: 30,
         quality: 'high',
         scenes: movieScenes,
         elements
