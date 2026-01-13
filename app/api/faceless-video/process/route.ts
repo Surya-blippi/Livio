@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
                         script: script,
                         mode: 'faceless',
                         topic: '', // Could extract from input if available
-                        duration: totalDuration,
+                        duration: Math.round(totalDuration),
                         has_captions: input.enableCaptions || false,
                         has_music: input.enableBackgroundMusic || false,
                         assets: sceneAssets,
