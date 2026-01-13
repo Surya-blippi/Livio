@@ -56,6 +56,7 @@ CRITICAL:
 - Output ONLY valid JSON.
 - DO NOT write "Here is the JSON" or "I have researched...".
 - NO markdown code blocks (like \`\`\`json).
+- DO NOT create a downloadable file. PRINT the JSON string directly in the text response.
 - JUST THE RAW JSON OBJECT.`;
 
     try {
@@ -113,6 +114,8 @@ async function pollManusTask(taskId: string): Promise<string | null> {
             console.log(`[Manus Enhance] Task status: ${status}`);
 
             if (status === 'completed') {
+                console.log('[Manus Enhance] FULL RESPONSE:', JSON.stringify(response.data, null, 2));
+
                 // Extract output text
                 const output = response.data?.output || [];
                 let text = '';
