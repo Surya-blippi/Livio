@@ -710,13 +710,17 @@ export const useDashboardState = () => {
                 const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
                     text: scene.text,
                     assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
-                })) : [
-                    // Fallback if no scenes parsed (e.g. manual text only), treat whole text as one scene
-                    {
-                        text: inputText,
-                        assetUrl: collectedAssets[0]?.url
-                    }
-                ];
+                })) : (() => {
+                    // Fallback: Split script into sentences and alternate assets
+                    const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+                    // Ensure at least one scene if split fails or empty
+                    if (sentences.length === 0 && inputText.trim()) return [{ text: inputText, assetUrl: collectedAssets[0]?.url }];
+
+                    return sentences.map((sentence, index) => ({
+                        text: sentence.trim() + '.',
+                        assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
+                    }));
+                })();
 
                 setProcessingStep(2);
                 setProcessingMessage('Creating video job...');
