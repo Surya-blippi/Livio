@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ skipped: true });
         }
 
-        await updateJob(jobId, { is_processing: true, updated_at: new Date().toISOString() });
+        await updateJob(jobId, { status: 'processing', is_processing: true, updated_at: new Date().toISOString() });
 
         const { data: freshJob } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
         if (!freshJob) return NextResponse.json({ error: 'Job lost' }, { status: 404 });
