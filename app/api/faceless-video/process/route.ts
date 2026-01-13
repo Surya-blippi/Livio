@@ -321,12 +321,47 @@ export async function POST(request: NextRequest) {
                 const totalDuration = processedScenes.reduce((acc, s) => acc + s.duration, 0);
                 console.log(`✅ Video completed: ${status.videoUrl}`);
 
+                // Collect assets from processed scenes
+                const sceneAssets = processedScenes.map(s => ({
+                    url: s.assetUrl,
+                    source: 'collected',
+                    text: s.text
+                }));
+
+                // Update job status
                 await updateJob(jobId, {
                     status: 'completed',
                     progress: 100,
                     is_processing: false,
-                    result_data: { videoUrl: status.videoUrl, duration: totalDuration }
+                    progress_message: 'Video ready!',
+                    result_data: {
+                        videoUrl: status.videoUrl,
+                        duration: totalDuration,
+                        assets: sceneAssets
+                    }
                 });
+
+                // Save to permanent 'videos' table (matching face video behavior)
+                try {
+                    const script = processedScenes.map(s => s.text).join('\n\n');
+                    await supabase.from('videos').insert({
+                        user_id: job.user_uuid || job.user_id,
+                        video_url: status.videoUrl,
+                        script: script,
+                        mode: 'faceless',
+                        topic: '', // Could extract from input if available
+                        duration: totalDuration,
+                        has_captions: input.enableCaptions || false,
+                        has_music: input.enableBackgroundMusic || false,
+                        assets: sceneAssets,
+                        thumbnail_url: processedScenes[0]?.assetUrl || null
+                    });
+                    console.log('✅ Video saved to history');
+                } catch (saveErr) {
+                    console.error('Failed to save video to history:', saveErr);
+                    // Don't fail the job, just log the error
+                }
+
                 return NextResponse.json({ completed: true, videoUrl: status.videoUrl });
             } else if (status.failed) {
                 console.error(`❌ Render failed: ${status.status}`);
@@ -334,7 +369,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ failed: true, error: status.status });
             } else {
                 console.log('⏳ Still rendering...');
-                await updateJob(jobId, { is_processing: false });
+                await updateJob(jobId, {
+                    is_processing: false,
+                    progress_message: status.status ? `Rendering: ${status.status}` : 'Rendering final video...'
+                });
                 return NextResponse.json({ completed: false, status: status.status });
             }
         }

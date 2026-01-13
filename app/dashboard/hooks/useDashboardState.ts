@@ -727,9 +727,8 @@ export const useDashboardState = () => {
                 );
 
                 setVideoUrl(videoResult.videoUrl);
+                // Video is now saved in backend - just refresh history
                 if (dbUser) {
-                    const assetsForDb = collectedAssets.map(a => ({ url: a.url, source: a.source }));
-                    await saveVideo(dbUser.id, videoResult.videoUrl, inputText, 'faceless', videoResult.duration, enableCaptions, enableBackgroundMusic, undefined, originalTopic, assetsForDb);
                     await refreshVideoHistory();
                 }
                 // Reset processing state after faceless video is done
