@@ -265,8 +265,12 @@ export const useDashboardState = () => {
 
     const refreshVideoHistory = async () => {
         if (dbUser) {
+            console.log('[Dashboard] Refreshing video history for user:', dbUser.id);
             const videos = await getVideos(dbUser.id);
+            console.log('[Dashboard] Fetched videos:', videos.length);
             setVideoHistory(videos);
+        } else {
+            console.warn('[Dashboard] Cannot refresh history: dbUser is null');
         }
     };
 

@@ -376,9 +376,12 @@ export async function POST(request: NextRequest) {
 
                 // Save to permanent 'videos' table (matching face video behavior)
                 try {
+                    const userIdToSave = job.user_uuid || job.user_id;
+                    console.log('💾 Saving to history for User UUID:', userIdToSave);
+
                     const script = processedScenes.map(s => s.text).join('\n\n');
                     await supabase.from('videos').insert({
-                        user_id: job.user_uuid || job.user_id,
+                        user_id: userIdToSave,
                         video_url: status.videoUrl,
                         script: script,
                         mode: 'faceless',
