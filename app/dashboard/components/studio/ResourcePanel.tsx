@@ -23,9 +23,9 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
             <div className="h-14 flex items-center px-4">
                 <div className="flex items-center gap-2 font-bold text-lg tracking-tight">
                     <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary)] border-2 border-black flex items-center justify-center text-black shadow-[2px_2px_0px_#000]">
-                        <span className="text-lg font-black">P</span>
+                        <span className="text-lg font-black">R</span>
                     </div>
-                    <span className="text-black">Pocket</span>
+                    <span className="text-black">Reven</span>
                 </div>
             </div>
 

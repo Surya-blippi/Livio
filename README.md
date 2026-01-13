@@ -1,4 +1,4 @@
-# Pocket Influencer - AI Talking Head Video Generator
+# Reven - Pocket Creator - AI Talking Head Video Generator
 
 Create stunning AI-powered talking head videos with your photo, custom scripts, and voice cloning!
 

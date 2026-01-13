@@ -68,9 +68,9 @@ export default function LandingPage() {
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-[var(--brand-primary)] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
-                            <span className="text-black font-black text-xl">P</span>
+                            <span className="text-black font-black text-xl">R</span>
                         </div>
-                        <span className="text-xl font-black tracking-tight">Pocket Influencer</span>
+                        <span className="text-xl font-black tracking-tight">Reven - Pocket Creator</span>
                     </div>
 
                     <div className="hidden md:flex items-center gap-8">
@@ -358,16 +358,16 @@ export default function LandingPage() {
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded bg-black flex items-center justify-center">
-                            <span className="text-[var(--brand-primary)] font-black text-xs">P</span>
+                            <span className="text-[var(--brand-primary)] font-black text-xs">R</span>
                         </div>
-                        <span className="font-black text-lg">Pocket Influencer</span>
+                        <span className="font-black text-lg">Reven - Pocket Creator</span>
                     </div>
                     <div className="flex gap-8 text-sm font-bold text-[var(--text-secondary)]">
                         <a href="#" className="hover:text-black">Privacy</a>
                         <a href="#" className="hover:text-black">Terms</a>
                         <a href="#" className="hover:text-black">Twitter</a>
                     </div>
-                    <p className="text-sm font-bold text-[var(--text-tertiary)]">© 2024 Pocket Influencer</p>
+                    <p className="text-sm font-bold text-[var(--text-tertiary)]">© 2026 Reven - Pocket Creator</p>
                 </div>
             </footer>
         </div>

@@ -38,10 +38,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Brand */}
                 <Link href="/" className="flex items-center gap-3 px-2 py-1">
                     <div className="w-8 h-8 rounded-lg bg-[var(--brand-gradient)] flex items-center justify-center shadow-md">
-                        <span className="text-white font-bold text-lg">P</span>
+                        <span className="text-white font-bold text-lg">R</span>
                     </div>
                     <span className="text-lg font-bold tracking-tight text-[var(--text-primary)]">
-                        Pocket
+                        Reven
                     </span>
                 </Link>
 

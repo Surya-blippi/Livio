@@ -6,7 +6,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Pocket Influencer - AI Talking Head Videos",
+    title: "Reven - Pocket Creator",
     description: "Transform your photo into an AI-powered talking head video",
 };
 
