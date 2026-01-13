@@ -101,70 +101,67 @@ export async function POST(request: NextRequest) {
         }
 
         // Calculate word count: approx 2.5 words per second
-        const wordCount = Math.floor(duration * 2.5);
+        // Calculate target word count range based on duration
+        let wordCountRange = '';
+        if (duration <= 15) wordCountRange = '30-45 words';
+        else if (duration <= 30) wordCountRange = '65-80 words';
+        else if (duration <= 60) wordCountRange = '130-160 words';
+        else wordCountRange = `${Math.floor(duration * 2.2)}-${Math.floor(duration * 2.7)} words`;
 
-        // Configure model with high thinking level
+        // Configure model with valid generation config
         const config: any = {
-            thinkingConfig: {
-                thinkingLevel: 'high',
-            },
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1000,
+            }
         };
 
-        const model = 'gemini-3-flash-preview';
+        const model = 'gemini-2.0-flash-exp'; // Use standard model for better instruction following
 
         // Create prompt - different based on whether we have URL content
         let prompt: string;
 
+        const contentInstructions = `
+REQUIREMENTS:
+1. LENGTH constraint: STRICTLY ${wordCountRange}.
+   - 15s video = ~40 words
+   - 30s video = ~75 words
+   - 60s video = ~145 words
+   - DO NOT write a long blog post. Keep it concise for video.
+
+2. STRUCTURE:
+   - Hook (First 3s): Grab attention immediately.
+   - Body: Deliver value/story.
+   - CTA: Short specific call to action.
+
+3. TONE:
+   - Conversational, high-energy, viral style.
+   - No "Ladies and gentlemen" or formal intros.
+
+4. FORMATTING RULES (CRITICAL):
+   - START DIRECTLY with the spoken words.
+   - NO "Here is the script", NO "Title:", NO "Scene 1".
+   - NO formatting tags like **bold** or [brackets].
+   - RAW TEXT ONLY.
+`;
+
         if (urlContent) {
             prompt = `You are a viral content creator. Generate a ${duration}-second spoken script based on the following source content.
-
+            
 SOURCE CONTENT:
 ${urlContent}
 
-${inputTopic ? `Additional context: ${inputTopic}` : ''}
+${inputTopic ? `Focus Topic: ${inputTopic}` : ''}
 
-REQUIREMENTS:
-1. START WITH A POWERFUL HOOK - The first 3 seconds must grab attention:
-   - Use a surprising fact, bold claim, or intriguing question
-   - Examples: "Here's what nobody tells you about...", "This changed everything I knew about...", "Stop scrolling - you need to hear this..."
-   
-2. CONTENT:
-   - Approximately ${wordCount} words (${duration} seconds at normal speaking pace)
-   - Extract the most interesting/valuable insights from the source
-   - Make it conversational and engaging
-   - Add personal touch ("I just learned...", "This blew my mind...")
-   
-3. FORMAT:
-   - Natural spoken language only
-   - No stage directions, emojis, or formatting
-   - End with a call-to-action or thought-provoking statement
-   
-4. Just output the spoken words, nothing else.
+${contentInstructions}
 
-Script:`;
+Generate the script now:`;
         } else {
-            prompt = `You are a viral content creator. Generate a ${duration}-second spoken script about "${topic}". 
+            prompt = `You are a viral content creator. Generate a ${duration}-second spoken script about "${topic}".
 
-REQUIREMENTS:
-1. START WITH A POWERFUL HOOK - The first 3 seconds must grab attention:
-   - Use a surprising fact, bold claim, or intriguing question
-   - Examples: "Here's what nobody tells you about...", "This changed everything...", "Stop scrolling..."
-   
-2. CONTENT:
-   - Approximately ${wordCount} words (${duration} seconds at normal speaking pace)
-   - Enthusiastic and engaging tone
-   - Provide real value or entertainment
-   
-3. FORMAT:
-   - Natural spoken language only
-   - No stage directions, emojis, or formatting
-   - Direct and conversational
-   
-4. Just output the spoken words, nothing else.
+${contentInstructions}
 
-Topic: ${topic}
-
-Script:`;
+Generate the script now:`;
         }
 
         const contents = [
