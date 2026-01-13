@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DbVoice, DbAvatar } from '@/lib/supabase';
 import { MicIcon, PlayIcon, ImageIcon, SparklesIcon, VideoIcon, DownloadIcon } from '../icons';
-import { CAPTION_STYLES } from '@/lib/captionStyles';
+
 
 // Define the modes this panel can be in
 export type PreviewMode = 'idle' | 'face' | 'voice' | 'video' | 'assets' | 'script' | 'storyboard' | 'captions';
@@ -617,69 +617,69 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 return (
                     <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
-                            <h3 className="font-bold text-lg text-[var(--text-primary)]">Caption Style</h3>
+                            <h3 className="font-bold text-lg text-[var(--text-primary)]">Captions</h3>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            <div className="grid grid-cols-2 gap-3">
-                                {/* None Option */}
-                                <button
+                        <div className="flex-1 p-6 custom-scrollbar">
+                            <div className="flex flex-col gap-4">
+                                {/* Main Toggle Card */}
+                                <div
+                                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${enableCaptions ? 'border-black bg-[var(--surface-1)] shadow-[4px_4px_0px_#000]' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
                                     onClick={() => {
-                                        setEnableCaptions(false);
-                                        setCaptionStyle('none');
+                                        const newState = !enableCaptions;
+                                        setEnableCaptions(newState);
+                                        if (newState) {
+                                            setCaptionStyle('bold-classic'); // Enforce Bangers style
+                                        }
                                     }}
-                                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${!enableCaptions ? 'border-black bg-gray-100 shadow-[4px_4px_0px_#000]' : 'border-gray-200 hover:border-gray-400'}`}
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mb-2">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${enableCaptions ? 'bg-[var(--brand-primary)] text-black' : 'bg-gray-200 text-gray-400'}`}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M8 15h2" />
+                                                <path d="M8 11h8" />
+                                                <rect x="4" y="5" width="16" height="14" rx="2" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-[var(--text-primary)] mb-0.5">Dynamic Captions</h4>
+                                            <p className="text-xs text-[var(--text-secondary)]">
+                                                {enableCaptions ? 'Enabled (Pop Style)' : 'Add engaging captions to your video'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <span className="text-sm font-bold text-gray-600">None</span>
-                                    <span className="text-[10px] text-gray-400">No captions</span>
-                                    {!enableCaptions && <span className="mt-1 text-[10px] font-bold text-black">✓ Selected</span>}
-                                </button>
 
-                                {/* Caption Style Cards */}
-                                {CAPTION_STYLES.map(style => {
-                                    const isSelected = enableCaptions && captionStyle === style.id;
-                                    return (
-                                        <button
-                                            key={style.id}
-                                            onClick={() => {
-                                                setEnableCaptions(true);
-                                                setCaptionStyle(style.id);
-                                            }}
-                                            className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${isSelected ? 'border-black bg-[var(--brand-primary)] shadow-[4px_4px_0px_#000]' : 'border-gray-200 hover:border-gray-400 bg-white'}`}
-                                        >
-                                            {/* Live Style Preview */}
-                                            <div
-                                                className="h-10 w-full flex items-center justify-center mb-2 rounded-lg"
+                                    {/* Toggle Switch Visual */}
+                                    <div className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ${enableCaptions ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                        <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${enableCaptions ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </div>
+                                </div>
+
+                                {/* Preview Visual (Only when enabled) */}
+                                {enableCaptions && (
+                                    <div className="mt-2 p-8 bg-black/90 rounded-xl border border-gray-800 flex items-center justify-center aspect-video relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-blue-500/20" />
+                                        <div className="text-center z-10 animate-in zoom-in duration-300">
+                                            <span
+                                                className="text-4xl font-black text-white leading-tight block transform -rotate-2"
                                                 style={{
-                                                    background: style.id === 'neon-glow' ? '#1a1a2e' :
-                                                        style.id === 'retro-vhs' ? '#0a0a0a' :
-                                                            '#374151'
+                                                    fontFamily: '"Impact", "Arial Black", sans-serif',
+                                                    textShadow: '3px 3px 0 #000, -1px -1px 0 #000'
                                                 }}
                                             >
-                                                <span
-                                                    className="text-lg"
-                                                    style={{
-                                                        fontFamily: style.previewCss.fontFamily,
-                                                        color: style.previewCss.color,
-                                                        textShadow: style.previewCss.textShadow,
-                                                        fontWeight: style.previewCss.fontWeight,
-                                                    }}
-                                                >
-                                                    Sample
-                                                </span>
-                                            </div>
-                                            <span className={`text-sm font-bold ${isSelected ? 'text-black' : 'text-gray-700'}`}>{style.name}</span>
-                                            <span className={`text-[10px] ${isSelected ? 'text-black/70' : 'text-gray-400'}`}>{style.description}</span>
-                                            {isSelected && <span className="mt-1 text-[10px] font-bold text-black">✓ Selected</span>}
-                                        </button>
-                                    );
-                                })}
+                                                <span className="text-[#FFD700]">DYNAMIC</span> CAPTIONS
+                                            </span>
+                                            <span
+                                                className="text-xl font-bold text-white mt-2 block"
+                                                style={{
+                                                    textShadow: '2px 2px 0 #000'
+                                                }}
+                                            >
+                                                ARE ENABLED!
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
