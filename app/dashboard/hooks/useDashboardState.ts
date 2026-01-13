@@ -702,6 +702,12 @@ export const useDashboardState = () => {
                 const selectedVoiceId = voiceIdToUse || 'Voice3d303ed71767974077'; // Default voice if none
                 const finalScenes = facelessScenes;
 
+                console.log('Creating Faceless Job:', {
+                    user_id: dbUser.id,
+                    user_uuid: dbUser.id,
+                    job_type: 'faceless',
+                });
+
                 const { data: videoJob, error: jobError } = await sb
                     .from('video_jobs')
                     .insert({
