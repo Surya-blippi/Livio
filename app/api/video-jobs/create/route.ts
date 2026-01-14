@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
             console.warn(`[video-jobs/create] Unknown job_type: ${job_type}, no credits charged`);
         }
 
-        // 3. Check if user has enough credits
+        // 3. Check if user has enough credits (use user_id which is the database UUID, not clerkUserId)
         if (creditCost > 0) {
-            const creditsData = await getUserCredits(clerkUserId);
+            const creditsData = await getUserCredits(user_id);
             const userCredits = creditsData?.balance ?? 0;
-            console.log(`[video-jobs/create] User ${clerkUserId} has ${userCredits} credits, needs ${creditCost}`);
+            console.log(`[video-jobs/create] User ${user_id} has ${userCredits} credits, needs ${creditCost}`);
 
             if (userCredits < creditCost) {
                 console.log(`[video-jobs/create] Insufficient credits: ${userCredits} < ${creditCost}`);
@@ -75,9 +75,9 @@ export async function POST(req: NextRequest) {
                 }, { status: 402 });
             }
 
-            // 4. Deduct credits BEFORE creating job
+            // 4. Deduct credits BEFORE creating job (use user_id which is the database UUID)
             console.log(`[video-jobs/create] Deducting ${creditCost} credits for: ${creditDescription}`);
-            const deductResult = await deductCredits(clerkUserId, creditCost, creditDescription);
+            const deductResult = await deductCredits(user_id, creditCost, creditDescription);
             console.log(`[video-jobs/create] Credit deduction result:`, JSON.stringify(deductResult));
 
             if (!deductResult.success) {
