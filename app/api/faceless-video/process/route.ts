@@ -56,13 +56,21 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
     const supabase = getSupabaseAdmin();
 
     try {
-        const match = base64Data.match(/^data:(image\/[a-z]+);base64,(.+)$/);
-        if (!match) return base64Data;
+        // Updated regex to handle more image types including jpeg
+        const match = base64Data.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,(.+)$/);
+        if (!match) {
+            console.error('Invalid base64 format');
+            throw new Error('Invalid base64 image format');
+        }
 
         const contentType = match[1];
         const buffer = Buffer.from(match[2], 'base64');
-        const ext = contentType.split('/')[1];
-        const fileName = `faceless / ${jobId}/image_${index}.${ext}`;
+        // Handle both 'jpeg' and 'jpg' extensions
+        let ext = contentType.split('/')[1];
+        if (ext === 'jpeg') ext = 'jpg';
+
+        const fileName = `faceless/${jobId}/image_${index}.${ext}`;
+        console.log(`Uploading image to: ${fileName}`);
 
         const { error } = await supabase.storage
             .from('videos')
@@ -72,18 +80,19 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
             });
 
         if (error) {
-            console.error('Upload error:', error);
-            return base64Data;
+            console.error('Supabase upload error:', error);
+            throw new Error(`Failed to upload image: ${error.message}`);
         }
 
         const { data } = supabase.storage
             .from('videos')
             .getPublicUrl(fileName);
 
+        console.log(`Image uploaded successfully: ${data.publicUrl}`);
         return data.publicUrl;
     } catch (e) {
         console.error('Image processing error:', e);
-        return base64Data;
+        throw e; // Re-throw to fail the job properly
     }
 }
 // Caption style configurations for JSON2Video subtitles

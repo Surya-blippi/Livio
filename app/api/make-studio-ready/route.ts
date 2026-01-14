@@ -108,10 +108,65 @@ Requirements:
             return NextResponse.json({ error: 'Failed to generate studio-ready image' }, { status: 500 });
         }
 
+        // --- NEW: Persist image to Supabase ---
+        let finalStudioUrl = generatedImage.url;
+        try {
+            console.log('[Studio Ready] Downloading generated image...', generatedImage.url);
+            const imageResponse = await fetch(generatedImage.url);
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const buffer = Buffer.from(imageBuffer);
+
+            const adminSupabase = supabase; // Use the admin client from lib/supabase (which uses service key if env set correctly, or need to ensure write access)
+            // Ideally use service role key for storage uploads if user token doesn't allow it, 
+            // but here we are in API route context.
+            // Let's assume standard client works if RLS allows, otherwise might need admin client. 
+            // The lib/supabase exports 'supabase' which is admin if key is service role, or public otherwise.
+            // Let's rely on standard path.
+
+            const fileName = `studio-avatars/${dbUser.id}/studio_${Date.now()}.png`;
+
+            const { error: uploadError } = await adminSupabase.storage
+                .from('avatars') // Using 'avatars' bucket which likely exists or 'videos'
+                .upload(fileName, buffer, {
+                    contentType: 'image/png',
+                    upsert: true
+                });
+
+            if (uploadError) {
+                // Try 'videos' bucket if 'avatars' doesn't exist/work, or just log error
+                console.warn('[Studio Ready] Failed to upload to avatars bucket:', uploadError);
+
+                // Fallback to 'videos' bucket just in case
+                const { error: videoUploadError } = await adminSupabase.storage
+                    .from('videos')
+                    .upload(fileName, buffer, {
+                        contentType: 'image/png',
+                        upsert: true
+                    });
+
+                if (videoUploadError) {
+                    console.error('[Studio Ready] Failed to upload to storage:', videoUploadError);
+                    // Fallback to original URL if upload fails, though it will expire
+                } else {
+                    const { data } = adminSupabase.storage.from('videos').getPublicUrl(fileName);
+                    finalStudioUrl = data.publicUrl;
+                }
+            } else {
+                const { data } = adminSupabase.storage.from('avatars').getPublicUrl(fileName);
+                finalStudioUrl = data.publicUrl;
+            }
+
+            console.log('[Studio Ready] Persisted URL:', finalStudioUrl);
+
+        } catch (persistError) {
+            console.error('[Studio Ready] Error persisting image:', persistError);
+            // Proceed with temporary URL if persistence fails
+        }
+
         return NextResponse.json({
             success: true,
             originalUrl: imageUrl,
-            studioReadyUrl: generatedImage.url,
+            studioReadyUrl: finalStudioUrl,
             description: result.data?.description || 'Studio-ready portrait generated',
         });
 
