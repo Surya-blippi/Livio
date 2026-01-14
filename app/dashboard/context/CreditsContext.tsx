@@ -38,8 +38,8 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     useEffect(() => {
         fetchCredits();
 
-        // Poll every 5 seconds
-        const interval = setInterval(fetchCredits, 5000);
+        // Poll every 15 seconds (reduced from 5s to save API calls)
+        const interval = setInterval(fetchCredits, 15000);
 
         // Listen for global updates
         const handleUpdate = () => fetchCredits();
