@@ -6,6 +6,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 // Set FFmpeg path from ffmpeg-static (works better on serverless)
 if (ffmpegPath) {
@@ -17,6 +20,36 @@ export async function POST(request: NextRequest) {
     let tempOutputPath = '';
 
     try {
+        // Authenticate
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        // Get user for credits
+        const currentUserData = await currentUser();
+        const user = await getOrCreateUser(
+            clerkId,
+            currentUserData?.emailAddresses[0]?.emailAddress || '',
+            currentUserData?.firstName || undefined,
+            currentUserData?.imageUrl || undefined
+        );
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Check credits
+        const cost = CREDIT_COSTS.VOICE_CLONING;
+        const hasCredits = await hasEnoughCredits(user.id, cost);
+
+        if (!hasCredits) {
+            return NextResponse.json({
+                error: `Insufficient credits. Voice cloning requires ${cost} credits.`,
+                code: 'INSUFFICIENT_CREDITS'
+            }, { status: 402 });
+        }
+
         console.log('CHECKPOINT: Starting clone-voice handler');
         console.log('CHECKPOINT: FFmpeg path:', ffmpegPath);
 
@@ -119,6 +152,11 @@ export async function POST(request: NextRequest) {
         });
 
         console.log('CHECKPOINT: Voice cloning result received:', result);
+
+        // Deduct credits on success
+        await deductCredits(user.id, cost, 'Voice Cloning', {
+            voiceId: result.data.custom_voice_id
+        });
 
         return NextResponse.json({
             voiceId: result.data.custom_voice_id,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { estimateTotalCredits } from '@/lib/credits';
 
 interface SceneTiming {
     text: string;
@@ -32,6 +34,11 @@ interface StartJobRequest {
 
 export async function POST(request: NextRequest) {
     try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
         const body = await request.json() as StartJobRequest;
         const {
             scenes,
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
             enableBackgroundMusic,
             enableCaptions,
             backgroundMusicUrl,
-            userId
+            userId: providedUserId // Warning: Don't trust this if passed from client, use auth
         } = body;
 
         // Validate required fields
@@ -52,15 +59,46 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // 1. Get user and check credits
+        const currentUserData = await currentUser();
+        const user = await getOrCreateUser(
+            clerkId,
+            currentUserData?.emailAddresses[0]?.emailAddress || '',
+            currentUserData?.firstName || undefined,
+            currentUserData?.imageUrl || undefined
+        );
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Calculate cost based on script length (audio gen) + fixed render cost
+        const scriptCharCount = scenes.reduce((acc, scene) => acc + (scene.text?.length || 0), 0);
+        const cost = estimateTotalCredits({
+            mode: 'faceless',
+            scriptCharCount
+        });
+
+        const hasCredits = await hasEnoughCredits(user.id, cost);
+
+        if (!hasCredits) {
+            return NextResponse.json({
+                error: `Insufficient credits. This video requires ${cost} credits.`,
+                code: 'INSUFFICIENT_CREDITS'
+            }, { status: 402 });
+        }
+
         console.log('📝 Creating faceless video job...');
         console.log(`   Scenes: ${scenes.length}`);
+        console.log(`   Script Stats: ${scriptCharCount} chars`);
+        console.log(`   Est. Cost: ${cost} credits`);
         console.log(`   Aspect ratio: ${aspectRatio}`);
 
         // Create job in Supabase
         const { data: job, error } = await supabase
             .from('video_jobs')
             .insert({
-                user_id: userId || 'anonymous',
+                user_id: user.id, // Use authenticated user ID
                 status: 'pending',
                 input_data: {
                     jobType: 'faceless', // Store job type in input_data
@@ -70,7 +108,8 @@ export async function POST(request: NextRequest) {
                     captionStyle: captionStyle ?? 'bold-classic',
                     enableBackgroundMusic: enableBackgroundMusic ?? false,
                     enableCaptions: enableCaptions ?? true,
-                    backgroundMusicUrl
+                    backgroundMusicUrl,
+                    cost // Persist cost for reference
                 },
                 progress: 0,
                 progress_message: 'Job created, starting processing...'
@@ -85,6 +124,13 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
             );
         }
+
+        // Deduct credits immediately
+        await deductCredits(user.id, cost, 'Faceless Video Generation', {
+            jobId: job.id,
+            sceneCount: scenes.length,
+            charCount: scriptCharCount
+        });
 
         console.log(`✅ Faceless job created: ${job.id}`);
 

@@ -604,3 +604,184 @@ export async function getVideoJobById(jobId: string): Promise<DbVideoJob | null>
 
     return data;
 }
+
+// ==========================================
+// CREDITS FUNCTIONS
+// ==========================================
+
+export interface DbUserCredits {
+    id: string;
+    user_id: string;
+    balance: number;
+    lifetime_purchased: number;
+    lifetime_used: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DbCreditTransaction {
+    id: string;
+    user_id: string;
+    amount: number;
+    balance_after: number;
+    type: 'purchase' | 'usage' | 'refund' | 'bonus';
+    description?: string;
+    metadata?: Record<string, unknown>;
+    created_at: string;
+}
+
+/**
+ * Get the current credit balance for a user
+ */
+export async function getUserCredits(userId: string): Promise<DbUserCredits | null> {
+    const { data, error } = await supabase
+        .from('user_credits')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+    if (error && error.code !== 'PGRST116') {
+        console.error('Error getting user credits:', error);
+        return null;
+    }
+
+    // If no record exists, create one with default balance
+    if (!data) {
+        const { data: newCredits, error: createError } = await supabase
+            .from('user_credits')
+            .insert({ user_id: userId, balance: 100 }) // 100 welcome bonus
+            .select()
+            .single();
+
+        if (createError) {
+            console.error('Error creating user credits:', createError);
+            return null;
+        }
+
+        // Log the welcome bonus transaction
+        await supabase.from('credit_transactions').insert({
+            user_id: userId,
+            amount: 100,
+            balance_after: 100,
+            type: 'bonus',
+            description: 'Welcome bonus credits'
+        });
+
+        return newCredits;
+    }
+
+    return data;
+}
+
+/**
+ * Check if a user has enough credits for an operation
+ */
+export async function hasEnoughCredits(userId: string, amount: number): Promise<boolean> {
+    const credits = await getUserCredits(userId);
+    return credits !== null && credits.balance >= amount;
+}
+
+/**
+ * Deduct credits from a user's balance (atomic operation)
+ * Returns the updated balance or null if insufficient credits
+ */
+export async function deductCredits(
+    userId: string,
+    amount: number,
+    description: string,
+    metadata?: Record<string, unknown>
+): Promise<{ success: boolean; balance: number; error?: string }> {
+    // Get current balance
+    const credits = await getUserCredits(userId);
+
+    if (!credits) {
+        return { success: false, balance: 0, error: 'Could not get user credits' };
+    }
+
+    if (credits.balance < amount) {
+        return {
+            success: false,
+            balance: credits.balance,
+            error: `Insufficient credits. Need ${amount}, have ${credits.balance}`
+        };
+    }
+
+    const newBalance = credits.balance - amount;
+    const newLifetimeUsed = (credits.lifetime_used || 0) + amount;
+
+    // Update balance
+    const { error: updateError } = await supabase
+        .from('user_credits')
+        .update({
+            balance: newBalance,
+            lifetime_used: newLifetimeUsed,
+            updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+    if (updateError) {
+        console.error('Error deducting credits:', updateError);
+        return { success: false, balance: credits.balance, error: 'Failed to update balance' };
+    }
+
+    // Log transaction
+    await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        amount: -amount, // negative for deduction
+        balance_after: newBalance,
+        type: 'usage',
+        description,
+        metadata: metadata || {}
+    });
+
+    return { success: true, balance: newBalance };
+}
+
+/**
+ * Add credits to a user's balance
+ */
+export async function addCredits(
+    userId: string,
+    amount: number,
+    type: 'purchase' | 'refund' | 'bonus',
+    description: string,
+    metadata?: Record<string, unknown>
+): Promise<{ success: boolean; balance: number }> {
+    const credits = await getUserCredits(userId);
+
+    if (!credits) {
+        return { success: false, balance: 0 };
+    }
+
+    const newBalance = credits.balance + amount;
+    const updateData: Record<string, unknown> = {
+        balance: newBalance,
+        updated_at: new Date().toISOString()
+    };
+
+    if (type === 'purchase') {
+        updateData.lifetime_purchased = (credits.lifetime_purchased || 0) + amount;
+    }
+
+    const { error: updateError } = await supabase
+        .from('user_credits')
+        .update(updateData)
+        .eq('user_id', userId);
+
+    if (updateError) {
+        console.error('Error adding credits:', updateError);
+        return { success: false, balance: credits.balance };
+    }
+
+    // Log transaction
+    await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        amount,
+        balance_after: newBalance,
+        type,
+        description,
+        metadata: metadata || {}
+    });
+
+    return { success: true, balance: newBalance };
+}

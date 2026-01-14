@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 // Read API key at request time, not module load time
 const MANUS_API_URL = 'https://api.manus.ai';
+
+// ... (keep existing interfaces and functions createManusTask, pollManusTask, parseManusResponse, collectImagesWithManus)
 
 interface CollectedAsset {
     url: string;
@@ -304,6 +309,11 @@ async function collectImagesWithManus(script: string, topic: string): Promise<Co
 export async function POST(request: NextRequest) {
     try {
         const { script, topic } = await request.json();
+        const { userId: clerkId } = await auth();
+
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
 
         if (!script || typeof script !== 'string') {
             return NextResponse.json({ error: 'Script is required' }, { status: 400 });
@@ -313,12 +323,42 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'MANUS_API_KEY is required' }, { status: 500 });
         }
 
+        // 1. Get user and check credits
+        const currentUserData = await currentUser();
+        const user = await getOrCreateUser(
+            clerkId,
+            currentUserData?.emailAddresses[0]?.emailAddress || '',
+            currentUserData?.firstName || undefined,
+            currentUserData?.imageUrl || undefined
+        );
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const cost = CREDIT_COSTS.ASSET_COLLECTION;
+        const hasCredits = await hasEnoughCredits(user.id, cost);
+
+        if (!hasCredits) {
+            return NextResponse.json({
+                error: `Insufficient credits. This operation requires ${cost} credits.`,
+                code: 'INSUFFICIENT_CREDITS'
+            }, { status: 402 });
+        }
+
         console.log('[Collect Assets] Starting Manus AI image collection...');
         console.log('[Collect Assets] Script length:', script.length);
         console.log('[Collect Assets] Topic:', topic || 'none');
+        console.log('[Collect Assets] User:', user.id, 'Cost:', cost);
 
         // Collect images using Manus AI
         const assets = await collectImagesWithManus(script, topic || '');
+
+        // Deduct credits on success
+        await deductCredits(user.id, cost, 'Collected assets with Manus AI', {
+            topic,
+            assetCount: assets.length
+        });
 
         return NextResponse.json({
             success: true,

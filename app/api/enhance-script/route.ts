@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 const MANUS_API_URL = 'https://api.manus.ai';
+
+// ... (keep existing interfaces and helper functions)
 
 // Scene structure for video generation
 export interface Scene {
@@ -13,6 +18,8 @@ export interface SceneScript {
     scenes: Scene[];
     fullScript: string;     // Combined script for TTS
 }
+
+// ... (keep createEnhanceTask, pollManusTask, parseSceneScript, extractPlainScript functions)
 
 /**
  * Create a Manus AI task to research and write a scene-based script
@@ -224,6 +231,11 @@ function extractPlainScript(text: string): string {
 export async function POST(request: NextRequest) {
     try {
         const { topic, duration = 30 } = await request.json();
+        const { userId: clerkId } = await auth();
+
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
 
         if (!topic || typeof topic !== 'string') {
             return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
@@ -233,9 +245,33 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'MANUS_API_KEY is required' }, { status: 500 });
         }
 
+        // 1. Get user and check credits
+        const currentUserData = await currentUser();
+        const user = await getOrCreateUser(
+            clerkId,
+            currentUserData?.emailAddresses[0]?.emailAddress || '',
+            currentUserData?.firstName || undefined,
+            currentUserData?.imageUrl || undefined
+        );
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const cost = CREDIT_COSTS.RESEARCH_SCRIPT;
+        const hasCredits = await hasEnoughCredits(user.id, cost);
+
+        if (!hasCredits) {
+            return NextResponse.json({
+                error: `Insufficient credits. This operation requires ${cost} credits.`,
+                code: 'INSUFFICIENT_CREDITS'
+            }, { status: 402 });
+        }
+
         console.log('[Manus Enhance] Starting script research...');
         console.log('[Manus Enhance] Topic:', topic.slice(0, 100));
         console.log('[Manus Enhance] Duration:', duration, 'seconds');
+        console.log('[Manus Enhance] User:', user.id, 'Cost:', cost);
 
         // Step 1: Create the task
         const taskId = await createEnhanceTask(topic, duration);
@@ -260,45 +296,56 @@ export async function POST(request: NextRequest) {
         // Step 3: Try to parse as scene-structured JSON
         const sceneScript = parseSceneScript(result);
 
+        // Prepare response data
+        let responseData;
+
         if (sceneScript) {
             console.log('[Manus Enhance] Scene-based script generated successfully');
             console.log('[Manus Enhance] Full script length:', sceneScript.fullScript.length);
 
-            return NextResponse.json({
+            responseData = {
                 success: true,
                 script: sceneScript.fullScript,  // Backwards compatibility
                 scenes: sceneScript.scenes,       // New scene data
-            });
-        }
+            };
+        } else {
+            // Fallback: If JSON parsing fails, extract plain script
+            console.log('[Manus Enhance] Falling back to plain script extraction');
+            const plainScript = extractPlainScript(result);
 
-        // Fallback: If JSON parsing fails, extract plain script
-        console.log('[Manus Enhance] Falling back to plain script extraction');
-        const plainScript = extractPlainScript(result);
+            // Create synthetic scenes from plain script (split by sentences)
+            const sentences = plainScript.match(/[^.!?]+[.!?]+/g) || [plainScript];
+            const scenesPerGroup = Math.ceil(sentences.length / 4);
+            const syntheticScenes: Scene[] = [];
 
-        // Create synthetic scenes from plain script (split by sentences)
-        const sentences = plainScript.match(/[^.!?]+[.!?]+/g) || [plainScript];
-        const scenesPerGroup = Math.ceil(sentences.length / 4);
-        const syntheticScenes: Scene[] = [];
-
-        for (let i = 0; i < sentences.length; i += scenesPerGroup) {
-            const sceneText = sentences.slice(i, i + scenesPerGroup).join(' ').trim();
-            if (sceneText) {
-                // Extract nouns as keywords (simple heuristic)
-                const words = sceneText.split(/\s+/).filter(w => w.length > 4);
-                syntheticScenes.push({
-                    text: sceneText,
-                    keywords: words.slice(0, 3)
-                });
+            for (let i = 0; i < sentences.length; i += scenesPerGroup) {
+                const sceneText = sentences.slice(i, i + scenesPerGroup).join(' ').trim();
+                if (sceneText) {
+                    // Extract nouns as keywords (simple heuristic)
+                    const words = sceneText.split(/\s+/).filter(w => w.length > 4);
+                    syntheticScenes.push({
+                        text: sceneText,
+                        keywords: words.slice(0, 3)
+                    });
+                }
             }
+
+            console.log('[Manus Enhance] Created', syntheticScenes.length, 'synthetic scenes');
+
+            responseData = {
+                success: true,
+                script: plainScript,
+                scenes: syntheticScenes,
+            };
         }
 
-        console.log('[Manus Enhance] Created', syntheticScenes.length, 'synthetic scenes');
-
-        return NextResponse.json({
-            success: true,
-            script: plainScript,
-            scenes: syntheticScenes,
+        // Deduct credits on success
+        await deductCredits(user.id, cost, 'Generated script with Manus AI', {
+            topic,
+            duration
         });
+
+        return NextResponse.json(responseData);
 
     } catch (error: unknown) {
         console.error('[Manus Enhance] Error:', error);

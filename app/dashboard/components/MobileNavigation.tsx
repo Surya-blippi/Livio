@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { SparklesIcon } from './icons';
+import { CreditsDisplay } from './CreditsDisplay';
 
 interface MobileNavBarProps {
     onOpenHistory: () => void;
@@ -27,8 +28,8 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onOpenHistory }) => 
                 <span className="font-black text-lg">Create</span>
             </div>
 
-            {/* Placeholder for right side */}
-            <div className="w-10" />
+            {/* Credits Display */}
+            <CreditsDisplay />
         </div>
     );
 };

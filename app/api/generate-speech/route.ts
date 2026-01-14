@@ -1,8 +1,17 @@
 import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { calculateAudioCredits } from '@/lib/credits';
 
 export async function POST(request: NextRequest) {
     try {
+        // Authenticate
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { script, customVoiceId, audioFileBase64 } = body;
 
@@ -13,12 +22,34 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate customVoiceId
         if (customVoiceId === 'pending') {
             return NextResponse.json(
                 { error: 'Voice is still cloning. Please wait or try again.' },
                 { status: 400 }
             );
+        }
+
+        // 1. Check credits
+        const currentUserData = await currentUser();
+        const user = await getOrCreateUser(
+            clerkId,
+            currentUserData?.emailAddresses[0]?.emailAddress || '',
+            currentUserData?.firstName || undefined,
+            currentUserData?.imageUrl || undefined
+        );
+
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const cost = calculateAudioCredits(script.length);
+        const hasCredits = await hasEnoughCredits(user.id, cost);
+
+        if (!hasCredits) {
+            return NextResponse.json({
+                error: `Insufficient credits. Speech generation requires ${cost} credits.`,
+                code: 'INSUFFICIENT_CREDITS'
+            }, { status: 402 });
         }
 
         // If we have a custom voice ID, use the Speech-02 HD API directly
@@ -54,6 +85,12 @@ export async function POST(request: NextRequest) {
                 // Return the ACTUAL duration from MiniMax for perfect caption sync
                 const actualDurationMs = result.data.duration_ms || 0;
                 console.log(`TTS actual duration: ${actualDurationMs}ms (${(actualDurationMs / 1000).toFixed(2)}s)`);
+
+                // Deduct credits
+                await deductCredits(user.id, cost, 'Generated Speech', {
+                    charCount: script.length,
+                    voiceId: customVoiceId
+                });
 
                 return NextResponse.json({
                     audioUrl: result.data.audio.url,
@@ -98,6 +135,13 @@ export async function POST(request: NextRequest) {
 
         console.log('Generating speech by re-cloning voice...');
 
+        // Note: Re-cloning typically includes a small "setup" cost but here we treat it as part of speech gen?
+        // Actually, this route is "generate-speech". Re-cloning voice every time is inefficient but valid if ID expired.
+        // We will just charge speech cost here. If they want separate clone, they use clone-voice.
+        // Or if this does BOTH clone + speech, maybe we should charge extra?
+        // User spec says: "Audio generation (1000 chars) $0.10 30 credits".
+        // It doesn't specify surcharge for inline cloning. Let's keep it simple at speech cost for now.
+
         const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
             input: {
                 audio_url: audioFileBase64,
@@ -121,6 +165,12 @@ export async function POST(request: NextRequest) {
         }
         // Extract duration from response (duration_ms is in the data object)
         const durationMs = (result.data as unknown as { duration_ms?: number }).duration_ms || 0;
+
+        // Deduct credits
+        await deductCredits(user.id, cost, 'Generated Speech (with clone)', {
+            charCount: script.length,
+            newVoiceId: result.data.custom_voice_id
+        });
 
         return NextResponse.json({
             audioUrl: result.data.audio.url,
