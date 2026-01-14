@@ -178,7 +178,6 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                                 {aspectRatio === '16:9' && 'Horizontal (YouTube)'}
                                                 {aspectRatio === '1:1' && 'Square (Instagram)'}
                                             </p>
-                                            <p className="text-[10px] text-gray-400 break-all select-all font-mono bg-gray-100 p-2 rounded mt-2 truncate hidden md:block">{typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl)}</p>
                                         </div>
 
                                         {/* Download Button - Extra prominent on mobile */}
