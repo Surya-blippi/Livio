@@ -499,12 +499,36 @@ export async function POST(request: NextRequest) {
             try {
                 // 1. Upload Image if needed
                 let assetUrl = sceneInput.assetUrl;
+                let assetModified = false;
+
                 if (assetUrl.startsWith('data:')) {
-                    console.log('  📤 Uploading asset...');
+                    console.log('  📤 Uploading base64 user asset...');
                     assetUrl = await uploadBase64Image(assetUrl, jobId, currentIndex);
+                    assetModified = true;
                 } else if (assetUrl.startsWith('http') && !assetUrl.includes('supabase.co')) {
                     console.log('  🔄 Persisting remote asset to Supabase...');
                     assetUrl = await uploadRemoteImage(assetUrl, jobId, currentIndex);
+                    assetModified = true;
+                }
+
+                // Update allAssets if this asset was modified
+                if (assetModified && input.allAssets && input.allAssets.length > 0) {
+                    // Replace ALL occurrences of the old URL (or base64) with the new one
+                    // We use the original sceneInput.assetUrl to find matches
+                    const oldUrl = sceneInput.assetUrl;
+                    let replacements = 0;
+                    input.allAssets = input.allAssets.map(a => {
+                        // Check exact match or if simple string match (for base64 this might be heavy but necessary)
+                        // For base64, strict equality is best.
+                        if (a === oldUrl) {
+                            replacements++;
+                            return assetUrl;
+                        }
+                        return a;
+                    });
+                    if (replacements > 0) {
+                        console.log(`  Updated ${replacements} occurrences in allAssets`);
+                    }
                 }
 
                 // 2. Generate TTS
@@ -515,17 +539,21 @@ export async function POST(request: NextRequest) {
                 processedScenes.push({
                     index: currentIndex,
                     text: sceneInput.text,
-                    assetUrl,
+                    assetUrl, // This is the CLEAN url
                     audioUrl,
                     duration
                 });
 
                 // 4. Update job state
                 const nextIndex = currentIndex + 1;
-                const progress = Math.min(90, Math.floor((nextIndex / totalScenes) * 90));
+                // Progress calculation: 
+                // Phase 1: Scenes (0-80%)
+                // Phase 2: Extra Assets (80-90%)
+                // Phase 3: Rendering (90-100%)
+                const progress = Math.min(80, Math.floor((nextIndex / totalScenes) * 80));
 
                 await updateJob(jobId, {
-                    input_data: { ...input, processedScenes, currentSceneIndex: nextIndex },
+                    input_data: { ...input, processedScenes, currentSceneIndex: nextIndex, allAssets: input.allAssets },
                     progress,
                     progress_message: `Processed scene ${nextIndex} of ${totalScenes}`,
                     is_processing: false // Release lock immediately to allow next poll
@@ -541,8 +569,62 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // ALL SCENES PROCESSED - START RENDER
-        console.log('🎬 All scenes ready. Building video payload...');
+        // CHECK FOR REMAINING DIRTY ASSETS IN allAssets
+        // This ensures collected assets (visual cuts) are also uploaded
+        if (input.allAssets && input.allAssets.length > 0) {
+            const dirtyIndices = input.allAssets
+                .map((url, idx) => ({ url, idx }))
+                .filter(({ url }) => url.startsWith('data:') || (url.startsWith('http') && !url.includes('supabase.co')));
+
+            if (dirtyIndices.length > 0) {
+                console.log(`🧹 Found ${dirtyIndices.length} remaining unsaved assets. Processing batch...`);
+
+                // Process a batch (e.g., 3 at a time to avoid timeout)
+                const BATCH_SIZE = 3;
+                const batch = dirtyIndices.slice(0, BATCH_SIZE);
+                let assetsUpdated = false;
+
+                for (const item of batch) {
+                    try {
+                        console.log(`  Computing asset ${item.idx}...`);
+                        let newUrl = item.url;
+                        if (item.url.startsWith('data:')) {
+                            newUrl = await uploadBase64Image(item.url, jobId, 1000 + item.idx); // Use high index for extras
+                        } else {
+                            newUrl = await uploadRemoteImage(item.url, jobId, 1000 + item.idx);
+                        }
+
+                        // Update in array
+                        if (input.allAssets) {
+                            input.allAssets[item.idx] = newUrl;
+                            assetsUpdated = true;
+                        }
+                    } catch (err) {
+                        console.error(`Failed to sanitize asset ${item.idx}:`, err);
+                        // Convert to error placeholder or skip? better to fail or allow retry?
+                        // We'll leave it dirty? No, that loops forever.
+                        // Let's remove it or replace with placeholder?
+                        // For now, log and maybe try to set null or keep dirty (which risks loop).
+                        // To avoid infinite loop, we MUST change it or increment a separate counter.
+                        // But replacing with placeholder is safer.
+                        // Actually, let's just abort this job if assets fail.
+                        throw err;
+                    }
+                }
+
+                if (assetsUpdated) {
+                    await updateJob(jobId, {
+                        input_data: { ...input, allAssets: input.allAssets },
+                        progress_message: `Sanitizing assets (${input.allAssets.length - dirtyIndices.length + batch.length}/${input.allAssets.length})...`,
+                        is_processing: false
+                    });
+                    return NextResponse.json({ sanitized: true, count: batch.length });
+                }
+            }
+        }
+
+        // ALL SCENES & ASSETS PROCESSED - START RENDER
+        console.log('🎬 All scenes and assets ready. Building video payload...');
         const moviePayload = buildJson2VideoPayload(
             processedScenes,
             input.aspectRatio,
