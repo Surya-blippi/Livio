@@ -14,6 +14,18 @@ export const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ className = '' }
 
     useEffect(() => {
         fetchCredits();
+
+        // Poll for credit updates every 5 seconds
+        const interval = setInterval(fetchCredits, 5000);
+
+        // Listen for global credit update events (optional, can be added to other components)
+        const handleUpdate = () => fetchCredits();
+        window.addEventListener('credits-updated', handleUpdate);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('credits-updated', handleUpdate);
+        };
     }, []);
 
     const fetchCredits = async () => {

@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
                     quantity: 1
                 }
             ],
+            return_url: `${appUrl}/dashboard?purchase=success&package=${packageId}`,
             metadata: {
                 user_id: user.id,
                 clerk_id: clerkId,
