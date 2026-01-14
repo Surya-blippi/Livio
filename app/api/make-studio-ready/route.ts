@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
+import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 // Configure fal client
 fal.config({
@@ -8,13 +11,64 @@ fal.config({
 
 export async function POST(request: NextRequest) {
     try {
+        // === AUTHENTICATION ===
+        const { userId: clerkUserId } = await auth();
+        if (!clerkUserId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+        }
+
+        // Get or create user in Supabase
+        const dbUser = await getOrCreateUser(
+            clerkUserId,
+            user.emailAddresses[0]?.emailAddress || '',
+            user.firstName || user.username || 'User'
+        );
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
+        }
+
         const { imageUrl } = await request.json();
 
         if (!imageUrl) {
             return NextResponse.json({ error: 'Image URL is required' }, { status: 400 });
         }
 
+        // === CREDIT DEDUCTION ===
+        const cost = CREDIT_COSTS.AI_IMAGE; // 45 credits
+
+        // Check credits
+        const userCredits = await getUserCredits(dbUser.id);
+        if (!userCredits || userCredits.balance < cost) {
+            return NextResponse.json(
+                {
+                    error: `Insufficient credits. Need ${cost}, have ${userCredits?.balance || 0}`,
+                    creditsNeeded: cost,
+                    currentBalance: userCredits?.balance || 0
+                },
+                { status: 402 }
+            );
+        }
+
+        // Deduct credits
+        const deductResult = await deductCredits(
+            dbUser.id,
+            cost,
+            'Studio Ready Image Generation',
+            { imageUrl: imageUrl.substring(0, 100) + '...' }
+        );
+
+        if (!deductResult.success) {
+            return NextResponse.json({ error: 'Failed to process credit deduction' }, { status: 500 });
+        }
+
         console.log('[Studio Ready] Processing image:', imageUrl);
+        console.log(`  💳 Credits deducted: ${cost}`);
 
         // Use Nano Banana Pro to transform the image
         const result = await fal.subscribe('fal-ai/nano-banana-pro/edit', {

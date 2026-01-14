@@ -5,6 +5,9 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import axios from 'axios';
+import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 const execAsync = promisify(exec);
 
@@ -254,6 +257,28 @@ export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `optimized-face-${Date.now()}`);
 
     try {
+        // === AUTHENTICATION ===
+        const { userId: clerkUserId } = await auth();
+        if (!clerkUserId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+        }
+
+        // Get or create user in Supabase
+        const dbUser = await getOrCreateUser(
+            clerkUserId,
+            user.emailAddresses[0]?.emailAddress || '',
+            user.firstName || user.username || 'User'
+        );
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
+        }
+
         const {
             imageUrl,
             audioUrl,
@@ -335,7 +360,50 @@ export async function POST(request: NextRequest) {
 
         // Generate segment timeline
         const segments = generateSegments(totalDuration, segmentDuration);
-        console.log(`  - Generated ${segments.length} segments (${segments.filter(s => s.type === 'face').length} face, ${segments.filter(s => s.type === 'asset').length} asset)`);
+        const faceSegmentCount = segments.filter(s => s.type === 'face').length;
+        console.log(`  - Generated ${segments.length} segments (${faceSegmentCount} face, ${segments.filter(s => s.type === 'asset').length} asset)`);
+
+        // === CREDIT CALCULATION & DEDUCTION ===
+        const faceCredits = faceSegmentCount * CREDIT_COSTS.FACE_VIDEO_SCENE;
+        const renderCredits = CREDIT_COSTS.VIDEO_RENDER;
+        const totalCost = faceCredits + renderCredits;
+
+        console.log(`  - Credit Calculation: ${faceSegmentCount} scenes * 100 + 80 render = ${totalCost} credits`);
+
+        // Check credits
+        const userCredits = await getUserCredits(dbUser.id);
+        if (!userCredits || userCredits.balance < totalCost) {
+            // Cleanup temp dir before returning error
+            await fs.rm(tempDir, { recursive: true, force: true });
+
+            return NextResponse.json(
+                {
+                    error: `Insufficient credits. Need ${totalCost}, have ${userCredits?.balance || 0}`,
+                    creditsNeeded: totalCost,
+                    currentBalance: userCredits?.balance || 0
+                },
+                { status: 402 }
+            );
+        }
+
+        // Deduct credits
+        const deductResult = await deductCredits(
+            dbUser.id,
+            totalCost,
+            'Optimized Face Video Generation',
+            {
+                duration: totalDuration,
+                faceSegments: faceSegmentCount,
+                totalSegments: segments.length
+            }
+        );
+
+        if (!deductResult.success) {
+            await fs.rm(tempDir, { recursive: true, force: true });
+            return NextResponse.json({ error: 'Failed to process credit deduction' }, { status: 500 });
+        }
+
+        console.log(`  💳 Credits deducted: ${totalCost}`);
 
         // Process each segment
         const segmentVideoPaths: string[] = [];

@@ -1,11 +1,36 @@
 import axios from 'axios';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
 const WAVESPEED_API_KEY = process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
 
 export async function POST(request: NextRequest) {
     try {
+        // === AUTHENTICATION ===
+        const { userId: clerkUserId } = await auth();
+        if (!clerkUserId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+        }
+
+        // Get or create user in Supabase
+        const dbUser = await getOrCreateUser(
+            clerkUserId,
+            user.emailAddresses[0]?.emailAddress || '',
+            user.firstName || user.username || 'User'
+        );
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
+        }
+
         const formData = await request.formData();
         const imageFile = formData.get('image') as File | null;
         const imageUrl = formData.get('imageUrl') as string | null;
@@ -47,6 +72,36 @@ export async function POST(request: NextRequest) {
         console.log('Creating video with WaveSpeed InfiniteTalk');
         console.log('Resolution:', resolution);
         console.log('Audio URL:', audioUrl);
+
+        // === CREDIT CHECK & DEDUCTION (Upfront) ===
+        const cost = CREDIT_COSTS.FACE_VIDEO_SCENE; // 100 credits
+
+        // Check credits
+        const userCredits = await getUserCredits(dbUser.id);
+        if (!userCredits || userCredits.balance < cost) {
+            return NextResponse.json(
+                {
+                    error: `Insufficient credits. Need ${cost}, have ${userCredits?.balance || 0}`,
+                    creditsNeeded: cost,
+                    currentBalance: userCredits?.balance || 0
+                },
+                { status: 402 }
+            );
+        }
+
+        // Deduct credits upfront (since we return before completion)
+        const deductResult = await deductCredits(
+            dbUser.id,
+            cost,
+            'Single Scene Face Video',
+            { resolution, audioUrl: audioUrl.substring(0, 100) }
+        );
+
+        if (!deductResult.success) {
+            return NextResponse.json({ error: 'Failed to deduct credits' }, { status: 500 });
+        }
+
+        console.log(`  💳 Credits deducted upfront: ${cost}`);
 
         // Create video using WaveSpeed API
         const response = await axios.post(
