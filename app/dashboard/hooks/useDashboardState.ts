@@ -25,6 +25,8 @@ import {
     SceneTiming,
     generateSceneBasedSpeech
 } from '@/lib/apiClient';
+import { useCredits } from '../context/CreditsContext';
+import { CREDIT_COSTS, estimateTotalCredits, calculateFacelessVideoCredits, calculateFaceVideoCredits } from '@/lib/credits';
 import {
     getOrCreateUser,
     getAllVoices,
@@ -55,6 +57,7 @@ import { convertToMp3, needsConversion } from '@/lib/audioConverter';
 export const useDashboardState = () => {
     const { user, isLoaded: isUserLoaded } = useUser();
     const { getToken } = useAuth();
+    const { checkCredits } = useCredits();
 
     // Helper to get authenticated client - memoized to prevent multiple instances
     const supabaseRef = useRef<any>(null);
@@ -454,6 +457,10 @@ export const useDashboardState = () => {
 
     const handleMakeStudioReady = async () => {
         if (!photoPreview) return;
+
+        // Check credits (45 credits)
+        if (!checkCredits(CREDIT_COSTS.AI_IMAGE)) return;
+
         setIsGeneratingStudio(true);
         setError('');
         try {
@@ -685,6 +692,33 @@ export const useDashboardState = () => {
     const handleCreateVideo = async () => {
         if (!inputText.trim()) { setError('Please enter a script'); return; }
         if (!dbUser) { setError('Please sign in to create videos'); return; }
+
+        // --- CREDIT PRE-CHECK ---
+        let estimatedCost = 0;
+        if (mode === 'faceless') {
+            // Basic estimate: Audio (~30/1000 chars) + Render (80)
+            const scriptLen = inputText.length + (scenes.reduce((acc, s) => acc + s.text.length, 0));
+            // Note: If using scenes, inputText might be just topic, so rely on scenes text sum if available
+            const charCount = scenes.length > 0 ? scenes.reduce((acc, s) => acc + s.text.length, 0) : inputText.length;
+            estimatedCost = calculateFacelessVideoCredits(charCount);
+        } else {
+            // Face mode: Scenes * 100 + 80
+            // Or if optimized: Segments * 100 + 80. 
+            // Since we use 'face-video/start' which charges (Scenes*100)+80, we use that.
+            const sceneCount = scenes.length > 0 ? scenes.length : 1; // Default to 1 if just script? Backend splits it.
+            // If manual scenes not set (autopilot), we estimate based on duration? 
+            // Actually backend handles scene generation if none provided? 
+            // Looking at api/face-video/start, it EXPECTS scenes.
+            // Let's assume scenes are present or will be generated. 
+            // If scenes are empty, the dashboard likely generates them first? 
+            // Dashboard flow: Input -> Enhance (Gen Scenes) -> Create. 
+            // If no scenes, we might be blocked or generating on fly.
+            // Let's assume scenes.length if > 0.
+            estimatedCost = calculateFaceVideoCredits(sceneCount) + CREDIT_COSTS.VIDEO_RENDER;
+        }
+
+        if (!checkCredits(estimatedCost)) return;
+        // ------------------------
 
         setIsProcessing(true);
         setProcessingStep(1);
