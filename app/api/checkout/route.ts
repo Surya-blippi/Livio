@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Create checkout session
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        // Default to app.reven.in if env var is not set, or use provided env var
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.reven.in';
         const dodo = getDodoClient();
 
         const checkoutResponse = await dodo.checkoutSessions.create({

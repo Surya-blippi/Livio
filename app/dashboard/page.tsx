@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useDashboardState } from './hooks/useDashboardState';
 import { StudioLayout } from './components/StudioLayout';
@@ -22,6 +23,45 @@ export default function Dashboard() {
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
     }, [state.isDark]);
+
+    // Check for successful purchase
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    useEffect(() => {
+        const checkPayment = async () => {
+            const purchase = searchParams.get('purchase');
+            const paymentId = searchParams.get('payment_id');
+
+            if (purchase === 'success' && paymentId) {
+                try {
+                    // Manually verify payment to ensure credits are added
+                    // This acts as a fallback if webhook failed
+                    const res = await fetch('/api/verify-payment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paymentId })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.added) {
+                            alert(`Success! Added ${data.added} credits to your account.`);
+                            // Trigger credit refresh
+                            window.dispatchEvent(new Event('credits-updated'));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error verifying payment:', error);
+                } finally {
+                    // Clean URL
+                    router.replace('/dashboard');
+                }
+            }
+        };
+
+        checkPayment();
+    }, [searchParams, router]);
 
     // Derived Handler for Photo remove
     const onRemovePhoto = () => {
