@@ -511,6 +511,9 @@ export async function POST(request: NextRequest) {
                     assetModified = true;
                 }
 
+                // CRITICAL: Update the input object to remove Base64 from DB state
+                input.scenes[currentIndex].assetUrl = assetUrl;
+
                 // Update allAssets if this asset was modified
                 if (assetModified && input.allAssets && input.allAssets.length > 0) {
                     // Replace ALL occurrences of the old URL (or base64) with the new one
@@ -634,6 +637,8 @@ export async function POST(request: NextRequest) {
             input.captionStyle,
             input.allAssets || []
         );
+
+        console.log('📦 Video Payload:', JSON.stringify(moviePayload).substring(0, 500) + '...');
 
         const projectId = await startJson2VideoRender(moviePayload);
 
