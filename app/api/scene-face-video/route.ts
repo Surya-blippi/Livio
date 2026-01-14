@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { fal } from '@fal-ai/client';
-import { supabase } from '@/lib/supabase';
+import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput, Json2VideoMovie } from '@/lib/json2video';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -205,6 +207,28 @@ async function renderWithJson2Video(
 
 export async function POST(request: NextRequest) {
     try {
+        // === AUTHENTICATION ===
+        const { userId: clerkUserId } = await auth();
+        if (!clerkUserId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const user = await currentUser();
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+        }
+
+        // Get or create user in Supabase
+        const dbUser = await getOrCreateUser(
+            clerkUserId,
+            user.emailAddresses[0]?.emailAddress || '',
+            user.firstName || user.username || 'User'
+        );
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
+        }
+
         const {
             scenes,
             faceImageUrl,
@@ -226,10 +250,34 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // === CREDIT CALCULATION ===
+        const faceSceneCount = scenes.filter(s => s.type === 'face').length;
+        const faceSceneCredits = faceSceneCount * CREDIT_COSTS.FACE_VIDEO_SCENE;
+        const renderCredits = CREDIT_COSTS.VIDEO_RENDER;
+        const totalCreditsNeeded = faceSceneCredits + renderCredits;
+
         console.log('🎬 Face video generation with JSON2Video:');
         console.log(`  - Scenes: ${scenes.length}`);
-        console.log(`  - Face scenes: ${scenes.filter(s => s.type === 'face').length}`);
+        console.log(`  - Face scenes: ${faceSceneCount} (${faceSceneCredits} credits)`);
         console.log(`  - Asset scenes: ${scenes.filter(s => s.type === 'asset').length}`);
+        console.log(`  - Render credits: ${renderCredits}`);
+        console.log(`  - Total credits needed: ${totalCreditsNeeded}`);
+
+        // Check if user has enough credits
+        const userCredits = await getUserCredits(dbUser.id);
+        if (!userCredits || userCredits.balance < totalCreditsNeeded) {
+            const currentBalance = userCredits?.balance || 0;
+            return NextResponse.json(
+                {
+                    error: `Insufficient credits. Need ${totalCreditsNeeded}, have ${currentBalance}`,
+                    creditsNeeded: totalCreditsNeeded,
+                    currentBalance
+                },
+                { status: 402 }
+            );
+        }
+
+        console.log(`  ✅ Credit check passed (have ${userCredits.balance})`);
 
         // Prepare face image as data URL
         let imageDataUrl: string;
@@ -297,14 +345,38 @@ export async function POST(request: NextRequest) {
         // 4. Render with JSON2Video
         const { videoUrl, duration } = await renderWithJson2Video(moviePayload);
 
+        // === DEDUCT CREDITS AFTER SUCCESSFUL RENDER ===
+        const deductResult = await deductCredits(
+            dbUser.id,
+            totalCreditsNeeded,
+            `Face video generation (${faceSceneCount} scenes + render)`,
+            {
+                faceSceneCount,
+                faceSceneCredits,
+                renderCredits,
+                totalScenes: scenes.length,
+                duration
+            }
+        );
+
+        if (!deductResult.success) {
+            console.error('Failed to deduct credits:', deductResult.error);
+            // Video was created, log warning but don't fail
+        } else {
+            console.log(`  💳 Credits deducted: ${totalCreditsNeeded} (new balance: ${deductResult.balance})`);
+        }
+
         console.log('\n🎬 Face video complete!');
         console.log(`   Duration: ${duration}s`);
         console.log(`   Clip assets saved: ${clipAssets.length}`);
+        console.log(`   Credits used: ${totalCreditsNeeded}`);
 
         return NextResponse.json({
             videoUrl,
             duration,
-            clipAssets  // Return the saved clip URLs for asset storage
+            clipAssets,
+            creditsUsed: totalCreditsNeeded,
+            creditsRemaining: deductResult.balance
         });
 
     } catch (error) {
