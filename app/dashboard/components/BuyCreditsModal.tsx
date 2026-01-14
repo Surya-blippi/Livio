@@ -53,22 +53,32 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
             >
                 <motion.div
-                    initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="bg-[var(--surface-1)] border-2 border-[var(--border-strong)] rounded-[var(--radius-xl)] shadow-[8px_8px_0px_rgba(0,0,0,0.5)] max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+                    initial={{ y: '100%', opacity: 0, scale: 0.96 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ y: '100%', opacity: 0, scale: 0.96 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300, mass: 0.8 }}
+                    className="
+                        bg-[var(--surface-1)] border-t-2 sm:border-2 border-[var(--border-strong)] 
+                        rounded-t-3xl sm:rounded-[var(--radius-xl)] 
+                        shadow-[0px_-8px_30px_rgba(0,0,0,0.3)] sm:shadow-[8px_8px_0px_rgba(0,0,0,0.5)] 
+                        w-full max-w-2xl 
+                        max-h-[85dvh] sm:max-h-[85vh] 
+                        overflow-hidden flex flex-col
+                    "
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="p-6 border-b-2 border-[var(--border-strong)] flex items-center justify-between flex-shrink-0 bg-[var(--surface-2)]">
+                    <div className="p-5 sm:p-6 border-b-2 border-[var(--border-strong)] flex items-center justify-between flex-shrink-0 bg-[var(--surface-2)] relative">
+                        {/* Mobile Pull Handle (Visual only) */}
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-gray-300 rounded-full sm:hidden" />
+
                         <div>
-                            <h2 className="text-2xl font-black text-[var(--text-primary)] tracking-tight">Buy Credits</h2>
-                            <p className="text-[var(--text-secondary)] text-sm font-medium mt-1">Power up your creation workflow</p>
+                            <h2 className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight">Buy Credits</h2>
+                            <p className="text-[var(--text-secondary)] text-sm font-medium mt-0.5">Power up your creation workflow</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -81,7 +91,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                     </div>
 
                     {/* Content (Scrollable) */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 pb-20 sm:pb-6">
 
                         {/* Error Message */}
                         {error && (
@@ -94,7 +104,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                         )}
 
                         {/* Packages Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             {CREDIT_PACKAGES.map((pkg) => {
                                 const isLoading = loading === pkg.id;
                                 const isPopular = pkg.id === 'pro';
@@ -102,14 +112,14 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                                 return (
                                     <motion.button
                                         key={pkg.id}
-                                        whileHover={{ y: -4, x: -2 }}
-                                        whileTap={{ y: 0, x: 0 }}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                         disabled={loading !== null}
                                         onClick={() => handlePurchase(pkg.id)}
                                         className={`group relative p-5 rounded-[var(--radius-lg)] border-2 text-left transition-all duration-200
                                             ${isPopular
-                                                ? 'bg-[var(--surface-1)] border-[var(--brand-primary)] shadow-[6px_6px_0px_var(--brand-primary)]'
-                                                : 'bg-[var(--surface-1)] border-[var(--border-subtle)] hover:border-[var(--border-strong)] shadow-[4px_4px_0px_var(--border-subtle)] hover:shadow-[6px_6px_0px_var(--border-strong)]'
+                                                ? 'bg-[var(--surface-1)] border-[var(--brand-primary)] shadow-[4px_4px_0px_var(--brand-primary)]'
+                                                : 'bg-[var(--surface-1)] border-[var(--border-subtle)] hover:border-[var(--border-strong)] shadow-[3px_3px_0px_var(--border-subtle)] hover:shadow-[4px_4px_0px_var(--border-strong)]'
                                             }
                                             ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                         `}
@@ -121,28 +131,28 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                                             </span>
                                         )}
 
-                                        <div className="flex flex-col h-full justify-between gap-4">
+                                        <div className="flex flex-col h-full justify-between gap-3">
                                             <div>
                                                 <h3 className="text-lg font-black text-[var(--text-primary)] uppercase tracking-wide">{pkg.name}</h3>
 
-                                                <div className="mt-3 flex items-baseline gap-1">
-                                                    <span className="text-4xl font-black text-[var(--text-primary)]">
+                                                <div className="mt-2 flex items-baseline gap-1">
+                                                    <span className="text-3xl sm:text-4xl font-black text-[var(--text-primary)]">
                                                         {pkg.credits.toLocaleString()}
                                                     </span>
                                                     <span className="text-[var(--text-tertiary)] font-bold text-sm">credits</span>
                                                 </div>
 
                                                 {pkg.bonus > 0 && (
-                                                    <div className="mt-2 text-sm font-bold text-black bg-[var(--brand-primary)]/20 inline-block px-2 py-1 rounded-md border border-[var(--brand-primary)]">
+                                                    <div className="mt-2 text-xs sm:text-sm font-bold text-black bg-[var(--brand-primary)]/20 inline-block px-2 py-1 rounded-md border border-[var(--brand-primary)]">
                                                         +{pkg.bonus.toLocaleString()} bonus
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <div className="pt-4 border-t-2 border-dashed border-[var(--border-subtle)] group-hover:border-[var(--border-strong)] transition-colors">
+                                            <div className="pt-3 border-t-2 border-dashed border-[var(--border-subtle)] group-hover:border-[var(--border-strong)] transition-colors">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-2xl font-black text-[var(--text-primary)]">${pkg.price}</span>
-                                                    <span className="text-xs font-semibold text-[var(--text-tertiary)] bg-[var(--surface-3)] px-2 py-1 rounded">
+                                                    <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)]">${pkg.price}</span>
+                                                    <span className="text-[10px] sm:text-xs font-semibold text-[var(--text-tertiary)] bg-[var(--surface-3)] px-2 py-1 rounded">
                                                         ${((pkg.price / (pkg.credits + pkg.bonus)) * 100).toFixed(1)}¢ / credit
                                                     </span>
                                                 </div>
@@ -159,10 +169,12 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                                 );
                             })}
                         </div>
+                        {/* Spacing element for mobile scrolling */}
+                        <div className="h-4 sm:hidden" />
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 bg-[var(--surface-2)] border-t-2 border-[var(--border-strong)] text-center">
+                    <div className="p-4 bg-[var(--surface-2)] border-t-2 border-[var(--border-strong)] text-center pb-safe">
                         <p className="text-xs font-semibold text-[var(--text-tertiary)] flex items-center justify-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-green-500"></span>
                             Secure payment powered by DodoPayments

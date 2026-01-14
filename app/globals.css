@@ -223,3 +223,15 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #D1D5DB;
 }
+
+/* ========================================
+   UTILITIES
+   ======================================== */
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pb-safe-offset-4 {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
