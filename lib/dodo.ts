@@ -11,7 +11,7 @@ export function getDodoClient(): DodoPayments {
         }
         _dodoClient = new DodoPayments({
             bearerToken: apiKey,
-            environment: 'test_mode', // Change to 'live_mode' for production
+            environment: 'live_mode', // LIVE MODE - Real payments
         });
     }
     return _dodoClient;
