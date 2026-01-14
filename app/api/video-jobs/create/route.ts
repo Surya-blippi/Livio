@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { auth } from '@clerk/nextjs/server';
 import { getUserCredits, deductCredits } from '@/lib/supabase';
 import { CREDIT_COSTS } from '@/lib/credits';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
     try {
@@ -42,32 +43,34 @@ export async function POST(req: NextRequest) {
         // 2. Calculate credit cost based on job_type
         let creditCost = 0;
         let creditDescription = '';
+        let sceneCount = 0;
 
         if (job_type === 'faceless') {
             // Faceless video: Number of scenes × 30 credits/scene + 80 render fee
-            const sceneCount = input_data?.scenes?.length || 1;
+            sceneCount = input_data?.scenes?.length || 1;
             creditCost = (sceneCount * CREDIT_COSTS.AUDIO_PER_1000_CHARS) + CREDIT_COSTS.VIDEO_RENDER;
             creditDescription = `Faceless video (${sceneCount} scenes)`;
             console.log(`[video-jobs/create] Faceless video cost: ${sceneCount} scenes × ${CREDIT_COSTS.AUDIO_PER_1000_CHARS} + ${CREDIT_COSTS.VIDEO_RENDER} render = ${creditCost} credits`);
         } else if (job_type === 'face') {
             // Face video: Face scenes × 100 credits/scene + 80 render fee
-            const faceSceneCount = input_data?.scenes?.length || 1;
-            creditCost = (faceSceneCount * CREDIT_COSTS.FACE_VIDEO_SCENE) + CREDIT_COSTS.VIDEO_RENDER;
-            creditDescription = `Face video (${faceSceneCount} scenes)`;
-            console.log(`[video-jobs/create] Face video cost: ${faceSceneCount} scenes × 100 + 80 render = ${creditCost} credits`);
+            sceneCount = input_data?.scenes?.length || 1;
+            creditCost = (sceneCount * CREDIT_COSTS.FACE_VIDEO_SCENE) + CREDIT_COSTS.VIDEO_RENDER;
+            creditDescription = `Face video (${sceneCount} scenes)`;
+            console.log(`[video-jobs/create] Face video cost: ${sceneCount} scenes × 100 + 80 render = ${creditCost} credits`);
         } else {
-            // Unknown job type - no credits charged but log warning
             console.warn(`[video-jobs/create] Unknown job_type: ${job_type}, no credits charged`);
         }
 
-        // 3. Check if user has enough credits (use user_id which is the database UUID, not clerkUserId)
+        // Generate UUID for the job upfront so we can link it in credit metadata
+        const jobId = crypto.randomUUID();
+
+        // 3. Check if user has enough credits
         if (creditCost > 0) {
             const creditsData = await getUserCredits(user_id);
             const userCredits = creditsData?.balance ?? 0;
             console.log(`[video-jobs/create] User ${user_id} has ${userCredits} credits, needs ${creditCost}`);
 
             if (userCredits < creditCost) {
-                console.log(`[video-jobs/create] Insufficient credits: ${userCredits} < ${creditCost}`);
                 return NextResponse.json({
                     error: 'Insufficient credits',
                     required: creditCost,
@@ -75,10 +78,13 @@ export async function POST(req: NextRequest) {
                 }, { status: 402 });
             }
 
-            // 4. Deduct credits BEFORE creating job (use user_id which is the database UUID)
+            // 4. Deduct credits with Job ID metadata
             console.log(`[video-jobs/create] Deducting ${creditCost} credits for: ${creditDescription}`);
-            const deductResult = await deductCredits(user_id, creditCost, creditDescription);
-            console.log(`[video-jobs/create] Credit deduction result:`, JSON.stringify(deductResult));
+            const deductResult = await deductCredits(user_id, creditCost, creditDescription, {
+                jobId,
+                jobType: job_type,
+                sceneCount
+            });
 
             if (!deductResult.success) {
                 console.error(`[video-jobs/create] Credit deduction failed:`, deductResult.error);
@@ -89,12 +95,13 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 5. Insert the job as Admin (bypassing RLS)
+        // 5. Insert the job as Admin
         const { data: job, error: insertError } = await supabase
             .from('video_jobs')
             .insert({
-                user_id: user_id, // For legacy
-                user_uuid: user_id, // For FK
+                id: jobId,
+                user_id: user_id,
+                user_uuid: user_id,
                 job_type,
                 status: 'pending',
                 input_data,
