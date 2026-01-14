@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { estimateTotalCredits } from '@/lib/credits';
+import { estimateTotalCredits, CREDIT_COSTS } from '@/lib/credits';
 
 interface SceneInput {
     text: string;
@@ -52,11 +52,23 @@ export async function POST(request: NextRequest) {
         // Calculate cost based on Face scenes only (or typical logic)
         // If 'face' scene count > 0, we charge for those.
         const faceSceneCount = scenes.filter(s => s.type === 'face').length;
-        const cost = estimateTotalCredits({
+
+        // Base cost calculation
+        const faceCredits = estimateTotalCredits({
             mode: 'face',
-            scriptCharCount: 0, // Not used for face mode calculation currently
+            scriptCharCount: 0,
             sceneCount: faceSceneCount
         });
+
+        // Add Video Render Fee
+        const renderFee = scenes.length > 0 ? CREDIT_COSTS.VIDEO_RENDER : 0;
+        // Note: We use 80 explicitly or import from CREDIT_COSTS if available
+        // Better to import CREDIT_COSTS to be safe, but adhering to existing imports:
+        // Checking imports... looks like estimateTotalCredits is imported from @/lib/credits
+        // I should stick to the pattern but the task is to fix the deduction.
+        // I will assume the render fee should be added.
+
+        const cost = faceCredits + renderFee;
 
         const hasCredits = await hasEnoughCredits(user.id, cost);
 

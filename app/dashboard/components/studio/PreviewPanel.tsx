@@ -159,46 +159,49 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 };
 
                 return (
-                    <div className="flex flex-col h-full items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
-                        {videoUrl ? (
-                            <>
-                                {/* Video Container - Adaptive to aspect ratio */}
-                                <div className={`${getVideoContainerClass()} bg-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_rgba(0,0,0,1)] border-3 border-black relative`}>
-                                    <video src={videoUrl} controls className="w-full h-full object-contain bg-black" />
-                                </div>
-
-                                {/* Info and Download Below */}
-                                <div className="mt-6 text-center space-y-4">
-                                    <div>
-                                        <h3 className="font-black text-lg text-[var(--text-primary)]">Video Ready!</h3>
-                                        <p className="text-xs text-[var(--text-secondary)] mt-1">
-                                            {aspectRatio === '9:16' && 'Vertical (TikTok/Reels)'}
-                                            {aspectRatio === '16:9' && 'Horizontal (YouTube)'}
-                                            {aspectRatio === '1:1' && 'Square (Instagram)'}
-                                        </p>
-                                        <p className="text-[10px] text-gray-400 break-all select-all font-mono bg-gray-100 p-2 rounded mt-2">{typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl)}</p>
+                return (
+                    <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 flex flex-col items-center justify-start md:justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 min-h-min">
+                            {videoUrl ? (
+                                <>
+                                    {/* Video Container - Adaptive to aspect ratio */}
+                                    <div className={`${getVideoContainerClass()} bg-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_rgba(0,0,0,1)] border-3 border-black relative shrink-0`}>
+                                        <video src={videoUrl} controls className="w-full h-full object-contain bg-black" playsInline />
                                     </div>
 
-                                    {/* Download Button */}
-                                    <a
-                                        href={videoUrl}
-                                        download="video.mp4"
-                                        className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--brand-primary)] text-black font-bold rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] transition-all"
-                                    >
-                                        <DownloadIcon className="w-5 h-5" />
-                                        <span>Download Video</span>
-                                    </a>
+                                    {/* Info and Download Below */}
+                                    <div className="mt-6 text-center space-y-4 w-full max-w-sm pb-safe-offset-4">
+                                        <div>
+                                            <h3 className="font-black text-lg text-[var(--text-primary)]">Video Ready!</h3>
+                                            <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                                {aspectRatio === '9:16' && 'Vertical (TikTok/Reels)'}
+                                                {aspectRatio === '16:9' && 'Horizontal (YouTube)'}
+                                                {aspectRatio === '1:1' && 'Square (Instagram)'}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400 break-all select-all font-mono bg-gray-100 p-2 rounded mt-2 truncate">{typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl)}</p>
+                                        </div>
+
+                                        {/* Download Button */}
+                                        <a
+                                            href={videoUrl}
+                                            download={`video_${Date.now()}.mp4`}
+                                            className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-[var(--brand-primary)] text-black font-black text-sm uppercase tracking-wider rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
+                                        >
+                                            <DownloadIcon className="w-5 h-5" />
+                                            <span>Download Video</span>
+                                        </a>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center opacity-60 my-auto">
+                                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                                        <VideoIcon className="w-10 h-10 text-gray-400" />
+                                    </div>
+                                    <p className="text-sm text-gray-500">No video generated yet</p>
+                                    <p className="text-xs text-gray-400 mt-1">Click Generate to create your video</p>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="text-center opacity-60">
-                                <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                                    <VideoIcon className="w-10 h-10 text-gray-400" />
-                                </div>
-                                <p className="text-sm text-gray-500">No video generated yet</p>
-                                <p className="text-xs text-gray-400 mt-1">Click Generate to create your video</p>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 );
 
