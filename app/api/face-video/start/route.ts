@@ -114,11 +114,16 @@ export async function POST(request: NextRequest) {
         }
 
         // Deduct credits immediately
-        await deductCredits(user.id, cost, 'Face Video Generation', {
+        const deductResult = await deductCredits(user.id, cost, 'Face Video Generation', {
             jobId: job.id,
             sceneCount: faceSceneCount,
             totalScenes: scenes.length
         });
+
+        console.log(`[face-video/start] Credit deduction result:`, deductResult);
+        if (!deductResult.success) {
+            console.error(`[face-video/start] ⚠️ Credit deduction failed:`, deductResult.error);
+        }
 
         console.log(`✅ Job created: ${job.id}`);
 

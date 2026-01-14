@@ -725,7 +725,8 @@ export async function deductCredits(
     }
 
     // Log transaction
-    await supabase.from('credit_transactions').insert({
+    console.log(`[deductCredits] Logging transaction: user=${userId}, amount=-${amount}, balance_after=${newBalance}`);
+    const { error: txError } = await supabase.from('credit_transactions').insert({
         user_id: userId,
         amount: -amount, // negative for deduction
         balance_after: newBalance,
@@ -734,6 +735,14 @@ export async function deductCredits(
         metadata: metadata || {}
     });
 
+    if (txError) {
+        console.error('[deductCredits] Failed to log transaction:', txError);
+        // Still return success since credits were deducted, but log the error
+    } else {
+        console.log(`[deductCredits] ✅ Transaction logged successfully`);
+    }
+
+    console.log(`[deductCredits] ✅ Deducted ${amount} credits from user ${userId}. New balance: ${newBalance}`);
     return { success: true, balance: newBalance };
 }
 
