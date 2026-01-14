@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { SparklesIcon } from './icons';
 import { CreditsDisplay } from './CreditsDisplay';
 
 interface MobileNavBarProps {
@@ -20,12 +19,12 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onOpenHistory }) => 
                 </svg>
             </button>
 
-            {/* Logo/Title */}
+            {/* Logo/Title - Consistent with Desktop ResourcePanel */}
             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--brand-primary)] to-lime-400 flex items-center justify-center">
-                    <SparklesIcon className="w-4 h-4 text-black" />
+                <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary)] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
+                    <span className="text-lg font-black text-black">R</span>
                 </div>
-                <span className="font-black text-lg">Create</span>
+                <span className="font-black text-lg text-black">Reven</span>
             </div>
 
             {/* Credits Display */}

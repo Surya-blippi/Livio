@@ -170,7 +170,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                     </div>
 
                                     {/* Info and Download Below */}
-                                    <div className="mt-6 text-center space-y-4 w-full max-w-sm pb-safe-offset-4">
+                                    <div className="mt-6 text-center space-y-4 w-full max-w-sm px-4 pb-8 md:pb-4">
                                         <div>
                                             <h3 className="font-black text-lg text-[var(--text-primary)]">Video Ready!</h3>
                                             <p className="text-xs text-[var(--text-secondary)] mt-1">
@@ -178,16 +178,16 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                                 {aspectRatio === '16:9' && 'Horizontal (YouTube)'}
                                                 {aspectRatio === '1:1' && 'Square (Instagram)'}
                                             </p>
-                                            <p className="text-[10px] text-gray-400 break-all select-all font-mono bg-gray-100 p-2 rounded mt-2 truncate">{typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl)}</p>
+                                            <p className="text-[10px] text-gray-400 break-all select-all font-mono bg-gray-100 p-2 rounded mt-2 truncate hidden md:block">{typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl)}</p>
                                         </div>
 
-                                        {/* Download Button */}
+                                        {/* Download Button - Extra prominent on mobile */}
                                         <a
                                             href={videoUrl}
                                             download={`video_${Date.now()}.mp4`}
-                                            className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-[var(--brand-primary)] text-black font-black text-sm uppercase tracking-wider rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
+                                            className="flex items-center justify-center gap-3 w-full px-6 py-5 md:py-4 bg-[var(--brand-primary)] text-black font-black text-base md:text-sm uppercase tracking-wider rounded-xl border-3 md:border-2 border-black shadow-[6px_6px_0px_#000] md:shadow-[4px_4px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
                                         >
-                                            <DownloadIcon className="w-5 h-5" />
+                                            <DownloadIcon className="w-6 h-6 md:w-5 md:h-5" />
                                             <span>Download Video</span>
                                         </a>
                                     </div>
