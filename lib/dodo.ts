@@ -20,7 +20,7 @@ export function getDodoClient(): DodoPayments {
 // Credit package to DodoPayments product ID mapping
 // These IDs must match products created in DodoPayments dashboard
 export const DODO_PRODUCT_IDS: Record<string, string> = {
-    starter: 'pdt_0NWDsHiXz3ex6VZ1YSZfa',  // Reven Starter - $19/month
+    starter: 'pdt_0NWHKzXSeImXNM6FkwHZK',  // Reven Starter - $19 (Live)
     pro: 'pdt_pro_credits',                 // TODO: Create in dashboard
     studio: 'pdt_studio_credits',           // TODO: Create in dashboard
     enterprise: 'pdt_enterprise_credits',   // TODO: Create in dashboard
