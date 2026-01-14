@@ -95,6 +95,54 @@ async function uploadBase64Image(base64Data: string, jobId: string, index: numbe
         throw e; // Re-throw to fail the job properly
     }
 }
+
+// Upload remote image URL to Supabase and return public URL
+async function uploadRemoteImage(url: string, jobId: string, index: number): Promise<string> {
+    const supabase = getSupabaseAdmin();
+
+    // Skip if already a Supabase URL
+    if (url.includes('supabase.co')) {
+        return url;
+    }
+
+    try {
+        console.log(`Downloading remote asset: ${url.substring(0, 50)}...`);
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const buffer = Buffer.from(response.data);
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+
+        // Handle common extensions
+        let ext = 'jpg';
+        if (contentType.includes('png')) ext = 'png';
+        else if (contentType.includes('webp')) ext = 'webp';
+
+        const fileName = `faceless/${jobId}/image_${index}.${ext}`;
+        console.log(`Uploading remote image to: ${fileName}`);
+
+        const { error } = await supabase.storage
+            .from('videos')
+            .upload(fileName, buffer, {
+                contentType,
+                upsert: true
+            });
+
+        if (error) {
+            console.error('Supabase upload error:', error);
+            throw new Error(`Failed to upload remote image: ${error.message}`);
+        }
+
+        const { data } = supabase.storage
+            .from('videos')
+            .getPublicUrl(fileName);
+
+        console.log(`Remote image persisted successfully: ${data.publicUrl}`);
+        return data.publicUrl;
+    } catch (e) {
+        console.error('Remote image processing error:', e);
+        throw e;
+    }
+}
+
 // Caption style configurations for JSON2Video subtitles
 function getCaptionSettings(styleName: string): Record<string, unknown> {
     const styles: Record<string, Record<string, unknown>> = {
@@ -454,6 +502,9 @@ export async function POST(request: NextRequest) {
                 if (assetUrl.startsWith('data:')) {
                     console.log('  📤 Uploading asset...');
                     assetUrl = await uploadBase64Image(assetUrl, jobId, currentIndex);
+                } else if (assetUrl.startsWith('http') && !assetUrl.includes('supabase.co')) {
+                    console.log('  🔄 Persisting remote asset to Supabase...');
+                    assetUrl = await uploadRemoteImage(assetUrl, jobId, currentIndex);
                 }
 
                 // 2. Generate TTS
