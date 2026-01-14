@@ -47,6 +47,11 @@ export async function POST(request: NextRequest) {
         // Create checkout session
         // Default to app.reven.in if env var is not set, or use provided env var
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.reven.in';
+
+        console.log('[Checkout] Debug: APP_URL:', appUrl);
+        console.log('[Checkout] Debug: DODO_KEY exists file:', !!process.env.DODO_PAYMENTS_API_KEY);
+        console.log('[Checkout] Debug: DODO_KEY start:', process.env.DODO_PAYMENTS_API_KEY?.substring(0, 5));
+
         const dodo = getDodoClient();
 
         const checkoutResponse = await dodo.checkoutSessions.create({
