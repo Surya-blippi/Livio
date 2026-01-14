@@ -159,7 +159,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 };
 
                 return (
-                return (
+
                     <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
                         <div className="flex-1 flex flex-col items-center justify-start md:justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 min-h-min">
                             {videoUrl ? (
