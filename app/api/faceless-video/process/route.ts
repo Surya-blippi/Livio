@@ -265,26 +265,10 @@ function buildJson2VideoPayload(
         let globalAssetIndex = 0;
 
         for (let k = 0; k < numCuts; k++) {
-            // Global Rotation: Use next asset from pool if available, else scene asset (but scene creation already rotated, so just use global pool)
-            // If allAssets provided, prioritize it for diversity
-            const assetToUse = (allAssets && allAssets.length > 0)
-                ? allAssets[(i * 10 + k) % allAssets.length] // (i*10+k) ensures unique index across scenes (assuming <10 cuts/scene)
-                : scene.assetUrl;
 
-            // wait, simpler global index?
-            // i is scene index. k is cut index.
-            // Let's use a deterministic hash or just (sceneIndex + cutIndex) logic?
-            // If I maintain a counter outside? I can't easily inside map.
-            // (i + k) isn't great because Scene 0 Cut 1 = 1, Scene 1 Cut 0 = 1. Repetition.
-            // Better: use accumulative index? Scene i starts at... we don't know start index easily without reduce.
-            // Let's use ALL provided assets in a predictable cycle.
-            // Asset Index = (Total processed cuts so far)? NO.
-            // Heuristic: (SceneIndex * 5 + CutIndex) % TotalAssets.
 
-            const assetIndex = (i * 3 + k); // Shift by 3 for each scene (most scenes have ~2-3 cuts?)
-            const effectiveAssetUrl = (allAssets && allAssets.length > 0)
-                ? allAssets[assetIndex % allAssets.length]
-                : scene.assetUrl;
+            // STRICTLY use the asset assigned to this scene to match the Storyboard
+            const effectiveAssetUrl = scene.assetUrl;
 
             const cuts = getVisualCutElements(
                 effectiveAssetUrl,

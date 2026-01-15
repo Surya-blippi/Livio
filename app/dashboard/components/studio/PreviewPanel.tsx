@@ -685,10 +685,13 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                             {scenes && scenes.length > 0 ? (
                                 <div className="space-y-3">
                                     {scenes.map((scene, idx) => {
-                                        // Determine thumbnail: face mode uses avatar, faceless uses collected assets
+                                        // Determine thumbnail: face mode uses avatar, faceless uses collected assets (looping if needed)
+                                        const asset = collectedAssets.length > 0
+                                            ? collectedAssets[idx % collectedAssets.length]
+                                            : collectedAssets[0];
                                         const thumbnailUrl = isFaceMode
                                             ? faceImageUrl
-                                            : (collectedAssets[idx]?.thumbnail || collectedAssets[idx]?.url);
+                                            : (asset?.thumbnail || asset?.url);
                                         const sceneType = isFaceMode ? 'Face' : 'Asset';
 
                                         return (
