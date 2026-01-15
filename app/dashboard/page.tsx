@@ -9,6 +9,8 @@ import { ResourcePanel } from './components/studio/ResourcePanel';
 import { EditorPanel } from './components/studio/EditorPanel';
 import { PreviewPanel } from './components/studio/PreviewPanel';
 import { CloseIcon, ImageIcon } from './components/icons';
+import { useCredits } from './context/CreditsContext';
+import { CREDIT_COSTS } from '@/lib/credits';
 
 // ==========================================
 // MAIN COMPONENT (STUDIO WORKSPACE)
@@ -16,6 +18,7 @@ import { CloseIcon, ImageIcon } from './components/icons';
 
 export default function Dashboard() {
     const state = useDashboardState();
+    const { checkCreditsWithContext, openBuyModalWithContext } = useCredits();
     const [isEnhancing, setIsEnhancing] = React.useState(false);
     const [isCollectingAssets, setIsCollectingAssets] = React.useState(false);
     const [isUploadingAsset, setIsUploadingAsset] = React.useState(false);
@@ -34,9 +37,15 @@ export default function Dashboard() {
         state.setUseStudioImage(false);
     };
 
-    // Enhance handler
+    // Enhance handler with credit pre-check
     const handleEnhance = async () => {
         if (!state.inputText.trim()) return;
+
+        // Pre-check credits for script generation
+        if (!checkCreditsWithContext(CREDIT_COSTS.RESEARCH_SCRIPT, 'Script Generation')) {
+            return; // Modal will open automatically
+        }
+
         setIsEnhancing(true);
         try {
             const res = await fetch('/api/enhance-script', {
@@ -46,7 +55,12 @@ export default function Dashboard() {
             });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.error || 'Failed to enhance script');
+                // Check if this is a credits error - open modal instead of alert
+                if (res.status === 402 || data.code === 'INSUFFICIENT_CREDITS') {
+                    openBuyModalWithContext(CREDIT_COSTS.RESEARCH_SCRIPT, 'Script Generation');
+                    return;
+                }
+                console.error('Enhance failed:', data.error);
                 return;
             }
             if (data.script) {
@@ -58,7 +72,6 @@ export default function Dashboard() {
             }
         } catch (err) {
             console.error('Enhance failed:', err);
-            alert('Failed to enhance script. Please try again.');
         } finally {
             setIsEnhancing(false);
         }
