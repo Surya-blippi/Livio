@@ -854,11 +854,9 @@ export const useDashboardState = () => {
         // --- CREDIT PRE-CHECK ---
         let estimatedCost = 0;
         if (mode === 'faceless') {
-            // Use workingScenes (auto-parsed if needed) for accurate estimation
-            const charCount = workingScenes.length > 0
-                ? workingScenes.reduce((acc, s) => acc + s.text.length, 0)
-                : inputText.length;
-            estimatedCost = calculateFacelessVideoCredits(charCount);
+            // Use scene count to match backend: (sceneCount * 30) + 80 render
+            const sceneCount = workingScenes.length > 0 ? workingScenes.length : 1;
+            estimatedCost = calculateFacelessVideoCredits(sceneCount);
         } else {
             // Face mode: (Face Scenes * 100) + 80 render fee
             const faceSceneCount = workingScenes.length > 0 ? workingScenes.length : 1;

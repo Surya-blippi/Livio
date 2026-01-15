@@ -40,12 +40,10 @@ export function calculateFaceVideoCredits(sceneCount: number): number {
 
 /**
  * Calculate total credits for faceless video generation
- * Includes audio + video render
+ * Matches backend: (sceneCount × 30) + 80 render fee
  */
-export function calculateFacelessVideoCredits(scriptCharCount: number): number {
-    const audioCredits = calculateAudioCredits(scriptCharCount);
-    const renderCredits = CREDIT_COSTS.VIDEO_RENDER;
-    return audioCredits + renderCredits;
+export function calculateFacelessVideoCredits(sceneCount: number): number {
+    return (sceneCount * CREDIT_COSTS.AUDIO_PER_1000_CHARS) + CREDIT_COSTS.VIDEO_RENDER;
 }
 
 /**
@@ -76,7 +74,10 @@ export function estimateTotalCredits(options: {
     if (options.mode === 'face' && options.sceneCount) {
         total += calculateFaceVideoCredits(options.sceneCount);
     } else if (options.mode === 'faceless') {
-        total += calculateFacelessVideoCredits(options.scriptCharCount);
+        // Faceless now uses scene count for calculation (30/scene + 80 render)
+        // Default to 1 scene if not provided to avoid 0 cost
+        const count = options.sceneCount && options.sceneCount > 0 ? options.sceneCount : 1;
+        total += calculateFacelessVideoCredits(count);
     }
 
     return total;
