@@ -428,6 +428,15 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                             <span className="absolute top-1.5 left-1.5 text-[10px] font-bold text-black bg-[var(--brand-primary)] px-1.5 py-0.5 rounded-full">✓</span>
                                         )}
 
+                                        {/* Type Badge */}
+                                        <div className="absolute bottom-0 inset-x-0 p-1 bg-gradient-to-t from-black/80 to-transparent flex justify-center">
+                                            {avatar.name === 'Studio Ready' || avatar.is_default ? (
+                                                <span className="text-[8px] font-bold text-[var(--brand-primary)] uppercase tracking-wider">Studio</span>
+                                            ) : (
+                                                <span className="text-[8px] text-white/70 uppercase tracking-wider">Orig</span>
+                                            )}
+                                        </div>
+
                                         {/* Avatar type badge */}
                                         <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                                             {avatar.is_default ? (

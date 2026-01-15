@@ -44,6 +44,7 @@ import {
     saveDraft,
     updateDraft,
     uploadVoiceSample,
+    uploadAvatarImage,
     getActiveVideoJobs,
     supabase,
     createAuthenticatedClient,
@@ -469,7 +470,7 @@ export const useDashboardState = () => {
     };
 
     const handleMakeStudioReady = async () => {
-        if (!photoPreview) return;
+        if (!photoPreview || !dbUser) return;
 
         // Check credits (45 credits)
         if (!checkCredits(CREDIT_COSTS.AI_IMAGE)) return;
@@ -477,8 +478,36 @@ export const useDashboardState = () => {
         setIsGeneratingStudio(true);
         setError('');
         try {
-            // Use persistent URL if available, otherwise data URL (should be persistent by now)
-            const inputUrl = photoPreview;
+            const sb = await getSupabase();
+
+            // 1. If we have a raw file, upload it and save "Original" first
+            let inputUrl = photoPreview;
+            if (photoFile) {
+                console.log('[Avatar] Uploading original file first...');
+                const publicUrl = await uploadAvatarImage(dbUser.id, photoFile);
+                if (publicUrl) {
+                    inputUrl = publicUrl;
+
+                    // Save Original to DB
+                    const savedOriginal = await saveAvatar(
+                        dbUser.id,
+                        publicUrl,
+                        'My Photo',
+                        false, // isDefault
+                        sb
+                    );
+
+                    if (savedOriginal) {
+                        setSavedAvatars(prev => {
+                            // Deduplicate
+                            const exists = prev.some(a => a.image_url === savedOriginal.image_url);
+                            return exists ? prev : [savedOriginal, ...prev];
+                        });
+                        // Update preview to use the remote URL
+                        setPhotoPreview(publicUrl);
+                    }
+                }
+            }
 
             const response = await fetch('/api/make-studio-ready', {
                 method: 'POST',
