@@ -891,19 +891,14 @@ export const useDashboardState = () => {
                 }
 
                 // Map scenes to assets (1:1 or loop assets)
-                const facelessScenes = scenes.length > 0 ? scenes.map((scene, index) => ({
+                // Map scenes to assets (1:1 or loop assets)
+                // USE workingScenes (which includes auto-parsed scenes) instead of stale 'scenes' state
+                const facelessScenes = workingScenes.length > 0 ? workingScenes.map((scene, index) => ({
                     text: scene.text,
                     assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
                 })) : (() => {
-                    // Fallback: Split script into sentences and alternate assets
-                    const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
-                    // Ensure at least one scene if split fails or empty
-                    if (sentences.length === 0 && inputText.trim()) return [{ text: inputText, assetUrl: collectedAssets[0]?.url }];
-
-                    return sentences.map((sentence, index) => ({
-                        text: sentence.trim() + '.',
-                        assetUrl: collectedAssets[index % collectedAssets.length]?.url || collectedAssets[0]?.url
-                    }));
+                    // Fallback only if workingScenes is somehow empty
+                    return [{ text: inputText, assetUrl: collectedAssets[0]?.url }];
                 })();
 
                 setProcessingStep(2);
