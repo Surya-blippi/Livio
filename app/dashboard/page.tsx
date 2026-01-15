@@ -76,25 +76,15 @@ export default function Dashboard() {
         }
     };
 
-    // Upload asset handler
-    const handleUploadAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Upload asset handler - uploads to Supabase immediately
+    const handleUploadAsset = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const dataUrl = reader.result as string;
-                state.setCollectedAssets(prev => [...prev, {
-                    url: dataUrl,
-                    thumbnail: dataUrl,
-                    title: file.name,
-                    source: 'uploaded',
-                    searchTerm: 'user-upload',
-                    isUploaded: true
-                }]);
-            };
-            reader.readAsDataURL(file);
-        });
+
+        // Upload each file immediately to Supabase
+        for (const file of Array.from(files)) {
+            await state.addUserAsset(file);
+        }
         e.target.value = '';
     };
 

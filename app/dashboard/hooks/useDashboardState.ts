@@ -520,6 +520,60 @@ export const useDashboardState = () => {
         setIsCollectingAssets(false);
     };
 
+    // Upload a user asset immediately to Supabase and return the public URL
+    const uploadAsset = async (file: File): Promise<string | null> => {
+        if (!dbUser) {
+            setError('Please sign in to upload assets');
+            return null;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('userId', dbUser.id);
+
+            const response = await fetch('/api/assets/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
+            }
+
+            const data = await response.json();
+            console.log('✅ Asset uploaded:', data.url);
+            return data.url;
+        } catch (err) {
+            console.error('Asset upload error:', err);
+            setError(err instanceof Error ? err.message : 'Failed to upload asset');
+            return null;
+        }
+    };
+
+    // Add a user-uploaded asset (uploads immediately to Supabase)
+    const addUserAsset = async (file: File) => {
+        setIsCollectingAssets(true);
+        try {
+            const url = await uploadAsset(file);
+            if (url) {
+                setCollectedAssets(prev => [...prev, {
+                    url,
+                    thumbnail: url, // Use same URL as thumbnail
+                    source: 'upload',
+                    title: file.name,
+                    searchTerm: 'user-upload',
+                    isUploaded: true
+                }]);
+                setShowAssetGallery(true);
+                setPreviewMode('assets');
+            }
+        } finally {
+            setIsCollectingAssets(false);
+        }
+    };
+
     const handleDeleteVideo = async (videoId: string) => {
         await deleteVideo(videoId);
         await refreshVideoHistory();
@@ -1126,6 +1180,7 @@ export const useDashboardState = () => {
         handleDeleteVoice,
         handleCreateVideo,
         handleSelectVideo,
+        addUserAsset, // New: upload user assets immediately
         selectedVideo, setSelectedVideo,
         onVoiceSelect,
         handleConfirmVoice,
