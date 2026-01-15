@@ -376,6 +376,41 @@ export async function saveAvatar(
     isDefault?: boolean,
     client: any = supabase // Use authenticated client if provided
 ): Promise<DbAvatar | null> {
+    // Check if avatar with same image_url already exists for this user
+    const { data: existing } = await client
+        .from('avatars')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('image_url', imageUrl)
+        .single();
+
+    if (existing) {
+        // Avatar already exists - update is_default if needed
+        if (isDefault && !existing.is_default) {
+            // Unset other defaults first
+            await client
+                .from('avatars')
+                .update({ is_default: false })
+                .eq('user_id', userId);
+
+            // Set this one as default
+            const { data: updated, error } = await client
+                .from('avatars')
+                .update({ is_default: true })
+                .eq('id', existing.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error updating avatar:', error);
+                return existing;
+            }
+            return updated;
+        }
+        // Return existing without changes
+        return existing;
+    }
+
     // If setting as default, unset others
     if (isDefault) {
         await client
