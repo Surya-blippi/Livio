@@ -18,7 +18,7 @@ import { CREDIT_COSTS } from '@/lib/credits';
 
 export default function Dashboard() {
     const state = useDashboardState();
-    const { checkCreditsWithContext, openBuyModalWithContext } = useCredits();
+    const { checkCreditsWithContext, openBuyModalWithContext, balance } = useCredits();
     const [isEnhancing, setIsEnhancing] = React.useState(false);
     const [isCollectingAssets, setIsCollectingAssets] = React.useState(false);
     const [isUploadingAsset, setIsUploadingAsset] = React.useState(false);
@@ -223,6 +223,8 @@ export default function Dashboard() {
                         setCaptionStyle={state.setCaptionStyle}
                         enableBackgroundMusic={state.enableBackgroundMusic}
                         setEnableBackgroundMusic={state.setEnableBackgroundMusic}
+                        creditBalance={balance}
+                        faceImageUrl={state.useStudioImage ? state.studioReadyUrl : state.photoPreview}
                     />
                 }
 
