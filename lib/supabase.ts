@@ -262,6 +262,14 @@ export async function saveVoice(
     previewUrl?: string,
     client: any = supabase // Use authenticated client if provided
 ): Promise<DbVoice | null> {
+    // Validate userId is a UUID, not a Clerk ID
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(userId)) {
+        console.error('[saveVoice] Invalid userId format - expected UUID, got:', userId);
+        console.error('[saveVoice] This may be a Clerk ID being passed instead of dbUser.id');
+        return null;
+    }
+
     // Deactivate all other voices for this user
     await client
         .from('voices')
@@ -315,6 +323,13 @@ export async function getVoice(userId: string): Promise<DbVoice | null> {
 
 // Set a specific voice as active
 export async function setActiveVoice(userId: string, voiceId: string, client: any = supabase): Promise<DbVoice | null> {
+    // Validate userId is a UUID, not a Clerk ID
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(userId)) {
+        console.error('[setActiveVoice] Invalid userId format - expected UUID, got:', userId);
+        return null;
+    }
+
     // Deactivate all voices for this user
     await client
         .from('voices')
