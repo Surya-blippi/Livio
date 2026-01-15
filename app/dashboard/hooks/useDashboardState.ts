@@ -475,12 +475,13 @@ export const useDashboardState = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to generate studio image');
 
+            // Store the studio-ready URL but DON'T replace the original photoPreview
+            // User can select either from the avatar grid
             setStudioReadyUrl(data.studioReadyUrl);
-            setPhotoPreview(data.studioReadyUrl); // Directly switch to new image
-            setUseStudioImage(true); // Mark current as studio (for badge)
+            setUseStudioImage(false); // Don't auto-switch, let user choose
 
             if (dbUser) {
-                // Save the STUDIO READY version
+                // Save the STUDIO READY version to avatars
                 const sb = await getSupabase();
                 const savedStudioAvatar = await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true, sb);
                 if (savedStudioAvatar) {

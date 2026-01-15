@@ -422,9 +422,20 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                     >
                                         <img src={avatar.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+
+                                        {/* Selected checkmark */}
                                         {photoPreview === avatar.image_url && mode === 'face' && (
                                             <span className="absolute top-1.5 left-1.5 text-[10px] font-bold text-black bg-[var(--brand-primary)] px-1.5 py-0.5 rounded-full">✓</span>
                                         )}
+
+                                        {/* Avatar type badge */}
+                                        <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                            {avatar.is_default ? (
+                                                <span className="text-[10px] font-bold text-[var(--brand-primary)]">✨ Studio Ready</span>
+                                            ) : (
+                                                <span className="text-[10px] text-white/80">📷 Original</span>
+                                            )}
+                                        </div>
                                     </button>
                                 ))}
                             </div>
