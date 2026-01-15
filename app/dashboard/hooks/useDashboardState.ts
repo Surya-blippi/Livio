@@ -376,6 +376,12 @@ export const useDashboardState = () => {
 
     const handleEnhanceWithAI = async () => {
         if (!inputText.trim()) { setError('Please enter a topic first'); return; }
+
+        // Pre-check credits for script generation
+        if (!checkCreditsWithContext(CREDIT_COSTS.RESEARCH_SCRIPT, 'Script Generation')) {
+            return; // Modal will open automatically
+        }
+
         setIsProcessing(true);
         setProcessingMessage(`Creating ${duration}s script...`);
         setError('');
@@ -539,6 +545,12 @@ export const useDashboardState = () => {
 
     const handleCollectAssets = async () => {
         if (!inputText.trim()) { setError('Please enter some content first'); return; }
+
+        // Pre-check credits for asset collection
+        if (!checkCreditsWithContext(CREDIT_COSTS.ASSET_COLLECTION, 'Asset Collection')) {
+            return; // Modal will open automatically
+        }
+
         setIsCollectingAssets(true);
         setError('');
         try {
