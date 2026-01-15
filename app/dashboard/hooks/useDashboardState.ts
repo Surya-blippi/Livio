@@ -58,7 +58,7 @@ import { convertToMp3, needsConversion } from '@/lib/audioConverter';
 export const useDashboardState = () => {
     const { user, isLoaded: isUserLoaded } = useUser();
     const { getToken } = useAuth();
-    const { checkCredits } = useCredits();
+    const { checkCredits, checkCreditsWithContext } = useCredits();
 
     // Helper to get authenticated client - single instance with token renewal
     const supabaseClientRef = useRef<any>(null);
@@ -712,6 +712,11 @@ export const useDashboardState = () => {
 
     const handleConfirmVoice = async () => {
         if (!voiceFile || !dbUser) return;
+
+        // Pre-check credits for voice cloning
+        if (!checkCreditsWithContext(CREDIT_COSTS.VOICE_CLONING, 'Voice Cloning')) {
+            return; // Modal will open automatically
+        }
 
         try {
             console.log('[handleConfirmVoice] Starting voice confirmation');

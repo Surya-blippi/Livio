@@ -9,16 +9,23 @@ interface BuyCreditsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onPurchaseComplete?: () => void;
+    requiredAmount?: number | null;
+    operationName?: string | null;
+    currentBalance?: number | null;
 }
 
 export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
     isOpen,
     onClose,
-    onPurchaseComplete
+    onPurchaseComplete,
+    requiredAmount,
+    operationName,
+    currentBalance
 }) => {
     const [loading, setLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+
 
     // Ensure we only render portal on client
     useEffect(() => {
@@ -110,6 +117,24 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
 
                     {/* Scrollable Content */}
                     <div className="flex-1 overflow-y-auto p-5">
+                        {/* Contextual Requirement Message */}
+                        {requiredAmount && operationName && (
+                            <div className="mb-4 p-4 rounded-xl bg-amber-50 border-2 border-amber-400 text-amber-800">
+                                <div className="flex items-start gap-3">
+                                    <svg className="w-6 h-6 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <p className="font-bold text-sm">{operationName} requires {requiredAmount} credits</p>
+                                        <p className="text-xs mt-1 text-amber-700">
+                                            You currently have <span className="font-bold">{currentBalance ?? 0}</span> credits.
+                                            Purchase a package below to continue.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Error Message */}
                         {error && (
                             <div className="mb-4 p-3 rounded-xl bg-red-50 border-2 border-red-500 text-red-700 font-bold text-sm flex items-center gap-2">

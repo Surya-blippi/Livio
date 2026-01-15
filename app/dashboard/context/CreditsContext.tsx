@@ -9,9 +9,11 @@ interface CreditsContextType {
     loading: boolean;
     showBuyModal: boolean;
     openBuyModal: () => void;
+    openBuyModalWithContext: (cost: number, operationName: string) => void;
     closeBuyModal: () => void;
     refetch: () => Promise<void>;
     checkCredits: (cost: number) => boolean;
+    checkCreditsWithContext: (cost: number, operationName: string) => boolean;
 }
 
 const CreditsContext = createContext<CreditsContextType | undefined>(undefined);
@@ -20,6 +22,8 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [balance, setBalance] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [showBuyModal, setShowBuyModal] = useState(false);
+    const [requiredAmount, setRequiredAmount] = useState<number | null>(null);
+    const [operationName, setOperationName] = useState<string | null>(null);
 
     const fetchCredits = useCallback(async () => {
         try {
@@ -51,9 +55,22 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
     }, [fetchCredits]);
 
-    const openBuyModal = useCallback(() => setShowBuyModal(true), []);
+    const openBuyModal = useCallback(() => {
+        setRequiredAmount(null);
+        setOperationName(null);
+        setShowBuyModal(true);
+    }, []);
+
+    const openBuyModalWithContext = useCallback((cost: number, operation: string) => {
+        setRequiredAmount(cost);
+        setOperationName(operation);
+        setShowBuyModal(true);
+    }, []);
+
     const closeBuyModal = useCallback(() => {
         setShowBuyModal(false);
+        setRequiredAmount(null);
+        setOperationName(null);
         fetchCredits(); // Refresh on close in case of purchase
     }, [fetchCredits]);
 
@@ -67,18 +84,36 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return true;
     }, [balance, openBuyModal]);
 
+    // Pre-check with contextual message
+    const checkCreditsWithContext = useCallback((cost: number, operation: string): boolean => {
+        if (balance === null) return false; // Fail safe if not loaded
+        if (balance < cost) {
+            openBuyModalWithContext(cost, operation);
+            return false;
+        }
+        return true;
+    }, [balance, openBuyModalWithContext]);
+
     return (
         <CreditsContext.Provider value={{
             balance,
             loading,
             showBuyModal,
             openBuyModal,
+            openBuyModalWithContext,
             closeBuyModal,
             refetch: fetchCredits,
-            checkCredits
+            checkCredits,
+            checkCreditsWithContext
         }}>
             {children}
-            <BuyCreditsModal isOpen={showBuyModal} onClose={closeBuyModal} />
+            <BuyCreditsModal
+                isOpen={showBuyModal}
+                onClose={closeBuyModal}
+                requiredAmount={requiredAmount}
+                operationName={operationName}
+                currentBalance={balance}
+            />
         </CreditsContext.Provider>
     );
 };
