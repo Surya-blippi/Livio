@@ -59,22 +59,35 @@ export const useDashboardState = () => {
     const { getToken } = useAuth();
     const { checkCredits } = useCredits();
 
-    // Helper to get authenticated client - memoized to prevent multiple instances
-    const supabaseRef = useRef<any>(null);
+    // Helper to get authenticated client - single instance with token renewal
+    const supabaseClientRef = useRef<any>(null);
     const tokenRef = useRef<string | null>(null);
 
     const getSupabase = useCallback(async () => {
-        const token = await getToken({ template: 'supabase' });
+        try {
+            const token = await getToken({ template: 'supabase' });
 
-        // Return existing client if token hasn't changed (prevents Multiple GoTrueClient warning)
-        if (supabaseRef.current && tokenRef.current === token) {
-            return supabaseRef.current;
+            // If we have a client and token hasn't changed, reuse it
+            if (supabaseClientRef.current && tokenRef.current === token) {
+                return supabaseClientRef.current;
+            }
+
+            // If token has changed or no client, create new one
+            if (token) {
+                console.log('[Auth] Creating new Supabase client with fresh token');
+                const client = createAuthenticatedClient(token);
+                supabaseClientRef.current = client;
+                tokenRef.current = token;
+                return client;
+            }
+
+            // Fallback to anonymous client if no token (shouldn't happen in auth flow)
+            console.warn('[Auth] No token available, using anonymous client');
+            return supabase;
+        } catch (err) {
+            console.error('[Auth] Failed to get token:', err);
+            return supabase;
         }
-
-        const client = createAuthenticatedClient(token || '');
-        supabaseRef.current = client;
-        tokenRef.current = token;
-        return client;
     }, [getToken]);
 
     // Theme state
@@ -672,6 +685,13 @@ export const useDashboardState = () => {
         if (!voiceFile || !dbUser) return;
 
         try {
+            console.log('[handleConfirmVoice] Starting voice confirmation');
+            console.log('[handleConfirmVoice] dbUser:', dbUser);
+            if (dbUser) {
+                console.log('[handleConfirmVoice] dbUser.id:', dbUser.id, 'isUUID:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbUser.id));
+                console.log('[handleConfirmVoice] dbUser.clerk_id:', dbUser.clerk_id);
+            }
+
             setIsConfirmingVoice(true);
 
             // 0. Convert to MP3 if needed (client-side, avoids server FFmpeg issues)
