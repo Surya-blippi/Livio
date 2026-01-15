@@ -661,42 +661,22 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                             {/* Credit Estimation Card */}
                             {sceneCount > 0 && (
                                 <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800">
-                                    <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center justify-between mb-2">
                                         <h4 className="font-bold text-sm text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                             Credit Estimate
                                         </h4>
-                                        <span className={`text-lg font-black ${(creditBalance ?? 0) >= estimatedCredits ? 'text-emerald-600' : 'text-red-500'}`}>
+                                        <span className={`text-xl font-black ${(creditBalance ?? 0) >= estimatedCredits ? 'text-emerald-600' : 'text-red-500'}`}>
                                             {estimatedCredits}
                                         </span>
                                     </div>
-                                    <div className="space-y-1.5 text-xs text-emerald-700 dark:text-emerald-300">
-                                        {isFaceMode && (
-                                            <div className="flex justify-between">
-                                                <span>{sceneCount} Face Scene{sceneCount !== 1 ? 's' : ''}</span>
-                                                <span className="font-bold">{sceneCount * CREDIT_COSTS.FACE_VIDEO_SCENE}</span>
-                                            </div>
-                                        )}
-                                        {!isFaceMode && (
-                                            <>
-                                                <div className="flex justify-between">
-                                                    <span>Audio Generation</span>
-                                                    <span className="font-bold">{Math.ceil(scriptLength / 1000) * CREDIT_COSTS.AUDIO_PER_1000_CHARS}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Video Render</span>
-                                                    <span className="font-bold">{CREDIT_COSTS.VIDEO_RENDER}</span>
-                                                </div>
-                                            </>
-                                        )}
-                                        <div className="border-t border-emerald-300 dark:border-emerald-700 pt-1.5 mt-2 flex justify-between font-bold">
-                                            <span>Your Balance</span>
-                                            <span className={`${(creditBalance ?? 0) >= estimatedCredits ? 'text-emerald-600' : 'text-red-500'}`}>
-                                                {creditBalance ?? 0} {(creditBalance ?? 0) >= estimatedCredits ? '✓' : '⚠️'}
-                                            </span>
-                                        </div>
+                                    <div className="flex justify-between text-xs text-emerald-700 dark:text-emerald-300">
+                                        <span className="font-medium">Your Balance</span>
+                                        <span className={`font-bold ${(creditBalance ?? 0) >= estimatedCredits ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {creditBalance ?? 0} {(creditBalance ?? 0) >= estimatedCredits ? '✓' : '⚠️'}
+                                        </span>
                                     </div>
                                 </div>
                             )}
@@ -731,12 +711,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                                 {/* Content */}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${isFaceMode ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                            {sceneType}
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                                                            Scene {idx + 1}
                                                         </span>
-                                                        {isFaceMode && (
-                                                            <span className="text-[10px] text-gray-400">{CREDIT_COSTS.FACE_VIDEO_SCENE} credits</span>
-                                                        )}
                                                     </div>
                                                     <p className="text-xs text-[var(--text-primary)] line-clamp-2 leading-relaxed">
                                                         {scene.text}
