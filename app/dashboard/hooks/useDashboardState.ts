@@ -818,38 +818,50 @@ export const useDashboardState = () => {
         if (!inputText.trim()) { setError('Please enter a script'); return; }
         if (!dbUser) { setError('Please sign in to create videos'); return; }
 
+        // --- AUTO-PARSE SCENES IF EMPTY ---
+        // If user has script but no scenes (didn't click Research), parse script into scenes
+        let workingScenes = scenes;
+        if (scenes.length === 0 && inputText.trim().length > 0) {
+            // Split script by sentences (periods, ! or ?) into individual scenes
+            const sentences = inputText
+                .split(/(?<=[.!?])\s+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 10); // Filter out very short fragments
+
+            // Group sentences into scenes (2-3 sentences per scene for natural pacing)
+            const autoScenes: Scene[] = [];
+            let buffer = '';
+            for (let i = 0; i < sentences.length; i++) {
+                buffer += (buffer ? ' ' : '') + sentences[i];
+                // Create scene every 2-3 sentences or at the end
+                if ((i + 1) % 2 === 0 || i === sentences.length - 1) {
+                    autoScenes.push({ text: buffer, keywords: [] });
+                    buffer = '';
+                }
+            }
+
+            // Fallback: if no sentences parsed, use whole script as one scene
+            if (autoScenes.length === 0) {
+                autoScenes.push({ text: inputText.trim(), keywords: [] });
+            }
+
+            workingScenes = autoScenes;
+            setScenes(autoScenes);
+            console.log(`[Video] Auto-parsed ${autoScenes.length} scenes from script`);
+        }
+        // -----------------------------------
+
         // --- CREDIT PRE-CHECK ---
         let estimatedCost = 0;
         if (mode === 'faceless') {
-            // Basic estimate: Audio (~30/1000 chars) + Render (80)
-            const scriptLen = inputText.length + (scenes.reduce((acc, s) => acc + s.text.length, 0));
-            // Note: If using scenes, inputText might be just topic, so rely on scenes text sum if available
-            const charCount = scenes.length > 0 ? scenes.reduce((acc, s) => acc + s.text.length, 0) : inputText.length;
+            // Use workingScenes (auto-parsed if needed) for accurate estimation
+            const charCount = workingScenes.length > 0
+                ? workingScenes.reduce((acc, s) => acc + s.text.length, 0)
+                : inputText.length;
             estimatedCost = calculateFacelessVideoCredits(charCount);
         } else {
             // Face mode: (Face Scenes * 100) + 80 render fee
-            // CRITICAL: Only count scenes of type 'face', not 'asset' scenes.
-            // The backend (api/face-video/start) uses: scenes.filter(s => s.type === 'face').length
-            // We must mirror that logic here.
-            // Note: In the dashboard, `scenes` from state are Scene objects from enhance-script (text, keywords).
-            // When sent to the API, they are converted to FaceVideoSceneInput with a `type` field.
-            // At the time of pre-check, we don't have explicit 'type'. 
-            // The conversion happens later in handleCreateVideo when mapping to FaceVideoSceneInput.
-            // So the pre-check must assume the worst case OR re-structure the logic.
-            // 
-            // Looking at the code below (line ~853), face mode sends:
-            // faceVideoScenes = scenes.map(s => ({...type: 'face'}))  -- meaning all scenes become 'face' type initially.
-            // Then it alternates based on collectedAssets? No, that's faceless.
-            // For Face Mode (lines ~850 onwards), it uses `scenes` directly. Let me check the actual API call.
-            // Actually, the `scenes` in state ARE used directly. The conversion happens in the API call body.
-            // Let's check line ~850 to understand what type is assigned.
-            //
-            // Line 853-878 shows Face Video logic. It creates `faceVideoScenes` from `scenes`.
-            // Let me look at how they're mapped. 
-            // Actually, let's just use scenes.length for a conservative estimate as all are assumed 'face'.
-            // If asset scenes exist, the user would be using 'faceless' mode.
-            // For simplicity and to match the EXPECTED behavior (all scenes in face mode are face scenes):
-            const faceSceneCount = scenes.length > 0 ? scenes.length : 1; // All scenes assumed face type in face mode
+            const faceSceneCount = workingScenes.length > 0 ? workingScenes.length : 1;
             estimatedCost = calculateFaceVideoCredits(faceSceneCount) + CREDIT_COSTS.VIDEO_RENDER;
         }
 
