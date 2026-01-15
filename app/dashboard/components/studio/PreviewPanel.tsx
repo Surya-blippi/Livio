@@ -48,6 +48,8 @@ interface PreviewPanelProps {
     // Assets
     collectedAssets: Array<{ url: string; thumbnail?: string; title?: string; isUploaded?: boolean }>;
     onUploadAsset: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    isUploadingAsset?: boolean;
+    uploadProgress?: { current: number; total: number };
     onRemoveAsset: (index: number) => void;
 
     // Script & Storyboard
@@ -91,6 +93,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
     // Assets
     collectedAssets,
     onUploadAsset, onRemoveAsset,
+    isUploadingAsset, uploadProgress,
     script,
     setInputText,
     onEnhance,
@@ -491,7 +494,17 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                 />
                             </label>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar relative">
+                            {/* Upload Progress Overlay */}
+                            {isUploadingAsset && (
+                                <div className="absolute inset-0 bg-white/90 dark:bg-black/90 z-10 flex flex-col items-center justify-center rounded-xl">
+                                    <div className="w-12 h-12 border-4 border-gray-200 border-t-[var(--brand-primary)] rounded-full animate-spin mb-4"></div>
+                                    <p className="text-sm font-bold text-[var(--text-primary)]">
+                                        Uploading {uploadProgress?.current || 1} of {uploadProgress?.total || 1}...
+                                    </p>
+                                    <p className="text-xs text-[var(--text-secondary)] mt-1">Please wait</p>
+                                </div>
+                            )}
                             {collectedAssets.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {collectedAssets.map((asset, idx) => (

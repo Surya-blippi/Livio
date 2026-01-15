@@ -18,6 +18,8 @@ export default function Dashboard() {
     const state = useDashboardState();
     const [isEnhancing, setIsEnhancing] = React.useState(false);
     const [isCollectingAssets, setIsCollectingAssets] = React.useState(false);
+    const [isUploadingAsset, setIsUploadingAsset] = React.useState(false);
+    const [uploadProgress, setUploadProgress] = React.useState({ current: 0, total: 0 });
 
     // Dark Mode Effect
     useEffect(() => {
@@ -79,11 +81,21 @@ export default function Dashboard() {
     // Upload asset handler - uploads to Supabase immediately
     const handleUploadAsset = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
-        if (!files) return;
+        if (!files || files.length === 0) return;
 
-        // Upload each file immediately to Supabase
-        for (const file of Array.from(files)) {
-            await state.addUserAsset(file);
+        const fileArray = Array.from(files);
+        setIsUploadingAsset(true);
+        setUploadProgress({ current: 0, total: fileArray.length });
+
+        try {
+            // Upload each file immediately to Supabase
+            for (let i = 0; i < fileArray.length; i++) {
+                setUploadProgress({ current: i + 1, total: fileArray.length });
+                await state.addUserAsset(fileArray[i]);
+            }
+        } finally {
+            setIsUploadingAsset(false);
+            setUploadProgress({ current: 0, total: 0 });
         }
         e.target.value = '';
     };
@@ -182,6 +194,8 @@ export default function Dashboard() {
                         isConfirmingVoice={state.isConfirmingVoice}
                         collectedAssets={state.collectedAssets}
                         onUploadAsset={handleUploadAsset}
+                        isUploadingAsset={isUploadingAsset}
+                        uploadProgress={uploadProgress}
                         onRemoveAsset={(index) => state.setCollectedAssets(prev => prev.filter((_, i) => i !== index))}
                         script={state.inputText}
                         setInputText={state.setInputText}
