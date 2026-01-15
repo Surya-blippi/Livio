@@ -707,17 +707,20 @@ export const useDashboardState = () => {
             const voiceCount = allVoices.length + 1;
             const voiceName = `Custom Voice ${voiceCount}`;
 
+            // Use authenticated client for RLS
+            const sb = await getSupabase();
             const newVoice = await saveVoice(
                 dbUser.id,
                 voiceId,
                 storageUrl,
                 voiceName,
-                previewUrl
+                previewUrl,
+                sb
             );
 
             if (newVoice) {
                 // 4. Select it and clear pending file
-                await setActiveVoice(dbUser.id, newVoice.id);
+                await setActiveVoice(dbUser.id, newVoice.id, sb);
                 setSavedVoice(newVoice);
                 setAllVoices(prev => [newVoice, ...prev]);
                 setVoiceFile(null); // Clear pending file as it is now saved
@@ -732,7 +735,8 @@ export const useDashboardState = () => {
 
     const onVoiceSelect = async (voice: DbVoice) => {
         if (dbUser) {
-            await setActiveVoice(dbUser.id, voice.id);
+            const sb = await getSupabase();
+            await setActiveVoice(dbUser.id, voice.id, sb);
             setSavedVoice(voice);
             setVoiceFile(null); // Clear recorded/uploaded voice to ensure this selection is used
             setAllVoices(prev => prev.map(v => ({ ...v, is_active: v.id === voice.id })));
@@ -901,7 +905,8 @@ export const useDashboardState = () => {
                 setProcessingMessage('Cloning your new voice...');
                 const voiceData = await cloneVoice(voiceFile);
                 if (dbUser) {
-                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl);
+                    const sb = await getSupabase();
+                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl, sb);
                     if (newVoice) {
                         setSavedVoice(newVoice);
                         setAllVoices(prev => [newVoice, ...prev]);

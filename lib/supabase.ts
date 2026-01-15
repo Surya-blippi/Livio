@@ -259,16 +259,17 @@ export async function saveVoice(
     voiceId: string | null,
     voiceSampleUrl: string,
     name?: string,
-    previewUrl?: string
+    previewUrl?: string,
+    client: any = supabase // Use authenticated client if provided
 ): Promise<DbVoice | null> {
     // Deactivate all other voices for this user
-    await supabase
+    await client
         .from('voices')
         .update({ is_active: false })
         .eq('user_id', userId);
 
     // Create new voice (always add as new, mark as active)
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('voices')
         .insert({
             user_id: userId,
@@ -313,15 +314,15 @@ export async function getVoice(userId: string): Promise<DbVoice | null> {
 }
 
 // Set a specific voice as active
-export async function setActiveVoice(userId: string, voiceId: string): Promise<DbVoice | null> {
+export async function setActiveVoice(userId: string, voiceId: string, client: any = supabase): Promise<DbVoice | null> {
     // Deactivate all voices for this user
-    await supabase
+    await client
         .from('voices')
         .update({ is_active: false })
         .eq('user_id', userId);
 
     // Activate the selected voice
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('voices')
         .update({ is_active: true })
         .eq('id', voiceId)
