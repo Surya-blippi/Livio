@@ -76,8 +76,8 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Pre-check function: returns true if enough credits, false (and opens modal) if not
     const checkCredits = useCallback((cost: number): boolean => {
-        if (balance === null) return false; // Fail safe if not loaded
-        if (balance < cost) {
+        // If balance is still loading or insufficient, open the modal
+        if (balance === null || balance < cost) {
             openBuyModal();
             return false;
         }
@@ -86,8 +86,8 @@ export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Pre-check with contextual message
     const checkCreditsWithContext = useCallback((cost: number, operation: string): boolean => {
-        if (balance === null) return false; // Fail safe if not loaded
-        if (balance < cost) {
+        // If balance is still loading or insufficient, open the modal with context
+        if (balance === null || balance < cost) {
             openBuyModalWithContext(cost, operation);
             return false;
         }
