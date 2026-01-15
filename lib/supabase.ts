@@ -610,7 +610,7 @@ export async function getActiveVideoJobs(userId: string): Promise<DbVideoJob[]> 
     const { data, error } = await supabase
         .from('video_jobs')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_uuid', userId)
         .in('status', ['pending', 'processing'])
         .order('created_at', { ascending: false })
         .limit(5);
