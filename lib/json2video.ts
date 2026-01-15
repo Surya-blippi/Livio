@@ -452,11 +452,14 @@ export function convertFaceVideoToJson2VideoFormat(input: FaceVideoRenderInput):
             });
         } else {
             // Asset scenes: use image element with Ken Burns
+            // Use 'contain' + zoom to preserve aspect ratio (like faceless)
             const kenBurns = getKenBurnsEffect(index);
             elements.push({
                 type: 'image',
                 src: scene.url,
-                resize: 'cover',
+                resize: 'contain',
+                position: 'center-center',
+                zoom: 2,
                 ...kenBurns,
             });
 
