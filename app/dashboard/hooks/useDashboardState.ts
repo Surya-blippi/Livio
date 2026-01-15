@@ -935,8 +935,21 @@ export const useDashboardState = () => {
                 );
 
                 setVideoUrl(videoResult.videoUrl);
-                // Video is now saved in backend - just refresh history
+
                 if (dbUser) {
+                    await saveVideo(
+                        dbUser.id,
+                        videoResult.videoUrl,
+                        inputText, // Use global state 'inputText'
+                        'faceless',
+                        30, // Approx
+                        !!enableCaptions,
+                        !!enableBackgroundMusic,
+                        undefined,
+                        'Faceless Video', // Default topic
+                        collectedAssets,
+                        sb // Pass authenticated client
+                    );
                     await refreshVideoHistory();
                 }
                 // Reset processing state after faceless video is done
@@ -1144,30 +1157,34 @@ export const useDashboardState = () => {
                 }
             );
 
-            setVideoUrl(sceneResult.videoUrl);
+            const finalVideoUrl = sceneResult.videoUrl;
+            setVideoUrl(finalVideoUrl);
 
-            // Save video with clip assets from WaveSpeed
+            // Save video with clip assets from WaveSpeed (Fallback for webhook)
             if (dbUser) {
                 // Merge existing collected assets with new clip assets
                 const allAssets = [
                     ...collectedAssets,
                     ...(sceneResult.clipAssets || [])
                 ];
+
                 await saveVideo(
                     dbUser.id,
-                    sceneResult.videoUrl,
-                    inputText,
+                    finalVideoUrl,
+                    JSON.stringify(sceneInputs), // Use local state variable which is trusted
                     'face',
-                    sceneResult.duration,
-                    enableCaptions,
-                    enableBackgroundMusic,
+                    sceneResult.duration || 0,
+                    !!enableCaptions,
+                    !!enableBackgroundMusic,
                     undefined,
-                    inputText,
-                    allAssets  // Save all assets including WaveSpeed clips
+                    'Face Video',
+                    allAssets,
+                    sb // Pass authenticated client
                 );
                 await refreshVideoHistory();
             }
             setIsProcessing(false);
+            setProcessingStep(0);
         } catch (err) {
             setError(handleApiError(err).message);
             setIsProcessing(false);

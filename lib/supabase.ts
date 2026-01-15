@@ -172,9 +172,10 @@ export async function saveVideo(
     hasMusic: boolean,
     thumbnailUrl?: string,
     topic?: string,
-    assets?: { url: string; source?: string }[]
+    assets?: { url: string; source?: string }[],
+    client: any = supabase
 ): Promise<DbVideo | null> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('videos')
         .insert({
             user_id: userId,
