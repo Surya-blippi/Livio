@@ -311,18 +311,28 @@ export async function POST(request: NextRequest) {
                 }).eq('id', jobId);
 
                 // Save to permanent 'videos' table
-                await supabase.from('videos').insert({
-                    user_id: job.user_id,
-                    video_url: result.videoUrl,
-                    script: job.script,
-                    mode: job.mode,
-                    topic: job.topic,
-                    duration: result.duration || 0,
-                    has_captions: inputData.enableCaptions,
-                    has_music: inputData.enableBackgroundMusic,
-                    assets: inputData.scenes?.map((s: any) => ({ url: s.visual, text: s.text })) || [], // Estimate assets from scenes
-                    thumbnail_url: null
-                });
+                try {
+                    // Extract script from processed scenes
+                    const script = processedScenes.map(ps => ps.text).join('\n\n');
+                    // Get thumbnail from first face scene
+                    const thumbnailUrl = processedScenes.find(ps => ps.type === 'face')?.clipUrl || null;
+
+                    await supabase.from('videos').insert({
+                        user_id: job.user_uuid || job.user_id,
+                        video_url: result.videoUrl,
+                        script: script,
+                        mode: 'face',
+                        topic: '',
+                        duration: result.duration || 0,
+                        has_captions: inputData.enableCaptions || false,
+                        has_music: inputData.enableBackgroundMusic || false,
+                        assets: clipAssets,
+                        thumbnail_url: thumbnailUrl
+                    });
+                    console.log('✅ Face video saved to history');
+                } catch (saveErr) {
+                    console.error('Failed to save face video to history:', saveErr);
+                }
 
                 return NextResponse.json({ success: true, completed: true, videoUrl: result.videoUrl });
             }
