@@ -959,6 +959,8 @@ export const useDashboardState = () => {
                 setVideoUrl(videoResult.videoUrl);
 
                 if (dbUser) {
+                    // Get FRESH token before saving - original token may have expired during long video generation
+                    const freshSb = await getSupabase();
                     await saveVideo(
                         dbUser.id,
                         videoResult.videoUrl,
@@ -970,7 +972,7 @@ export const useDashboardState = () => {
                         undefined,
                         'Faceless Video', // Default topic
                         collectedAssets,
-                        sb // Pass authenticated client
+                        freshSb // Pass authenticated client with fresh token
                     );
                     await refreshVideoHistory();
                 }
@@ -1190,6 +1192,8 @@ export const useDashboardState = () => {
                     ...(sceneResult.clipAssets || [])
                 ];
 
+                // Get FRESH token before saving - original token may have expired during long video generation
+                const freshSb = await getSupabase();
                 await saveVideo(
                     dbUser.id,
                     finalVideoUrl,
@@ -1201,7 +1205,7 @@ export const useDashboardState = () => {
                     undefined,
                     'Face Video',
                     allAssets,
-                    sb // Pass authenticated client
+                    freshSb // Pass authenticated client with fresh token
                 );
                 await refreshVideoHistory();
             }

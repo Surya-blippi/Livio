@@ -430,7 +430,7 @@ export async function POST(request: NextRequest) {
                 // Save to permanent 'videos' table FIRST (to avoid race condition with frontend polling)
                 try {
                     const script = processedScenes.map(s => s.text).join('\n\n');
-                    await supabase.from('videos').insert({
+                    const { data: videoData, error: videoError } = await supabase.from('videos').insert({
                         user_id: job.user_uuid || job.user_id,
                         video_url: status.videoUrl,
                         script: script,
@@ -441,10 +441,15 @@ export async function POST(request: NextRequest) {
                         has_music: input.enableBackgroundMusic || false,
                         assets: sceneAssets,
                         thumbnail_url: processedScenes[0]?.assetUrl || null
-                    });
-                    console.log('✅ Video saved to history');
+                    }).select();
+
+                    if (videoError) {
+                        console.error('❌ Failed to save faceless video to history:', videoError.message, videoError.code, videoError.details);
+                    } else {
+                        console.log('✅ Faceless video saved to history:', videoData);
+                    }
                 } catch (saveErr) {
-                    console.error('Failed to save video to history:', saveErr);
+                    console.error('❌ Exception saving faceless video to history:', saveErr);
                 }
 
                 // Update job status

@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
                     // Get thumbnail from first face scene
                     const thumbnailUrl = processedScenes.find(ps => ps.type === 'face')?.clipUrl || null;
 
-                    await supabase.from('videos').insert({
+                    const { data: videoData, error: videoError } = await supabase.from('videos').insert({
                         user_id: job.user_uuid || job.user_id,
                         video_url: result.videoUrl,
                         script: script,
@@ -328,10 +328,15 @@ export async function POST(request: NextRequest) {
                         has_music: inputData.enableBackgroundMusic || false,
                         assets: clipAssets,
                         thumbnail_url: thumbnailUrl
-                    });
-                    console.log('✅ Face video saved to history');
+                    }).select();
+
+                    if (videoError) {
+                        console.error('❌ Failed to save face video to history:', videoError.message, videoError.code, videoError.details);
+                    } else {
+                        console.log('✅ Face video saved to history:', videoData);
+                    }
                 } catch (saveErr) {
-                    console.error('Failed to save face video to history:', saveErr);
+                    console.error('❌ Exception saving face video to history:', saveErr);
                 }
 
                 return NextResponse.json({ success: true, completed: true, videoUrl: result.videoUrl });
