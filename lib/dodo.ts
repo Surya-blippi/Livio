@@ -23,5 +23,4 @@ export const DODO_PRODUCT_IDS: Record<string, string> = {
     starter: 'pdt_0NWHKzXSeImXNM6FkwHZK',  // Reven Starter - $19 (Live)
     pro: 'pdt_0NWYUSiqPOMyemAR4mWmd',      // Reven Pro - $39 (Live)
     studio: 'pdt_0NWYUXOKtXT9Tp6JrdV7Q',   // Reven Studio - $79 (Live)
-    enterprise: 'pdt_enterprise_credits',   // TODO: Create in dashboard
 };

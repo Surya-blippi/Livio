@@ -91,5 +91,4 @@ export const CREDIT_PACKAGES = [
     { id: 'starter', name: 'Starter', credits: 2000, price: 19, bonus: 100 },
     { id: 'pro', name: 'Pro', credits: 5000, price: 39, bonus: 500 },
     { id: 'studio', name: 'Studio', credits: 12000, price: 79, bonus: 2000 },
-    { id: 'enterprise', name: 'Enterprise', credits: 30000, price: 149, bonus: 5000 },
 ] as const;
