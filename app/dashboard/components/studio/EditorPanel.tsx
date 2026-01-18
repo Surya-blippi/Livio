@@ -233,9 +233,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
                                 {/* Mode Pill */}
                                 <button onClick={() => setPreviewMode('face')} className="group flex items-center gap-2 px-2 py-1 rounded-full border border-transparent hover:border-gray-200 hover:bg-white transition-all">
-                                    <div className="w-4 h-4 rounded-full bg-gray-200 overflow-hidden border border-black group-hover:scale-110 transition-transform flex items-center justify-center">
+                                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border-2 border-black group-hover:scale-110 transition-transform flex items-center justify-center">
                                         {mode === 'faceless' ? (
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                 <circle cx="12" cy="12" r="10"></circle>
                                                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                                             </svg>
