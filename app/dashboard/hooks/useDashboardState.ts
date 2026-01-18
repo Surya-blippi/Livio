@@ -825,7 +825,7 @@ export const useDashboardState = () => {
             const hasAvatar = photoPreview || (useStudioImage && studioReadyUrl);
             if (!hasAvatar) {
                 setPreviewMode('face');
-                setError('Please upload or select an avatar first');
+                setError("✨ Let's first get you studio ready! Upload or select your avatar.");
                 return;
             }
 
@@ -833,7 +833,7 @@ export const useDashboardState = () => {
             const hasVoice = voiceFile || hasClonedVoice;
             if (!hasVoice) {
                 setPreviewMode('voice');
-                setError('Please record or upload a voice sample first');
+                setError("🎤 Now let's clone your voice! Record or upload a voice sample.");
                 return;
             }
         }
@@ -843,7 +843,7 @@ export const useDashboardState = () => {
             // Check if assets are collected
             if (collectedAssets.length === 0) {
                 setPreviewMode('assets');
-                setError('Please upload or collect some images first');
+                setError("🖼️ Let's add some visuals! Upload or collect images for your video.");
                 return;
             }
         }
