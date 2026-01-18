@@ -818,6 +818,37 @@ export const useDashboardState = () => {
         if (!inputText.trim()) { setError('Please enter a script'); return; }
         if (!dbUser) { setError('Please sign in to create videos'); return; }
 
+        // --- PRE-FLIGHT CHECKS FOR FACE MODE ---
+        // Guide users to set up avatar and voice before generating
+        if (mode === 'face') {
+            // Check if avatar/face is set
+            const hasAvatar = photoPreview || (useStudioImage && studioReadyUrl);
+            if (!hasAvatar) {
+                setPreviewMode('face');
+                setError('Please upload or select an avatar first');
+                return;
+            }
+
+            // Check if voice is set
+            const hasVoice = voiceFile || hasClonedVoice;
+            if (!hasVoice) {
+                setPreviewMode('voice');
+                setError('Please record or upload a voice sample first');
+                return;
+            }
+        }
+
+        // --- PRE-FLIGHT CHECKS FOR FACELESS MODE ---
+        if (mode === 'faceless') {
+            // Check if assets are collected
+            if (collectedAssets.length === 0) {
+                setPreviewMode('assets');
+                setError('Please upload or collect some images first');
+                return;
+            }
+        }
+        // ----------------------------------------
+
         // --- AUTO-PARSE SCENES IF EMPTY ---
         // If user has script but no scenes (didn't click Research), parse script into scenes
         let workingScenes = scenes;
@@ -884,11 +915,7 @@ export const useDashboardState = () => {
                     return;
                 }
 
-                if (collectedAssets.length === 0) {
-                    setError('Please collect assets first (click the sparkle button)');
-                    setIsProcessing(false);
-                    return;
-                }
+                // Assets check is now handled in pre-flight validation above
 
                 // Map scenes to assets (1:1 or loop assets)
                 // Map scenes to assets (1:1 or loop assets)
