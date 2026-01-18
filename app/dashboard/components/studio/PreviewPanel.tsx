@@ -619,12 +619,37 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center opacity-60">
-                                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                                <div className="h-full flex flex-col items-center justify-center">
+                                    {/* Onboarding Banner for Assets */}
+                                    <div className="p-6 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-900/30 dark:to-yellow-900/30 rounded-xl border-2 border-orange-300 dark:border-orange-700 text-center max-w-xs">
+                                        <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0 mx-auto mb-3 animate-pulse">
+                                            <span className="text-white text-xl">🖼️</span>
+                                        </div>
+                                        <h4 className="font-bold text-orange-800 dark:text-orange-200 text-sm mb-2">
+                                            Let's add some visuals!
+                                        </h4>
+                                        <p className="text-xs text-orange-700 dark:text-orange-300 mb-4">
+                                            Faceless videos need images. Upload your own or use <strong>Collect</strong> to find images from the web.
+                                        </p>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-orange-600 transition-colors">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                Upload Images
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    className="hidden"
+                                                    onChange={onUploadAsset}
+                                                />
+                                            </label>
+                                            <p className="text-[10px] text-orange-600 dark:text-orange-400">
+                                                or click <strong>Collect</strong> button in the editor
+                                            </p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm font-medium text-gray-500 mb-2">No assets yet</p>
-                                    <p className="text-xs text-gray-400 text-center max-w-[200px]">Use <strong>Collect</strong> to find images from the web, or upload your own.</p>
                                 </div>
                             )}
                         </div>
