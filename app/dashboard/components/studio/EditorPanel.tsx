@@ -325,41 +325,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                     )}
                                 </div>
 
-                                {/* Aspect Ratio */}
-                                <div className="relative">
-                                    <button
-                                        onClick={() => { setShowAspectMenu(!showAspectMenu); setShowDurationMenu(false); }}
-                                        className="px-2 py-1 rounded-full border border-transparent hover:border-gray-200 hover:bg-white transition-all text-[10px] font-bold text-[var(--text-secondary)] hover:text-black uppercase tracking-wide flex items-center gap-1"
-                                    >
-                                        <span>{aspectRatio}</span>
-                                        <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 15l-6-6-6 6" /></svg>
-                                    </button>
-                                    {showAspectMenu && (
-                                        <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setShowAspectMenu(false)} />
-                                            <div className="absolute bottom-full left-0 mb-2 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_#000] overflow-hidden z-50 min-w-[140px]">
-                                                {[
-                                                    { value: '9:16', label: '9:16 Vertical', desc: 'TikTok/Reels' },
-                                                    { value: '16:9', label: '16:9 Horizontal', desc: 'YouTube' },
-                                                    { value: '1:1', label: '1:1 Square', desc: 'Instagram' }
-                                                ].map((ar) => (
-                                                    <button
-                                                        key={ar.value}
-                                                        onClick={() => { setAspectRatio(ar.value); setShowAspectMenu(false); }}
-                                                        className={`w-full px-4 py-2 text-left transition-colors flex flex-col ${aspectRatio === ar.value ? 'bg-[var(--brand-primary)] text-black' : 'hover:bg-gray-100 text-gray-700'}`}
-                                                    >
-                                                        <span className="text-xs font-bold flex items-center justify-between w-full">
-                                                            {ar.label}
-                                                            {aspectRatio === ar.value && <span>✓</span>}
-                                                        </span>
-                                                        <span className={`text-[10px] ${aspectRatio === ar.value ? 'text-black/60' : 'text-gray-400'}`}>{ar.desc}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-
                                 <div className="flex-1"></div>
 
                                 {/* Toggles */}
