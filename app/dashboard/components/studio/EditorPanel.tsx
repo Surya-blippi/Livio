@@ -40,6 +40,8 @@ interface EditorPanelProps {
     hasAssets: boolean;
     hasStoryboard: boolean;
     hasVideo: boolean;
+    hasVoice?: boolean;
+    hasAvatar?: boolean;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -73,7 +75,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     hasScript,
     hasAssets,
     hasStoryboard,
-    hasVideo
+    hasVideo,
+    hasVoice,
+    hasAvatar
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showDurationMenu, setShowDurationMenu] = useState(false);
@@ -226,6 +230,40 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                 {/* 2. Composer Card - DESKTOP VERSION */}
                 <div className="flex-shrink-0 p-4 md:p-6 bg-transparent">
                     <div className="w-full max-w-5xl mx-auto">
+                        {/* Onboarding Banner - Show when in face mode and missing avatar or voice */}
+                        {mode === 'face' && !isProcessing && (!hasAvatar || !hasVoice) && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mb-4 p-3 rounded-xl border-2 border-dashed flex items-center gap-3 cursor-pointer transition-all hover:shadow-md"
+                                style={{
+                                    background: !hasAvatar
+                                        ? 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 100%)'
+                                        : 'linear-gradient(135deg, #dbeafe 0%, #cffafe 100%)',
+                                    borderColor: !hasAvatar ? '#a855f7' : '#3b82f6'
+                                }}
+                                onClick={() => setPreviewMode(!hasAvatar ? 'face' : 'voice')}
+                            >
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse ${!hasAvatar ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                                    <span className="text-white text-lg">{!hasAvatar ? '✨' : '🎤'}</span>
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className={`font-bold text-sm ${!hasAvatar ? 'text-purple-800' : 'text-blue-800'}`}>
+                                        {!hasAvatar
+                                            ? "Let's get you studio ready!"
+                                            : "Now let's clone your voice!"}
+                                    </h4>
+                                    <p className={`text-xs ${!hasAvatar ? 'text-purple-600' : 'text-blue-600'}`}>
+                                        {!hasAvatar
+                                            ? "Upload your photo to create your AI avatar (one-time setup)"
+                                            : "Record or upload a voice sample (one-time setup)"}
+                                    </p>
+                                </div>
+                                <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!hasAvatar ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                    {!hasAvatar ? 'Upload Avatar →' : 'Clone Voice →'}
+                                </div>
+                            </motion.div>
+                        )}
                         <div className="relative bg-white border-2 border-black rounded-[var(--radius-lg)] shadow-[8px_8px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:shadow-[12px_12px_0px_rgba(0,0,0,1)]">
 
                             {/* A. Toolbar (Top) */}

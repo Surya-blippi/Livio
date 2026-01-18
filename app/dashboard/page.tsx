@@ -171,6 +171,8 @@ export default function Dashboard() {
                         hasAssets={state.collectedAssets.length > 0}
                         hasStoryboard={state.scenes.length > 0}
                         hasVideo={!!state.videoUrl || !!state.selectedVideo}
+                        hasVoice={state.hasClonedVoice || !!state.voiceFile}
+                        hasAvatar={!!(state.photoPreview || (state.useStudioImage && state.studioReadyUrl))}
                         isEnhancing={isEnhancing}
                         isCollectingAssets={isCollectingAssets}
                     />
