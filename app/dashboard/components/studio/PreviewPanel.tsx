@@ -192,14 +192,29 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                         </div>
 
                                         {/* Download Button - Extra prominent on mobile */}
-                                        <a
-                                            href={videoUrl}
-                                            download={`video_${Date.now()}.mp4`}
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const response = await fetch(videoUrl);
+                                                    const blob = await response.blob();
+                                                    const url = window.URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `video_${Date.now()}.mp4`;
+                                                    document.body.appendChild(a);
+                                                    a.click();
+                                                    document.body.removeChild(a);
+                                                    window.URL.revokeObjectURL(url);
+                                                } catch (err) {
+                                                    // Fallback: open in new tab
+                                                    window.open(videoUrl, '_blank');
+                                                }
+                                            }}
                                             className="flex items-center justify-center gap-3 w-full px-6 py-5 md:py-4 bg-[var(--brand-primary)] text-black font-black text-base md:text-sm uppercase tracking-wider rounded-xl border-3 md:border-2 border-black shadow-[6px_6px_0px_#000] md:shadow-[4px_4px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
                                         >
                                             <DownloadIcon className="w-6 h-6 md:w-5 md:h-5" />
                                             <span>Download Video</span>
-                                        </a>
+                                        </button>
                                     </div>
                                 </>
                             ) : (
@@ -978,14 +993,29 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
             {/* Fixed Mobile Download Button - Always visible at bottom on mobile when video is ready */}
             {previewMode === 'video' && videoUrl && (
                 <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-gradient-to-t from-white via-white to-transparent md:hidden z-50">
-                    <a
-                        href={videoUrl}
-                        download={`video_${Date.now()}.mp4`}
+                    <button
+                        onClick={async () => {
+                            try {
+                                const response = await fetch(videoUrl);
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `video_${Date.now()}.mp4`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                            } catch (err) {
+                                // Fallback: open in new tab
+                                window.open(videoUrl, '_blank');
+                            }
+                        }}
                         className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-[var(--brand-primary)] text-black font-black text-base uppercase tracking-wider rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
                     >
                         <DownloadIcon className="w-6 h-6" />
                         <span>Download Video</span>
-                    </a>
+                    </button>
                 </div>
             )}
         </div>

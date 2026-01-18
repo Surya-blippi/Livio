@@ -672,16 +672,31 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                     style={{ aspectRatio: '9/16' }}
                                                 />
                                                 {/* Download Button */}
-                                                <a
-                                                    href={videoUrl}
-                                                    download={`video_${Date.now()}.mp4`}
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetch(videoUrl);
+                                                            const blob = await response.blob();
+                                                            const url = window.URL.createObjectURL(blob);
+                                                            const a = document.createElement('a');
+                                                            a.href = url;
+                                                            a.download = `video_${Date.now()}.mp4`;
+                                                            document.body.appendChild(a);
+                                                            a.click();
+                                                            document.body.removeChild(a);
+                                                            window.URL.revokeObjectURL(url);
+                                                        } catch (err) {
+                                                            // Fallback: open in new tab
+                                                            window.open(videoUrl, '_blank');
+                                                        }
+                                                    }}
                                                     className="mt-6 flex items-center justify-center gap-3 w-full max-w-sm px-6 py-4 bg-[var(--brand-primary)] text-black font-black text-base uppercase tracking-wider rounded-xl border-2 border-black shadow-[4px_4px_0px_#000] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
                                                 >
                                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                     </svg>
                                                     <span>Download Video</span>
-                                                </a>
+                                                </button>
                                             </>
                                         ) : (
                                             <div className="text-center py-12">
