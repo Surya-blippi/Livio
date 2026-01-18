@@ -216,6 +216,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 );
 
             case 'voice':
+                // Check if user has any voice cloned
+                const hasAnyVoice = allVoices.length > 0 || voiceFile;
+
                 return (
                     <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
@@ -223,6 +226,24 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
+                            {/* Onboarding Banner - Show when no voice is cloned */}
+                            {!hasAnyVoice && (
+                                <div className="p-4 bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl border-2 border-blue-300 dark:border-blue-700">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                            <span className="text-white text-lg">🎤</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-blue-800 dark:text-blue-200 text-sm mb-1">
+                                                Now let's clone your voice!
+                                            </h4>
+                                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                                                Record or upload a voice sample (10+ seconds) and we'll create your personal AI voice. <strong>This is a one-time setup.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* 1. Actions Row */}
                             <div className="flex gap-2">
@@ -347,6 +368,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 );
 
             case 'face':
+                // Check if user has any avatar set
+                const hasAnyAvatar = photoPreview || (useStudioImage && studioReadyUrl) || savedAvatars.length > 0;
+
                 return (
                     <div className="flex flex-col h-full animate-in slide-in-from-right duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]">
@@ -354,6 +378,25 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                            {/* Onboarding Banner - Show when no avatar is selected */}
+                            {!hasAnyAvatar && mode === 'face' && (
+                                <div className="mb-4 p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-300 dark:border-purple-700">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                            <span className="text-white text-lg">✨</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-purple-800 dark:text-purple-200 text-sm mb-1">
+                                                Let's get you studio ready!
+                                            </h4>
+                                            <p className="text-xs text-purple-700 dark:text-purple-300">
+                                                Upload your photo and we'll transform it into a professional AI-ready avatar. <strong>This is a one-time setup.</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Unified Visual Style Grid */}
                             <div className="grid grid-cols-3 gap-3">
                                 {/* None / Faceless Option */}
