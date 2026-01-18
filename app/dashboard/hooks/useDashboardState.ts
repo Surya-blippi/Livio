@@ -663,7 +663,20 @@ export const useDashboardState = () => {
     const handleSelectVideo = async (video: DbVideo) => {
         // Set metadata immediately for fast UI response
         setSelectedVideo(video);
-        setInputText(video.script || '');
+
+        // Parse script - it might be stored as JSON array of scenes
+        let scriptText = video.script || '';
+        try {
+            const parsed = JSON.parse(scriptText);
+            if (Array.isArray(parsed)) {
+                // Extract text from each scene object
+                scriptText = parsed.map((s: { text?: string }) => s.text || '').join('\n\n');
+            }
+        } catch {
+            // Not JSON, use as-is (already plain text)
+        }
+        setInputText(scriptText);
+
         setOriginalTopic(video.topic || '');
         setMode(video.mode || 'faceless');
         setEnableCaptions(video.has_captions ?? false);
