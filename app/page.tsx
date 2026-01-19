@@ -298,17 +298,17 @@ export default function LandingPage() {
                     <motion.div
                         animate={{ y: [-8, 8, -8], rotate: [-3, 3, -3] }}
                         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute top-[18%] left-[6%] text-5xl md:text-6xl opacity-30 select-none"
+                        className="absolute top-[18%] left-[6%] text-5xl md:text-6xl opacity-50 select-none"
                     >🎫</motion.div>
                     <motion.div
                         animate={{ y: [6, -6, 6], rotate: [4, -4, 4] }}
                         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                        className="absolute top-[12%] right-[10%] text-4xl md:text-5xl opacity-25 select-none"
+                        className="absolute top-[12%] right-[10%] text-4xl md:text-5xl opacity-40 select-none"
                     >🎟️</motion.div>
                     <motion.div
                         animate={{ y: [-5, 5, -5] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                        className="absolute bottom-[20%] right-[6%] text-4xl opacity-20 select-none"
+                        className="absolute bottom-[20%] right-[6%] text-4xl opacity-35 select-none"
                     >✨</motion.div>
                 </div>
 
@@ -328,8 +328,7 @@ export default function LandingPage() {
                             Every piece of content<br />
                             is a{' '}
                             <span className="relative inline-block">
-                                <span className="relative z-10 text-[var(--brand-primary)]">lottery ticket</span>
-                                <span className="absolute bottom-1 left-0 right-0 h-4 bg-black -z-0 -rotate-1"></span>
+                                <span className="relative z-10 bg-[var(--brand-primary)] text-black px-2 py-1 rounded-md">lottery ticket</span>
                             </span>
                         </h2>
 
@@ -356,9 +355,9 @@ export default function LandingPage() {
                                 className="relative"
                             >
                                 {/* Ticket card with perforated edge effect */}
-                                <div className="bg-white border-3 border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_#000] hover:shadow-[12px_12px_0px_var(--brand-primary)] transition-all duration-300">
+                                <div className="bg-white border-2 border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_#000] hover:shadow-[12px_12px_0px_var(--brand-primary)] transition-all duration-300">
                                     {/* Ticket header */}
-                                    <div className="bg-[var(--brand-primary)] py-3 px-5 border-b-2 border-black border-dashed">
+                                    <div className="bg-[var(--brand-primary)] py-3 px-5 border-b-2 border-black">
                                         <span className="text-4xl">{item.emoji}</span>
                                     </div>
                                     {/* Ticket body */}
@@ -378,7 +377,7 @@ export default function LandingPage() {
                         viewport={{ once: true }}
                         className="relative"
                     >
-                        <div className="bg-white border-3 border-black rounded-[2rem] p-8 md:p-12 shadow-[10px_10px_0px_#000] relative overflow-hidden">
+                        <div className="bg-white border-2 border-black rounded-[2rem] p-8 md:p-12 shadow-[10px_10px_0px_#000] relative overflow-hidden">
                             {/* Corner accent */}
                             <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--brand-primary)] rounded-bl-[2rem]"></div>
                             <div className="absolute top-3 right-4 text-2xl font-black rotate-12">⚡</div>
@@ -406,7 +405,7 @@ export default function LandingPage() {
                                             whileInView={{ opacity: 1, scale: 1 }}
                                             transition={{ delay: i * 0.08 }}
                                             viewport={{ once: true }}
-                                            className="inline-block px-4 py-2.5 rounded-full border-2 border-gray-200 bg-gray-50 font-bold text-sm text-gray-400 line-through decoration-[var(--brand-primary)] decoration-2"
+                                            className="inline-block px-4 py-2.5 rounded-full border-2 border-black/20 bg-gray-100 font-bold text-sm text-gray-600 line-through decoration-red-500 decoration-2"
                                         >
                                             {item}
                                         </motion.span>
