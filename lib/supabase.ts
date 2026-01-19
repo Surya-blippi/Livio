@@ -720,7 +720,7 @@ export async function getUserCredits(userId: string): Promise<DbUserCredits | nu
     if (!data) {
         const { data: newCredits, error: createError } = await supabase
             .from('user_credits')
-            .insert({ user_id: userId, balance: 100 }) // 100 welcome bonus
+            .insert({ user_id: userId, balance: 500 }) // 500 welcome bonus
             .select()
             .single();
 
@@ -732,8 +732,8 @@ export async function getUserCredits(userId: string): Promise<DbUserCredits | nu
         // Log the welcome bonus transaction
         await supabase.from('credit_transactions').insert({
             user_id: userId,
-            amount: 100,
-            balance_after: 100,
+            amount: 500,
+            balance_after: 500,
             type: 'bonus',
             description: 'Welcome bonus credits'
         });
