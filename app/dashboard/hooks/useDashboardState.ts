@@ -1122,38 +1122,47 @@ export const useDashboardState = () => {
                 throw new Error('No photo available for face mode');
             }
 
-            // Build scenes from script - alternate face/asset
-            // If we have scene timings from enhance, use those; otherwise split the script
+            // Build scenes from script
+            // If no assets collected: single continuous face scene (no cuts)
+            // If assets collected: alternate face/asset scenes
             const sceneInputs: FaceVideoSceneInput[] = [];
 
-            if (sceneTimings && sceneTimings.length > 0) {
-                // Use scene data from enhanced script
+            if (collectedAssets.length === 0) {
+                // NO ASSETS: Single continuous face scene with entire script
+                console.log('Face mode: No assets collected - generating single continuous face video');
+                sceneInputs.push({
+                    text: inputText.trim(),
+                    type: 'face',
+                    assetUrl: undefined
+                });
+            } else if (sceneTimings && sceneTimings.length > 0) {
+                // WITH ASSETS + SCENE TIMINGS: Alternate face/asset
                 let assetIndex = 0;
                 for (let i = 0; i < sceneTimings.length; i++) {
                     const isAssetScene = i % 2 !== 0; // Alternate: face, asset, face, asset
                     sceneInputs.push({
                         text: sceneTimings[i].text,
-                        type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
-                        assetUrl: isAssetScene && collectedAssets.length > 0
+                        type: isAssetScene ? 'asset' : 'face',
+                        assetUrl: isAssetScene
                             ? collectedAssets[assetIndex % collectedAssets.length].url
                             : undefined
                     });
-                    if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                    if (isAssetScene) assetIndex++;
                 }
             } else {
-                // Fallback: Split script into sentences and alternate
+                // WITH ASSETS + NO SCENE TIMINGS: Split script and alternate
                 const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
                 let assetIndex = 0;
                 for (let i = 0; i < sentences.length; i++) {
                     const isAssetScene = i % 2 !== 0;
                     sceneInputs.push({
                         text: sentences[i].trim() + '.',
-                        type: isAssetScene && collectedAssets.length > 0 ? 'asset' : 'face',
-                        assetUrl: isAssetScene && collectedAssets.length > 0
+                        type: isAssetScene ? 'asset' : 'face',
+                        assetUrl: isAssetScene
                             ? collectedAssets[assetIndex % collectedAssets.length].url
                             : undefined
                     });
-                    if (isAssetScene && collectedAssets.length > 0) assetIndex++;
+                    if (isAssetScene) assetIndex++;
                 }
             }
 
