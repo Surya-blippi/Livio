@@ -496,7 +496,7 @@ export default function LandingPage() {
                         <a href="https://x.com/avid_abhay" target="_blank" rel="noopener noreferrer" className="hover:text-black">𝕏</a>
                         <a href="https://wa.me/918587880823" target="_blank" rel="noopener noreferrer" className="hover:text-black">WhatsApp</a>
                     </div>
-                    <p className="text-sm font-bold text-[var(--text-tertiary)]">© 2026 Reven - Pocket Creator</p>
+                    <p className="text-sm font-bold text-[var(--text-tertiary)]">© 2026 Reven</p>
                 </div>
             </footer>
         </div>
