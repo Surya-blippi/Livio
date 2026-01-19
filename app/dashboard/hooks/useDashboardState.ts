@@ -101,7 +101,7 @@ export const useDashboardState = () => {
     const [isEnhanced, setIsEnhanced] = useState(false);
     const [enableCaptions, setEnableCaptions] = useState(true);
     const [captionStyle, setCaptionStyle] = useState('bold-classic');
-    const [enableBackgroundMusic, setEnableBackgroundMusic] = useState(false);
+    const [enableBackgroundMusic, setEnableBackgroundMusic] = useState(true);
     const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
     const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
     const [originalTopic, setOriginalTopic] = useState(''); // Store the topic before enhancement
