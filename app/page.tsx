@@ -284,144 +284,136 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* Lottery Ticket Section - Premium Redesign */}
-            <section className="py-32 px-6 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 relative overflow-hidden">
-                {/* Animated Background Elements */}
-                <div className="absolute inset-0">
-                    {/* Glowing orbs */}
-                    <div className="absolute top-20 left-10 w-96 h-96 bg-[var(--brand-primary)]/20 rounded-full blur-[120px] animate-pulse"></div>
-                    <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/15 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--brand-primary)]/5 rounded-full blur-[150px]"></div>
+            {/* Lottery Ticket Section - Light Premium */}
+            <section className="py-28 px-6 bg-gradient-to-b from-amber-50/80 via-[var(--surface-1)] to-white relative overflow-hidden">
+                {/* Decorative Elements */}
+                <div className="absolute inset-0 pointer-events-none">
+                    {/* Scattered golden dots */}
+                    <div className="absolute top-[10%] left-[5%] w-3 h-3 bg-[var(--brand-primary)] rounded-full opacity-60"></div>
+                    <div className="absolute top-[20%] right-[8%] w-4 h-4 bg-[var(--brand-primary)] rounded-full opacity-40"></div>
+                    <div className="absolute bottom-[15%] left-[12%] w-2 h-2 bg-[var(--brand-primary)] rounded-full opacity-50"></div>
+                    <div className="absolute bottom-[25%] right-[15%] w-3 h-3 bg-[var(--brand-primary)] rounded-full opacity-30"></div>
 
-                    {/* Floating ticket emojis */}
+                    {/* Floating ticket decorations */}
                     <motion.div
-                        animate={{ y: [-10, 10, -10], rotate: [-5, 5, -5] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute top-[15%] left-[8%] text-6xl opacity-20"
+                        animate={{ y: [-8, 8, -8], rotate: [-3, 3, -3] }}
+                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute top-[18%] left-[6%] text-5xl md:text-6xl opacity-30 select-none"
                     >🎫</motion.div>
                     <motion.div
-                        animate={{ y: [10, -10, 10], rotate: [5, -5, 5] }}
-                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                        className="absolute top-[25%] right-[12%] text-5xl opacity-15"
+                        animate={{ y: [6, -6, 6], rotate: [4, -4, 4] }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                        className="absolute top-[12%] right-[10%] text-4xl md:text-5xl opacity-25 select-none"
                     >🎟️</motion.div>
                     <motion.div
-                        animate={{ y: [-15, 15, -15], rotate: [-8, 8, -8] }}
-                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                        className="absolute bottom-[20%] left-[15%] text-4xl opacity-20"
+                        animate={{ y: [-5, 5, -5] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                        className="absolute bottom-[20%] right-[6%] text-4xl opacity-20 select-none"
                     >✨</motion.div>
-                    <motion.div
-                        animate={{ y: [15, -15, 15] }}
-                        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-                        className="absolute bottom-[30%] right-[8%] text-5xl opacity-15"
-                    >🎰</motion.div>
                 </div>
 
                 <div className="max-w-5xl mx-auto relative z-10">
+                    {/* Section Header */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="text-center mb-16"
+                    >
+                        <span className="inline-block px-5 py-2 rounded-full border-2 border-black bg-[var(--brand-primary)] text-sm font-black uppercase tracking-wider mb-6 shadow-[4px_4px_0px_#000]">
+                            🎰 The Numbers Game
+                        </span>
+
+                        <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6 leading-[1.15]">
+                            Every piece of content<br />
+                            is a{' '}
+                            <span className="relative inline-block">
+                                <span className="relative z-10 text-[var(--brand-primary)]">lottery ticket</span>
+                                <span className="absolute bottom-1 left-0 right-0 h-4 bg-black -z-0 -rotate-1"></span>
+                            </span>
+                        </h2>
+
+                        <p className="text-xl md:text-2xl font-bold text-[var(--text-secondary)] max-w-2xl mx-auto">
+                            So maximize your chances of{' '}
+                            <span className="bg-[var(--brand-primary)] text-black px-2 py-0.5 rounded">winning</span>.
+                        </p>
+                    </motion.div>
+
+                    {/* The ONE Cards - Ticket Style */}
+                    <div className="grid md:grid-cols-3 gap-6 md:gap-8 mb-16">
+                        {[
+                            { emoji: '🤝', one: 'ONE reel', result: 'to land that dream client' },
+                            { emoji: '💼', one: 'ONE video', result: 'to close that big deal' },
+                            { emoji: '⭐', one: 'ONE post', result: 'to get noticed by someone BIG' },
+                        ].map((item, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 25, rotate: i === 1 ? 0 : (i === 0 ? -2 : 2) }}
+                                whileInView={{ opacity: 1, y: 0, rotate: i === 1 ? 0 : (i === 0 ? -1 : 1) }}
+                                transition={{ delay: i * 0.12 }}
+                                viewport={{ once: true }}
+                                whileHover={{ y: -8, rotate: 0 }}
+                                className="relative"
+                            >
+                                {/* Ticket card with perforated edge effect */}
+                                <div className="bg-white border-3 border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_#000] hover:shadow-[12px_12px_0px_var(--brand-primary)] transition-all duration-300">
+                                    {/* Ticket header */}
+                                    <div className="bg-[var(--brand-primary)] py-3 px-5 border-b-2 border-black border-dashed">
+                                        <span className="text-4xl">{item.emoji}</span>
+                                    </div>
+                                    {/* Ticket body */}
+                                    <div className="p-6 text-center">
+                                        <p className="text-3xl font-black text-black mb-2">{item.one}</p>
+                                        <p className="text-base font-bold text-[var(--text-secondary)]">{item.result}</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* The Solution */}
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-center"
+                        className="relative"
                     >
-                        {/* Glowing Badge */}
-                        <motion.span
-                            initial={{ scale: 0.9 }}
-                            whileInView={{ scale: 1 }}
-                            viewport={{ once: true }}
-                            className="inline-block px-6 py-2 rounded-full bg-gradient-to-r from-[var(--brand-primary)] to-yellow-400 text-black text-sm font-black uppercase tracking-widest mb-8 shadow-[0_0_40px_rgba(255,220,0,0.3)]"
-                        >
-                            🎫 The Content Game
-                        </motion.span>
+                        <div className="bg-white border-3 border-black rounded-[2rem] p-8 md:p-12 shadow-[10px_10px_0px_#000] relative overflow-hidden">
+                            {/* Corner accent */}
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--brand-primary)] rounded-bl-[2rem]"></div>
+                            <div className="absolute top-3 right-4 text-2xl font-black rotate-12">⚡</div>
 
-                        {/* Epic Headline */}
-                        <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-[1.1]">
-                            Every post is a{' '}
-                            <span className="relative inline-block">
-                                <span className="relative z-10 bg-gradient-to-r from-[var(--brand-primary)] via-yellow-300 to-[var(--brand-primary)] bg-clip-text text-transparent">
-                                    lottery ticket
-                                </span>
-                                <motion.span
-                                    animate={{ opacity: [0.5, 1, 0.5] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                    className="absolute -inset-2 bg-[var(--brand-primary)]/20 blur-xl rounded-lg"
-                                ></motion.span>
-                            </span>
-                        </h2>
+                            <div className="text-center relative z-10">
+                                <h3 className="text-2xl md:text-4xl font-black mb-4">
+                                    Reven makes posting{' '}
+                                    <span className="bg-black text-[var(--brand-primary)] px-3 py-1 rounded-lg">stupidly easy</span>
+                                </h3>
+                                <p className="text-lg md:text-xl text-[var(--text-secondary)] mb-10 max-w-xl mx-auto font-medium">
+                                    You just decide <strong className="text-black">what to say</strong>. We handle everything else.
+                                </p>
 
-                        <p className="text-2xl md:text-3xl font-bold text-zinc-400 max-w-3xl mx-auto leading-relaxed mb-16">
-                            Maximize your chances of <span className="text-white">winning</span>.
-                        </p>
-
-                        {/* Premium Glass Cards */}
-                        <div className="grid md:grid-cols-3 gap-6 mb-16">
-                            {[
-                                { emoji: '🤝', highlight: 'ONE reel', text: 'to close that client' },
-                                { emoji: '💼', highlight: 'ONE video', text: 'to close that deal' },
-                                { emoji: '🌟', highlight: 'ONE post', text: 'to get noticed by someone BIG' },
-                            ].map((item, i) => (
-                                <motion.div
-                                    key={i}
-                                    initial={{ opacity: 0, y: 30 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.15 }}
-                                    viewport={{ once: true }}
-                                    whileHover={{ scale: 1.03, y: -5 }}
-                                    className="group relative p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-[var(--brand-primary)]/50 transition-all duration-300 overflow-hidden"
-                                >
-                                    {/* Hover glow */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-primary)]/0 to-[var(--brand-primary)]/0 group-hover:from-[var(--brand-primary)]/10 group-hover:to-transparent transition-all duration-500 rounded-2xl"></div>
-
-                                    <span className="text-5xl mb-4 block relative z-10 group-hover:scale-110 transition-transform duration-300">{item.emoji}</span>
-                                    <p className="text-xl font-black text-white leading-tight relative z-10">
-                                        <span className="text-[var(--brand-primary)]">{item.highlight}</span>
-                                        <br />
-                                        <span className="text-zinc-400 font-bold">{item.text}</span>
-                                    </p>
-                                </motion.div>
-                            ))}
-                        </div>
-
-                        {/* Striking Solution Block */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            className="relative p-10 md:p-14 rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-950 border-2 border-[var(--brand-primary)]/30 overflow-hidden"
-                        >
-                            {/* Inner glow */}
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[var(--brand-primary)] to-transparent"></div>
-                            <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand-primary)]/5 to-transparent pointer-events-none"></div>
-
-                            <h3 className="text-3xl md:text-4xl font-black text-white mb-4 relative z-10">
-                                Reven makes consistency{' '}
-                                <span className="bg-gradient-to-r from-[var(--brand-primary)] to-yellow-400 bg-clip-text text-transparent">stupidly easy</span>
-                            </h3>
-                            <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed relative z-10">
-                                You focus on <strong className="text-white">what to say</strong>. We handle absolutely everything else.
-                            </p>
-
-                            {/* Crossed out hassles - Premium style */}
-                            <div className="flex flex-wrap justify-center gap-4 relative z-10">
-                                {[
-                                    { icon: '🎬', text: 'Recording yourself' },
-                                    { icon: '📜', text: 'Memorizing scripts' },
-                                    { icon: '🖼️', text: 'Finding assets' },
-                                    { icon: '✂️', text: 'Editing videos' },
-                                ].map((item, i) => (
-                                    <motion.span
-                                        key={item.text}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        whileInView={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        viewport={{ once: true }}
-                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-zinc-800/80 border border-zinc-700/50 font-bold text-base text-zinc-500"
-                                    >
-                                        <span>{item.icon}</span>
-                                        <span className="line-through decoration-[var(--brand-primary)] decoration-2">{item.text}</span>
-                                    </motion.span>
-                                ))}
+                                {/* Crossed out hassles */}
+                                <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                                    {[
+                                        '🎬 Recording on camera',
+                                        '📜 Memorizing scripts',
+                                        '🖼️ Hunting for assets',
+                                        '✂️ Editing for hours',
+                                    ].map((item, i) => (
+                                        <motion.span
+                                            key={item}
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            whileInView={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: i * 0.08 }}
+                                            viewport={{ once: true }}
+                                            className="inline-block px-4 py-2.5 rounded-full border-2 border-gray-200 bg-gray-50 font-bold text-sm text-gray-400 line-through decoration-[var(--brand-primary)] decoration-2"
+                                        >
+                                            {item}
+                                        </motion.span>
+                                    ))}
+                                </div>
                             </div>
-                        </motion.div>
+                        </div>
                     </motion.div>
                 </div>
             </section>
