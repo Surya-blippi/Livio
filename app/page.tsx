@@ -498,7 +498,8 @@ export default function LandingPage() {
                     <div className="flex gap-8 text-sm font-bold text-[var(--text-secondary)]">
                         <Link href="/privacy" className="hover:text-black">Privacy</Link>
                         <Link href="/terms" className="hover:text-black">Terms</Link>
-                        <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-black">Twitter</a>
+                        <a href="https://x.com/avid_abhay" target="_blank" rel="noopener noreferrer" className="hover:text-black">𝕏</a>
+                        <a href="https://wa.me/918587880823" target="_blank" rel="noopener noreferrer" className="hover:text-black">WhatsApp</a>
                     </div>
                     <p className="text-sm font-bold text-[var(--text-tertiary)]">© 2026 Reven - Pocket Creator</p>
                 </div>
