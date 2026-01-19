@@ -80,11 +80,6 @@ export default function LandingPage() {
 
                     <div className="flex items-center gap-4">
                         <SignedOut>
-                            <SignInButton mode="modal">
-                                <button className="font-bold hover:opacity-70 transition-opacity">
-                                    Log in
-                                </button>
-                            </SignInButton>
                             <SignUpButton mode="modal">
                                 <button className="btn-primary">
                                     Get Started
