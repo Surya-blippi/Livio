@@ -284,85 +284,144 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* Lottery Ticket Section */}
-            <section className="py-24 px-6 bg-[var(--surface-2)] border-y-2 border-black relative overflow-hidden">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-5">
-                    <div className="absolute inset-0 bg-[linear-gradient(45deg,#000_25%,transparent_25%,transparent_75%,#000_75%,#000),linear-gradient(45deg,#000_25%,transparent_25%,transparent_75%,#000_75%,#000)] bg-[size:60px_60px] bg-[position:0_0,30px_30px]"></div>
+            {/* Lottery Ticket Section - Premium Redesign */}
+            <section className="py-32 px-6 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 relative overflow-hidden">
+                {/* Animated Background Elements */}
+                <div className="absolute inset-0">
+                    {/* Glowing orbs */}
+                    <div className="absolute top-20 left-10 w-96 h-96 bg-[var(--brand-primary)]/20 rounded-full blur-[120px] animate-pulse"></div>
+                    <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/15 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--brand-primary)]/5 rounded-full blur-[150px]"></div>
+
+                    {/* Floating ticket emojis */}
+                    <motion.div
+                        animate={{ y: [-10, 10, -10], rotate: [-5, 5, -5] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute top-[15%] left-[8%] text-6xl opacity-20"
+                    >🎫</motion.div>
+                    <motion.div
+                        animate={{ y: [10, -10, 10], rotate: [5, -5, 5] }}
+                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                        className="absolute top-[25%] right-[12%] text-5xl opacity-15"
+                    >🎟️</motion.div>
+                    <motion.div
+                        animate={{ y: [-15, 15, -15], rotate: [-8, 8, -8] }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                        className="absolute bottom-[20%] left-[15%] text-4xl opacity-20"
+                    >✨</motion.div>
+                    <motion.div
+                        animate={{ y: [15, -15, 15] }}
+                        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+                        className="absolute bottom-[30%] right-[8%] text-5xl opacity-15"
+                    >🎰</motion.div>
                 </div>
 
-                <div className="max-w-4xl mx-auto relative z-10">
+                <div className="max-w-5xl mx-auto relative z-10">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         className="text-center"
                     >
-                        {/* Header Badge */}
-                        <span className="inline-block px-4 py-1 rounded-full border-2 border-black bg-[var(--brand-primary)] text-sm font-black uppercase tracking-wider mb-6 shadow-[4px_4px_0px_#000]">
-                            🎫 Think About It
-                        </span>
+                        {/* Glowing Badge */}
+                        <motion.span
+                            initial={{ scale: 0.9 }}
+                            whileInView={{ scale: 1 }}
+                            viewport={{ once: true }}
+                            className="inline-block px-6 py-2 rounded-full bg-gradient-to-r from-[var(--brand-primary)] to-yellow-400 text-black text-sm font-black uppercase tracking-widest mb-8 shadow-[0_0_40px_rgba(255,220,0,0.3)]"
+                        >
+                            🎫 The Content Game
+                        </motion.span>
 
-                        {/* Main Headline */}
-                        <h2 className="heading-section mb-6">
-                            Every piece of content is like a{' '}
+                        {/* Epic Headline */}
+                        <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-[1.1]">
+                            Every post is a{' '}
                             <span className="relative inline-block">
-                                <span className="relative z-10">lottery ticket</span>
-                                <span className="absolute bottom-1 left-0 right-0 h-3 bg-[var(--brand-primary)] -z-0 rotate-1"></span>
+                                <span className="relative z-10 bg-gradient-to-r from-[var(--brand-primary)] via-yellow-300 to-[var(--brand-primary)] bg-clip-text text-transparent">
+                                    lottery ticket
+                                </span>
+                                <motion.span
+                                    animate={{ opacity: [0.5, 1, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute -inset-2 bg-[var(--brand-primary)]/20 blur-xl rounded-lg"
+                                ></motion.span>
                             </span>
                         </h2>
 
-                        <p className="text-xl md:text-2xl font-bold text-[var(--text-secondary)] max-w-3xl mx-auto leading-relaxed mb-10">
-                            So maximize your chances of winning.
+                        <p className="text-2xl md:text-3xl font-bold text-zinc-400 max-w-3xl mx-auto leading-relaxed mb-16">
+                            Maximize your chances of <span className="text-white">winning</span>.
                         </p>
 
-                        {/* Key Message Cards */}
-                        <div className="grid md:grid-cols-3 gap-6 mb-12 text-left">
+                        {/* Premium Glass Cards */}
+                        <div className="grid md:grid-cols-3 gap-6 mb-16">
                             {[
-                                { emoji: '🤝', text: 'It just takes ONE reel to close that client' },
-                                { emoji: '💼', text: 'ONE video to close that deal' },
-                                { emoji: '🌟', text: 'ONE post to get noticed by someone big' },
+                                { emoji: '🤝', highlight: 'ONE reel', text: 'to close that client' },
+                                { emoji: '💼', highlight: 'ONE video', text: 'to close that deal' },
+                                { emoji: '🌟', highlight: 'ONE post', text: 'to get noticed by someone BIG' },
                             ].map((item, i) => (
                                 <motion.div
                                     key={i}
-                                    initial={{ opacity: 0, y: 20 }}
+                                    initial={{ opacity: 0, y: 30 }}
                                     whileInView={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.1 }}
+                                    transition={{ delay: i * 0.15 }}
                                     viewport={{ once: true }}
-                                    className="p-6 bg-white border-2 border-black rounded-[var(--radius-xl)] shadow-[6px_6px_0px_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0px_#000] transition-all"
+                                    whileHover={{ scale: 1.03, y: -5 }}
+                                    className="group relative p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-[var(--brand-primary)]/50 transition-all duration-300 overflow-hidden"
                                 >
-                                    <span className="text-3xl mb-2 block">{item.emoji}</span>
-                                    <p className="font-bold text-lg leading-tight">{item.text}</p>
+                                    {/* Hover glow */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-primary)]/0 to-[var(--brand-primary)]/0 group-hover:from-[var(--brand-primary)]/10 group-hover:to-transparent transition-all duration-500 rounded-2xl"></div>
+
+                                    <span className="text-5xl mb-4 block relative z-10 group-hover:scale-110 transition-transform duration-300">{item.emoji}</span>
+                                    <p className="text-xl font-black text-white leading-tight relative z-10">
+                                        <span className="text-[var(--brand-primary)]">{item.highlight}</span>
+                                        <br />
+                                        <span className="text-zinc-400 font-bold">{item.text}</span>
+                                    </p>
                                 </motion.div>
                             ))}
                         </div>
 
-                        {/* Solution Block */}
-                        <div className="bg-black text-white p-8 md:p-12 rounded-[var(--radius-xl)] border-2 border-black shadow-[8px_8px_0px_var(--brand-primary)]">
-                            <h3 className="text-2xl md:text-3xl font-black mb-6">
-                                Reven makes it <span className="text-[var(--brand-primary)]">stupid easy</span> to stay consistent
+                        {/* Striking Solution Block */}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            className="relative p-10 md:p-14 rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-950 border-2 border-[var(--brand-primary)]/30 overflow-hidden"
+                        >
+                            {/* Inner glow */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[var(--brand-primary)] to-transparent"></div>
+                            <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand-primary)]/5 to-transparent pointer-events-none"></div>
+
+                            <h3 className="text-3xl md:text-4xl font-black text-white mb-4 relative z-10">
+                                Reven makes consistency{' '}
+                                <span className="bg-gradient-to-r from-[var(--brand-primary)] to-yellow-400 bg-clip-text text-transparent">stupidly easy</span>
                             </h3>
-                            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-                                Focus only on <strong className="text-white">what</strong> to say. We handle EVERYTHING else.
+                            <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed relative z-10">
+                                You focus on <strong className="text-white">what to say</strong>. We handle absolutely everything else.
                             </p>
 
-                            {/* What we remove */}
-                            <div className="flex flex-wrap justify-center gap-3">
+                            {/* Crossed out hassles - Premium style */}
+                            <div className="flex flex-wrap justify-center gap-4 relative z-10">
                                 {[
-                                    '🎬 Recording on camera',
-                                    '📜 Reciting scripts',
-                                    '🖼️ Finding visuals',
-                                    '✂️ Editing & captions',
-                                ].map((item) => (
-                                    <span
-                                        key={item}
-                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-zinc-700 bg-zinc-800/50 font-bold text-sm line-through decoration-[var(--brand-primary)] decoration-2"
+                                    { icon: '🎬', text: 'Recording yourself' },
+                                    { icon: '📜', text: 'Memorizing scripts' },
+                                    { icon: '🖼️', text: 'Finding assets' },
+                                    { icon: '✂️', text: 'Editing videos' },
+                                ].map((item, i) => (
+                                    <motion.span
+                                        key={item.text}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        whileInView={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.1 }}
+                                        viewport={{ once: true }}
+                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-zinc-800/80 border border-zinc-700/50 font-bold text-base text-zinc-500"
                                     >
-                                        {item}
-                                    </span>
+                                        <span>{item.icon}</span>
+                                        <span className="line-through decoration-[var(--brand-primary)] decoration-2">{item.text}</span>
+                                    </motion.span>
                                 ))}
                             </div>
-                        </div>
+                        </motion.div>
                     </motion.div>
                 </div>
             </section>
