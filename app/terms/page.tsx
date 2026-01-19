@@ -149,7 +149,7 @@ export default function TermsOfServicePage() {
                         <h2 className="text-2xl font-black mb-4">12. Contact</h2>
                         <p className="text-[var(--text-secondary)] leading-relaxed">
                             For questions about these Terms of Service, please contact us at{' '}
-                            <a href="mailto:legal@reven.ai" className="text-black font-bold underline">legal@reven.ai</a>
+                            <a href="mailto:hello@reven.in" className="text-black font-bold underline">hello@reven.in</a>
                         </p>
                     </section>
                 </article>

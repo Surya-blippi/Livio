@@ -71,18 +71,8 @@ export default function PrivacyPolicyPage() {
 
                     <section className="mb-10">
                         <h2 className="text-2xl font-black mb-4">4. Third-Party Services</h2>
-                        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">We use trusted third-party services to provide the Service:</p>
-                        <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 mb-4">
-                            <li><strong className="text-black">Clerk:</strong> Authentication and user management</li>
-                            <li><strong className="text-black">Supabase:</strong> Database and file storage</li>
-                            <li><strong className="text-black">WaveSpeed/LivePortrait:</strong> AI avatar and lip-sync generation</li>
-                            <li><strong className="text-black">ElevenLabs:</strong> Voice cloning (optional)</li>
-                            <li><strong className="text-black">JSON2Video:</strong> Video rendering</li>
-                            <li><strong className="text-black">Google Gemini:</strong> AI script writing and image search</li>
-                            <li><strong className="text-black">Dodo Payments:</strong> Payment processing</li>
-                        </ul>
-                        <p className="text-[var(--text-secondary)] leading-relaxed">
-                            Each third party has its own privacy policy governing their use of your data.
+                        <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+                            We use trusted third-party services to provide the Service, including authentication providers, cloud storage, and payment processors. Each third party has its own privacy policy governing their use of your data.
                         </p>
                     </section>
 
@@ -122,7 +112,7 @@ export default function PrivacyPolicyPage() {
                             <li><strong className="text-black">Object:</strong> Opt out of certain processing activities</li>
                         </ul>
                         <p className="text-[var(--text-secondary)] leading-relaxed">
-                            To exercise these rights, contact us at <a href="mailto:privacy@reven.ai" className="text-black font-bold underline">privacy@reven.ai</a>.
+                            To exercise these rights, contact us at <a href="mailto:hello@reven.in" className="text-black font-bold underline">hello@reven.in</a>.
                         </p>
                     </section>
 
@@ -167,7 +157,7 @@ export default function PrivacyPolicyPage() {
                         <h2 className="text-2xl font-black mb-4">12. Contact Us</h2>
                         <p className="text-[var(--text-secondary)] leading-relaxed">
                             For questions about this Privacy Policy or your data, contact us at:{' '}
-                            <a href="mailto:privacy@reven.ai" className="text-black font-bold underline">privacy@reven.ai</a>
+                            <a href="mailto:hello@reven.in" className="text-black font-bold underline">hello@reven.in</a>
                         </p>
                     </section>
                 </article>
