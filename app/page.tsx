@@ -279,6 +279,71 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            {/* Showcase Section */}
+            <section id="showcase" className="py-24 px-6 bg-black relative overflow-hidden">
+                {/* Background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-black via-zinc-900 to-black"></div>
+
+                <div className="max-w-4xl mx-auto relative z-10">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="text-center mb-12"
+                    >
+                        <span className="inline-block px-5 py-2 rounded-full border-2 border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] text-sm font-black uppercase tracking-wider mb-6">
+                            🎬 See It In Action
+                        </span>
+
+                        <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
+                            From topic to <span className="text-[var(--brand-primary)]">finished reel</span>
+                        </h2>
+
+                        <p className="text-xl text-zinc-400 max-w-2xl mx-auto">
+                            Just <strong className="text-white">one photo</strong> + <strong className="text-white">one voice sample</strong> → Professional video in <strong className="text-[var(--brand-primary)]">under 5 minutes</strong>
+                        </p>
+                    </motion.div>
+
+                    {/* Video Showcase */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        className="relative"
+                    >
+                        <div className="relative mx-auto max-w-sm">
+                            {/* Phone frame effect */}
+                            <div className="absolute -inset-3 bg-gradient-to-br from-[var(--brand-primary)] via-yellow-400 to-[var(--brand-primary)] rounded-[2.5rem] blur-sm opacity-50"></div>
+                            <div className="relative bg-black rounded-[2rem] p-2 border-4 border-zinc-800 shadow-2xl">
+                                <video
+                                    className="w-full aspect-[9/16] rounded-[1.5rem] object-cover bg-zinc-900"
+                                    src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/2026-01-14-03812%20(1).mp4"
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    poster=""
+                                >
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+
+                        {/* Stats badges */}
+                        <div className="flex flex-wrap justify-center gap-4 mt-8">
+                            <div className="px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-sm font-bold text-white">
+                                ⏱️ 5 minutes total
+                            </div>
+                            <div className="px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-sm font-bold text-white">
+                                📸 1 photo used
+                            </div>
+                            <div className="px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-sm font-bold text-white">
+                                🎤 1 voice sample
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
             {/* Lottery Ticket Section - Light Premium */}
             <section className="py-28 px-6 bg-gradient-to-b from-amber-50/80 via-[var(--surface-1)] to-white relative overflow-hidden">
                 {/* Decorative Elements */}
