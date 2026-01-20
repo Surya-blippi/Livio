@@ -546,6 +546,67 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            {/* FAQ Section */}
+            <section id="faq" className="py-24 px-6 bg-[var(--surface-2)] border-y-2 border-black">
+                <div className="max-w-3xl mx-auto">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="text-center mb-12"
+                    >
+                        <span className="inline-block px-5 py-2 rounded-full border-2 border-black bg-white text-sm font-black uppercase tracking-wider mb-6 shadow-[3px_3px_0px_#000]">
+                            ❓ FAQ
+                        </span>
+                        <h2 className="text-4xl md:text-5xl font-black mb-4">
+                            Got questions?
+                        </h2>
+                    </motion.div>
+
+                    <div className="space-y-4">
+                        {[
+                            {
+                                q: "What is Reven and how does it work?",
+                                a: "Reven is an AI-powered video creation tool that turns your ideas into professional short-form videos. Simply enter a topic, upload one photo of yourself and a short voice sample, and our AI researches your topic, writes a script, clones your voice, animates your face to speak, and adds captions — all automatically."
+                            },
+                            {
+                                q: "How long does it take to create a video?",
+                                a: "Most videos are ready in under 5 minutes from the moment you enter your topic. The AI handles research, script writing, voice generation, face animation, and final editing — what would normally take hours is done in minutes."
+                            },
+                            {
+                                q: "What do I need to get started?",
+                                a: "Just three things: (1) A clear, front-facing photo of yourself, (2) A 10-30 second voice recording reading any text naturally, and (3) A topic or idea for your video. That's it — no editing skills, expensive equipment, or prior experience needed."
+                            },
+                            {
+                                q: "Is my data safe?",
+                                a: "Absolutely. Your photos, voice samples, and videos are stored securely and encrypted. We never use your content for training AI models or share it with third parties. You retain full ownership of everything you create, and you can delete your data anytime."
+                            },
+                            {
+                                q: "How does the credits system work?",
+                                a: "You get 500 free credits when you sign up — enough to create several videos. Credits are used based on video length and features. You can purchase more credits anytime through our affordable packages. There are no monthly subscriptions — just pay for what you use."
+                            }
+                        ].map((faq, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.1 }}
+                                className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-translate-y-0.5 transition-all"
+                            >
+                                <h3 className="text-lg font-black mb-2 flex items-start gap-3">
+                                    <span className="text-[var(--brand-primary)] text-xl">Q.</span>
+                                    {faq.q}
+                                </h3>
+                                <p className="text-[var(--text-secondary)] leading-relaxed pl-8">
+                                    {faq.a}
+                                </p>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* Footer */}
             <footer className="py-12 px-6 border-t-2 border-black bg-white">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
