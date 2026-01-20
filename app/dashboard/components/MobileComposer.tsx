@@ -29,6 +29,7 @@ interface MobileComposerProps {
     voiceName?: string;
     avatarUrl?: string;
     mode?: 'face' | 'faceless';
+    editType?: 'minimal' | 'motion';
     duration?: number;
     aspectRatio?: string;
     hasScript: boolean;
@@ -57,6 +58,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     voiceName = 'Voice',
     avatarUrl,
     mode = 'faceless',
+    editType = 'minimal',
     duration = 30,
     hasScript,
     hasAssets,
@@ -198,6 +200,26 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                     >
                         <ClockIcon className="w-3 h-3" />
                         <span>{duration}s</span>
+                    </button>
+
+                    <div className="w-px h-3 bg-gray-300" />
+
+                    {/* Edit Type Pill */}
+                    <button
+                        onClick={() => onOpenSheet('editType')}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
+                    >
+                        {editType === 'motion' ? (
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                        ) : (
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="9" y1="3" x2="9" y2="21"></line>
+                            </svg>
+                        )}
+                        <span>{editType === 'motion' ? 'Motion' : 'Minimal'}</span>
                     </button>
 
                     <div className="flex-1" />

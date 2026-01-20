@@ -213,6 +213,7 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         voiceName={voiceName}
                         avatarUrl={avatarUrl}
                         mode={mode}
+                        editType={editType}
                         duration={duration}
                         aspectRatio={aspectRatio}
                         hasScript={hasScript}
