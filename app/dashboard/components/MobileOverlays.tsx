@@ -209,6 +209,25 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                     <div className="p-4 pb-8">
                                         <h3 className="text-lg font-black mb-4 text-center">Video Style</h3>
 
+                                        {/* Onboarding Banner - Show when no avatar */}
+                                        {uniqueAvatars.length === 0 && (
+                                            <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl border-2 border-purple-300">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                                        <span className="text-white text-sm">✨</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-purple-800 text-sm mb-0.5">
+                                                            Let's get you studio ready!
+                                                        </h4>
+                                                        <p className="text-xs text-purple-700">
+                                                            Upload your photo and we'll transform it into a professional AI-ready avatar.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Faceless Block */}
                                         <button
                                             onClick={() => { setMode('faceless'); onClose(); }}
@@ -356,6 +375,25 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                 return (
                                     <div className="p-4 pb-8">
                                         <h3 className="text-lg font-black mb-4 text-center">Choose Voice</h3>
+
+                                        {/* Voice Onboarding Banner - Show when no cloned voice */}
+                                        {!hasClonedVoice && !voiceFile && (
+                                            <div className="mb-4 p-3 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl border-2 border-green-300">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                                        <span className="text-white text-sm">🎤</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-green-800 text-sm mb-0.5">
+                                                            Clone your voice!
+                                                        </h4>
+                                                        <p className="text-xs text-green-700">
+                                                            Record 10-30 seconds reading any text naturally. We'll clone your voice for all future videos.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Recorded/Uploaded Voice Preview */}
                                         {voiceFile && (
