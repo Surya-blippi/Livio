@@ -312,20 +312,53 @@ export default function LandingPage() {
                         viewport={{ once: true }}
                         className="relative"
                     >
-                        <div className="relative mx-auto max-w-sm">
-                            {/* Phone frame effect */}
-                            <div className="absolute -inset-3 bg-gradient-to-br from-[var(--brand-primary)] via-yellow-400 to-[var(--brand-primary)] rounded-[2.5rem] blur-sm opacity-50"></div>
-                            <div className="relative bg-black rounded-[2rem] p-2 border-4 border-zinc-800 shadow-2xl">
-                                <video
-                                    className="w-full aspect-[9/16] rounded-[1.5rem] object-cover bg-zinc-900"
-                                    src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/2026-01-14-03812%20(1).mp4"
-                                    controls
-                                    playsInline
-                                    preload="metadata"
-                                    poster=""
-                                >
-                                    Your browser does not support the video tag.
-                                </video>
+                        {/* Input/Output Display */}
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
+                            {/* Input - Photo */}
+                            <div className="flex flex-col items-center">
+                                <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Input Photo</span>
+                                <div className="relative">
+                                    <div className="absolute -inset-2 bg-gradient-to-br from-zinc-600 to-zinc-800 rounded-2xl blur-sm opacity-50"></div>
+                                    <div className="relative bg-zinc-800 rounded-xl p-1.5 border-2 border-zinc-700">
+                                        <img
+                                            src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/WhatsApp%20Image%202026-01-20%20at%206.34.51%20PM.jpeg"
+                                            alt="Input photo"
+                                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Arrow */}
+                            <div className="flex items-center">
+                                <div className="hidden md:flex items-center gap-2 text-[var(--brand-primary)]">
+                                    <div className="w-12 h-0.5 bg-gradient-to-r from-zinc-600 to-[var(--brand-primary)]"></div>
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M13.025 1l-2.847 2.828 6.176 6.176h-16.354v3.992h16.354l-6.176 6.176 2.847 2.828 10.975-11z" />
+                                    </svg>
+                                </div>
+                                <div className="md:hidden text-[var(--brand-primary)] text-3xl">↓</div>
+                            </div>
+
+                            {/* Output - Video */}
+                            <div className="flex flex-col items-center">
+                                <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Output Video</span>
+                                <div className="relative mx-auto max-w-xs">
+                                    {/* Phone frame effect */}
+                                    <div className="absolute -inset-3 bg-gradient-to-br from-[var(--brand-primary)] via-yellow-400 to-[var(--brand-primary)] rounded-[2.5rem] blur-sm opacity-50"></div>
+                                    <div className="relative bg-black rounded-[2rem] p-2 border-4 border-zinc-800 shadow-2xl">
+                                        <video
+                                            className="w-full aspect-[9/16] rounded-[1.5rem] object-cover bg-zinc-900"
+                                            src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/2026-01-14-03812%20(1).mp4"
+                                            controls
+                                            playsInline
+                                            preload="metadata"
+                                            poster=""
+                                        >
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
