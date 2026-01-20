@@ -578,12 +578,8 @@ export default function LandingPage() {
                                 a: "Just three things: (1) A clear, front-facing photo of yourself, (2) A 10-30 second voice recording reading any text naturally, and (3) A topic or idea for your video. That's it — no editing skills, expensive equipment, or prior experience needed."
                             },
                             {
-                                q: "Is my data safe?",
-                                a: "Absolutely. Your photos, voice samples, and videos are stored securely and encrypted. We never use your content for training AI models or share it with third parties. You retain full ownership of everything you create, and you can delete your data anytime."
-                            },
-                            {
                                 q: "How does the credits system work?",
-                                a: "You get 500 free credits when you sign up — enough to create several videos. Credits are used based on video length and features. You can purchase more credits anytime through our affordable packages. There are no monthly subscriptions — just pay for what you use."
+                                a: "Credits are used based on video length and features. You can purchase more credits anytime through our affordable packages. There are no monthly subscriptions — just pay for what you use."
                             }
                         ].map((faq, i) => (
                             <motion.div
