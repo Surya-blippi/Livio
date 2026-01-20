@@ -349,7 +349,7 @@ export default function LandingPage() {
                                     <div className="relative bg-black rounded-[2rem] p-2 border-4 border-zinc-800 shadow-2xl">
                                         <video
                                             className="w-full aspect-[9/16] rounded-[1.5rem] object-cover bg-zinc-900"
-                                            src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/2026-01-14-03812%20(1).mp4"
+                                            src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/2026-01-20-76833.mp4"
                                             controls
                                             playsInline
                                             preload="metadata"
