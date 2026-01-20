@@ -10,6 +10,7 @@ export type MobileSheetType =
     | 'voice'
     | 'duration'
     | 'aspect'
+    | 'editType'
     | 'script'
     | 'assets'
     | 'storyboard'
@@ -96,6 +97,10 @@ interface MobileOverlaysProps {
     aspectRatio: string;
     setAspectRatio: (r: string) => void;
 
+    // Edit Type
+    editType: 'minimal' | 'motion';
+    setEditType: (type: 'minimal' | 'motion') => void;
+
     // Script
     script: string;
     setInputText: (text: string) => void;
@@ -154,6 +159,8 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     setDuration,
     aspectRatio,
     setAspectRatio,
+    editType,
+    setEditType,
     script,
     setInputText,
     onEnhance,
@@ -169,7 +176,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     onSelectVideo,
     onDeleteVideo
 }) => {
-    const isDropUp = ['face', 'voice', 'duration', 'aspect'].includes(activeSheet || '');
+    const isDropUp = ['face', 'voice', 'duration', 'aspect', 'editType'].includes(activeSheet || '');
     const isFullScreen = ['script', 'assets', 'storyboard', 'video', 'history'].includes(activeSheet || '');
 
     return (
@@ -538,6 +545,46 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                 {d}s
                                             </button>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Edit Type Selection */}
+                            {activeSheet === 'editType' && (
+                                <div className="p-4 pb-8">
+                                    <h3 className="text-lg font-black mb-4 text-center">Edit Type</h3>
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={() => { setEditType('minimal'); onClose(); }}
+                                            className={`w-full p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${editType === 'minimal' ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200 hover:border-gray-300'}`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editType === 'minimal' ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'}`}>
+                                                <svg className={`w-6 h-6 ${editType === 'minimal' ? 'text-black' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="font-bold text-base">Minimal</p>
+                                                <p className="text-xs text-gray-500">Fast • Avatar only</p>
+                                            </div>
+                                            {editType === 'minimal' && <span className="text-[var(--brand-primary)] text-xl">✓</span>}
+                                        </button>
+                                        <button
+                                            onClick={() => { setEditType('motion'); onClose(); }}
+                                            className={`w-full p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${editType === 'motion' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editType === 'motion' ? 'bg-purple-500' : 'bg-gray-200'}`}>
+                                                <svg className={`w-6 h-6 ${editType === 'motion' ? 'text-white' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="font-bold text-base">Motion ✨</p>
+                                                <p className="text-xs text-gray-500">AI visuals per scene</p>
+                                            </div>
+                                            {editType === 'motion' && <span className="text-purple-500 text-xl">✓</span>}
+                                        </button>
                                     </div>
                                 </div>
                             )}

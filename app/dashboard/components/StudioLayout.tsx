@@ -43,6 +43,8 @@ interface StudioLayoutProps {
     setDuration: (d: number) => void;
     aspectRatio: string;
     setAspectRatio: (r: string) => void;
+    editType: 'minimal' | 'motion';
+    setEditType: (type: 'minimal' | 'motion') => void;
 
     script: string;
     assets: any[];
@@ -118,6 +120,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
     setDuration,
     aspectRatio,
     setAspectRatio,
+    editType,
+    setEditType,
     script,
     assets,
     onUploadAsset,
@@ -349,6 +353,8 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                     setDuration={setDuration}
                     aspectRatio={aspectRatio}
                     setAspectRatio={setAspectRatio}
+                    editType={editType}
+                    setEditType={setEditType}
                     script={script}
                     setInputText={setInputText}
                     onEnhance={onEnhance}

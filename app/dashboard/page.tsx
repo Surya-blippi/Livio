@@ -145,6 +145,8 @@ export default function Dashboard() {
                     <EditorPanel
                         mode={state.mode}
                         setMode={state.setMode}
+                        editType={state.editType}
+                        setEditType={state.setEditType}
                         inputText={state.inputText}
                         setInputText={state.setInputText}
                         handleCreateVideo={state.handleCreateVideo}
@@ -259,6 +261,8 @@ export default function Dashboard() {
                 setDuration={state.setDuration}
                 aspectRatio={state.aspectRatio}
                 setAspectRatio={(r) => state.setAspectRatio(r as any)}
+                editType={state.editType}
+                setEditType={state.setEditType}
                 script={state.inputText}
                 assets={state.collectedAssets}
                 onUploadAsset={handleUploadAsset}

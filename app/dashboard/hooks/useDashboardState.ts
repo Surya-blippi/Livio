@@ -96,6 +96,7 @@ export const useDashboardState = () => {
 
     // Core state
     const [mode, setMode] = useState<'face' | 'faceless'>('face');
+    const [editType, setEditType] = useState<'minimal' | 'motion'>('minimal');
     const [duration, setDuration] = useState(30);
     const [inputText, setInputText] = useState('');
     const [isEnhanced, setIsEnhanced] = useState(false);
@@ -1272,6 +1273,7 @@ export const useDashboardState = () => {
         // State
         isDark, setIsDark,
         mode, setMode,
+        editType, setEditType,
         duration, setDuration,
         inputText, setInputText,
         isEnhanced, setIsEnhanced,

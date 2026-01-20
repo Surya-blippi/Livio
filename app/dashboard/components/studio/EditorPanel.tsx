@@ -6,6 +6,8 @@ interface EditorPanelProps {
     // Core
     mode: 'face' | 'faceless';
     setMode?: (mode: 'face' | 'faceless') => void;
+    editType: 'minimal' | 'motion';
+    setEditType: (type: 'minimal' | 'motion') => void;
 
     // Chat / Input
     inputText: string;
@@ -47,6 +49,8 @@ interface EditorPanelProps {
 export const EditorPanel: React.FC<EditorPanelProps> = ({
     mode,
     setMode,
+    editType,
+    setEditType,
     inputText,
     setInputText,
     handleCreateVideo,
@@ -82,6 +86,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showDurationMenu, setShowDurationMenu] = useState(false);
     const [showAspectMenu, setShowAspectMenu] = useState(false);
+    const [showEditTypeMenu, setShowEditTypeMenu] = useState(false);
     const [showEditingModeMenu, setShowEditingModeMenu] = useState(false);
     const [editingMode, setEditingMode] = useState<'raw' | 'minimal' | 'polished'>('polished');
 
@@ -320,6 +325,56 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                                         {duration === d && <span>✓</span>}
                                                     </button>
                                                 ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div className="w-px h-3 bg-gray-300 mx-1"></div>
+
+                                {/* Edit Type - Dropup Menu */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => { setShowEditTypeMenu(!showEditTypeMenu); setShowDurationMenu(false); setShowAspectMenu(false); }}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
+                                    >
+                                        {editType === 'motion' ? (
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                <line x1="9" y1="3" x2="9" y2="21"></line>
+                                            </svg>
+                                        )}
+                                        <span>{editType === 'motion' ? 'Motion' : 'Minimal'}</span>
+                                        <svg className="w-2 h-2 ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 15l-6-6-6 6" /></svg>
+                                    </button>
+                                    {showEditTypeMenu && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowEditTypeMenu(false)} />
+                                            <div className="absolute bottom-full left-0 mb-2 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_#000] overflow-hidden z-50 min-w-[160px]">
+                                                <button
+                                                    onClick={() => { setEditType('minimal'); setShowEditTypeMenu(false); }}
+                                                    className={`w-full px-4 py-2.5 text-left text-xs font-bold transition-colors flex items-center justify-between ${editType === 'minimal' ? 'bg-[var(--brand-primary)] text-black' : 'hover:bg-gray-100 text-gray-700'}`}
+                                                >
+                                                    <div>
+                                                        <span className="block">Minimal</span>
+                                                        <span className="text-[10px] font-normal opacity-70">Fast • Avatar only</span>
+                                                    </div>
+                                                    {editType === 'minimal' && <span>✓</span>}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditType('motion'); setShowEditTypeMenu(false); }}
+                                                    className={`w-full px-4 py-2.5 text-left text-xs font-bold transition-colors flex items-center justify-between ${editType === 'motion' ? 'bg-purple-500 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+                                                >
+                                                    <div>
+                                                        <span className="block">Motion ✨</span>
+                                                        <span className="text-[10px] font-normal opacity-70">AI visuals per scene</span>
+                                                    </div>
+                                                    {editType === 'motion' && <span>✓</span>}
+                                                </button>
                                             </div>
                                         </>
                                     )}

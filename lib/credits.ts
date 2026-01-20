@@ -20,6 +20,7 @@ export const CREDIT_COSTS = {
 
     // Image generation
     AI_IMAGE: 45,             // $0.45 - FAL Nano Banana ($0.15 cost)
+    MOTION_SCENE_IMAGE: 40,   // $0.40 - Motion editing scene image
 } as const;
 
 export type CreditOperation = keyof typeof CREDIT_COSTS;
