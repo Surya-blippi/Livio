@@ -906,6 +906,12 @@ export const useDashboardState = () => {
             // Face mode: (Face Scenes * 100) + 80 render fee
             const faceSceneCount = workingScenes.length > 0 ? workingScenes.length : 1;
             estimatedCost = calculateFaceVideoCredits(faceSceneCount) + CREDIT_COSTS.VIDEO_RENDER;
+
+            // Motion editing: Add cost for AI images on alternating scenes (every other scene)
+            if (editType === 'motion') {
+                const motionSceneCount = Math.floor(faceSceneCount / 2); // Every other scene gets AI image
+                estimatedCost += motionSceneCount * CREDIT_COSTS.MOTION_SCENE_IMAGE;
+            }
         }
 
         if (!checkCredits(estimatedCost)) return;
@@ -1124,20 +1130,77 @@ export const useDashboardState = () => {
             }
 
             // Build scenes from script
-            // If no assets collected: single continuous face scene (no cuts)
-            // If assets collected: alternate face/asset scenes
+            // Motion editing: Alternates face and AI-generated images
+            // Minimal editing: Single continuous face or use collected assets
             const sceneInputs: FaceVideoSceneInput[] = [];
 
-            if (collectedAssets.length === 0) {
-                // NO ASSETS: Single continuous face scene with entire script
+            // Determine which assets to use for alternating scenes
+            let assetsForAlternating: { url: string }[] = [];
+
+            if (editType === 'motion' && workingScenes.length > 1) {
+                // MOTION EDITING: Generate AI images for alternating (even) scenes
+                setProcessingMessage('Generating AI visuals for motion editing...');
+
+                // Only generate images for even-indexed scenes (0-indexed: 1, 3, 5... = scene 2, 4, 6...)
+                const scenesNeedingImages = workingScenes.filter((_, i) => i % 2 === 1);
+
+                if (scenesNeedingImages.length > 0) {
+                    try {
+                        const imageResponse = await fetch('/api/generate-scene-images', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scenes: scenesNeedingImages,
+                                topic: inputText.substring(0, 100)
+                            })
+                        });
+
+                        if (!imageResponse.ok) {
+                            const errData = await imageResponse.json();
+                            console.error('Motion image generation failed:', errData);
+                            // Fallback to minimal editing if image generation fails
+                            setProcessingMessage('AI image generation failed, using minimal editing...');
+                        } else {
+                            const imageData = await imageResponse.json();
+                            if (imageData.images && imageData.images.length > 0) {
+                                assetsForAlternating = imageData.images.map((img: { imageUrl: string }) => ({ url: img.imageUrl }));
+                                console.log(`Motion editing: Generated ${assetsForAlternating.length} AI images for alternating scenes`);
+                            }
+                        }
+                    } catch (imgErr) {
+                        console.error('Motion image API error:', imgErr);
+                        // Continue with minimal editing if API fails
+                    }
+                }
+            } else if (collectedAssets.length > 0) {
+                // Use user-collected assets for alternating
+                assetsForAlternating = collectedAssets;
+            }
+
+            if (assetsForAlternating.length === 0 && editType !== 'motion') {
+                // NO ASSETS & MINIMAL: Single continuous face scene with entire script
                 console.log('Face mode: No assets collected - generating single continuous face video');
                 sceneInputs.push({
                     text: inputText.trim(),
                     type: 'face',
                     assetUrl: undefined
                 });
+            } else if (workingScenes.length > 0 && assetsForAlternating.length > 0) {
+                // WITH ASSETS (user or AI-generated): Alternate face/asset
+                let assetIndex = 0;
+                for (let i = 0; i < workingScenes.length; i++) {
+                    const isAssetScene = i % 2 === 1; // Scene 2, 4, 6... are asset scenes (0-indexed: 1, 3, 5...)
+                    sceneInputs.push({
+                        text: workingScenes[i].text,
+                        type: isAssetScene ? 'asset' : 'face',
+                        assetUrl: isAssetScene
+                            ? assetsForAlternating[assetIndex % assetsForAlternating.length].url
+                            : undefined
+                    });
+                    if (isAssetScene) assetIndex++;
+                }
             } else if (sceneTimings && sceneTimings.length > 0) {
-                // WITH ASSETS + SCENE TIMINGS: Alternate face/asset
+                // WITH SCENE TIMINGS: Alternate face/asset
                 let assetIndex = 0;
                 for (let i = 0; i < sceneTimings.length; i++) {
                     const isAssetScene = i % 2 !== 0; // Alternate: face, asset, face, asset
@@ -1145,26 +1208,19 @@ export const useDashboardState = () => {
                         text: sceneTimings[i].text,
                         type: isAssetScene ? 'asset' : 'face',
                         assetUrl: isAssetScene
-                            ? collectedAssets[assetIndex % collectedAssets.length].url
+                            ? assetsForAlternating[assetIndex % assetsForAlternating.length]?.url
                             : undefined
                     });
                     if (isAssetScene) assetIndex++;
                 }
             } else {
-                // WITH ASSETS + NO SCENE TIMINGS: Split script and alternate
-                const sentences = inputText.split(/[.!?]+/).filter(s => s.trim().length > 0);
-                let assetIndex = 0;
-                for (let i = 0; i < sentences.length; i++) {
-                    const isAssetScene = i % 2 !== 0;
-                    sceneInputs.push({
-                        text: sentences[i].trim() + '.',
-                        type: isAssetScene ? 'asset' : 'face',
-                        assetUrl: isAssetScene
-                            ? collectedAssets[assetIndex % collectedAssets.length].url
-                            : undefined
-                    });
-                    if (isAssetScene) assetIndex++;
-                }
+                // Fallback: Single face scene
+                console.log('Face mode: Fallback - generating single continuous face video');
+                sceneInputs.push({
+                    text: inputText.trim(),
+                    type: 'face',
+                    assetUrl: undefined
+                });
             }
 
             console.log(`Face mode: Created ${sceneInputs.length} scenes (${sceneInputs.filter(s => s.type === 'face').length} face, ${sceneInputs.filter(s => s.type === 'asset').length} asset)`);
