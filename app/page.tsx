@@ -74,8 +74,9 @@ export default function LandingPage() {
                     </div>
 
                     <div className="hidden md:flex items-center gap-8">
-                        <a href="#features" className="font-bold hover:text-[var(--text-secondary)] transition-colors">Features</a>
+                        <a href="#showcase" className="font-bold hover:text-[var(--text-secondary)] transition-colors">Showcase</a>
                         <a href="#how-it-works" className="font-bold hover:text-[var(--text-secondary)] transition-colors">How It Works</a>
+                        <a href="#faq" className="font-bold hover:text-[var(--text-secondary)] transition-colors">FAQ</a>
                     </div>
 
                     <div className="flex items-center gap-4">
