@@ -315,7 +315,7 @@ export default function LandingPage() {
                         {/* Input/Output Display */}
                         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
                             {/* Input Section - Photo + Topic */}
-                            <div className="flex flex-col md:flex-row items-center gap-6">
+                            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
                                 {/* Input - Photo */}
                                 <div className="flex flex-col items-center">
                                     <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Input Photo</span>
@@ -328,6 +328,13 @@ export default function LandingPage() {
                                                 className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
                                             />
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Plus Icon */}
+                                <div className="flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-600 flex items-center justify-center text-[var(--brand-primary)] font-black text-2xl">
+                                        +
                                     </div>
                                 </div>
 
