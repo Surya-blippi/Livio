@@ -71,7 +71,7 @@ interface MobileOverlaysProps {
     useStudioImage: boolean;
     studioReadyUrl?: string;
     isGeneratingStudio: boolean;
-    onMakeStudioReady: () => void;
+    onMakeStudioReady: (style?: string) => void;
     toggleStudioImage: () => void;
 
     // Voice
@@ -176,8 +176,8 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
     onSelectVideo,
     onDeleteVideo
 }) => {
-    const isDropUp = ['face', 'voice', 'duration', 'aspect', 'editType'].includes(activeSheet || '');
-    const isFullScreen = ['script', 'assets', 'storyboard', 'video', 'history'].includes(activeSheet || '');
+    const isDropUp = ['voice', 'duration', 'aspect', 'editType'].includes(activeSheet || '');
+    const isFullScreen = ['face', 'script', 'assets', 'storyboard', 'video', 'history'].includes(activeSheet || '');
 
     return (
         <AnimatePresence>
@@ -205,155 +205,6 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                             <div className="flex justify-center py-2">
                                 <div className="w-10 h-1 bg-gray-300 rounded-full" />
                             </div>
-
-                            {/* Face Selection */}
-                            {activeSheet === 'face' && (() => {
-                                // Filter out duplicate avatars by image_url
-                                const uniqueAvatars = savedAvatars.filter((avatar, index, self) =>
-                                    index === self.findIndex((a) => a.image_url === avatar.image_url)
-                                );
-                                return (
-                                    <div className="p-4 pb-8">
-                                        <h3 className="text-lg font-black mb-4 text-center">Video Style</h3>
-
-                                        {/* Onboarding Banner - Show when no avatar */}
-                                        {uniqueAvatars.length === 0 && (
-                                            <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl border-2 border-purple-300">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 animate-pulse">
-                                                        <span className="text-white text-sm">✨</span>
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-purple-800 text-sm mb-0.5">
-                                                            Let's get you studio ready!
-                                                        </h4>
-                                                        <p className="text-xs text-purple-700">
-                                                            Upload your photo and we'll transform it into a professional AI-ready avatar.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Faceless Block */}
-                                        <button
-                                            onClick={() => { setMode('faceless'); onClose(); }}
-                                            className={`w-full p-4 rounded-2xl border-2 mb-4 flex items-center gap-4 transition-all ${mode === 'faceless' ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200 hover:border-gray-300'}`}
-                                        >
-                                            <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                                <svg className="w-6 h-6 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <circle cx="12" cy="12" r="10" />
-                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                                                </svg>
-                                            </div>
-                                            <div className="flex-1 text-left">
-                                                <p className="font-bold">Faceless</p>
-                                                <p className="text-xs text-gray-500">Images only, no avatar</p>
-                                            </div>
-                                            {mode === 'faceless' && <span className="text-[var(--brand-primary)] text-xl">✓</span>}
-                                        </button>
-
-                                        {/* Current Look Preview & Actions */}
-                                        {mode === 'face' && avatarUrl && (
-                                            <div className="mb-4">
-                                                <p className="text-sm font-bold text-gray-500 mb-2">Current Look</p>
-                                                <div className="relative w-56 aspect-square mx-auto rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-sm bg-gray-100 group">
-                                                    {/* Main Preview Image */}
-                                                    <img
-                                                        src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
-                                                        className="w-full h-full object-cover"
-                                                        alt="Current Face"
-                                                    />
-
-                                                    {/* Gradient Overlay for Text Readability */}
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-
-                                                    {/* Studio Badge (Top Right) */}
-                                                    {useStudioImage && (
-                                                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                                                            <span>✨</span>
-                                                            <span>Studio Ready</span>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Loading Overlay */}
-                                                    {isGeneratingStudio && (
-                                                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white z-20">
-                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-2" />
-                                                            <p className="font-bold text-xs">Enhancing...</p>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Action Button Overlay (Bottom Right) */}
-                                                    <div className="absolute bottom-2 right-2 z-10">
-                                                        {!studioReadyUrl ? (
-                                                            // Scenario 1: Enhance Button
-                                                            <button
-                                                                onClick={onMakeStudioReady}
-                                                                disabled={isGeneratingStudio}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all"
-                                                            >
-                                                                <SparklesIcon className="w-3 h-3" />
-                                                                Make Studio Ready
-                                                            </button>
-                                                        ) : (
-                                                            // Scenario 2: Toggle Button (Compact)
-                                                            <button
-                                                                onClick={toggleStudioImage}
-                                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-lg transition-all ${useStudioImage ? 'bg-white text-black border-white' : 'bg-black/50 text-white border-white/30 backdrop-blur-md'}`}
-                                                            >
-                                                                <span className="text-xs font-bold">
-                                                                    {useStudioImage ? 'On' : 'Off'}
-                                                                </span>
-                                                                <div className={`w-6 h-3 rounded-full p-0.5 transition-colors ${useStudioImage ? 'bg-green-500' : 'bg-gray-400'}`}>
-                                                                    <div className={`w-2 h-2 rounded-full bg-white shadow-sm transform transition-transform ${useStudioImage ? 'translate-x-3' : 'translate-x-0'}`} />
-                                                                </div>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* With Face Label */}
-                                        <p className="text-sm font-bold text-gray-500 mb-3">Choose from Library:</p>
-
-                                        {/* Avatar Grid with Upload First */}
-                                        <div className="grid grid-cols-4 gap-3 max-h-[200px] overflow-y-auto mb-4">
-                                            {/* Upload Button - First */}
-                                            <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-[var(--brand-primary)] hover:bg-gray-50 transition-all">
-                                                <span className="text-2xl text-gray-400">+</span>
-                                                <span className="text-[8px] text-gray-400 mt-1">Upload</span>
-                                                <input type="file" accept="image/*" onChange={(e) => { onUploadAvatar(e); setMode('face'); }} className="hidden" />
-                                            </label>
-
-                                            {/* Unique Avatars */}
-                                            {uniqueAvatars.map((avatar) => (
-                                                <div key={avatar.id} className="relative group">
-                                                    <button
-                                                        onClick={() => { onSelectAvatar(avatar); setMode('face'); }}
-                                                        className={`w-full aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200 hover:border-gray-300'}`}
-                                                    >
-                                                        <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
-                                                        {avatar.is_default && (
-                                                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
-                                                                <span className="text-[8px] text-white font-bold">✨ Studio</span>
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                    {/* Delete Button */}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onDeleteAvatar(avatar.id); }}
-                                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
 
                             {/* Voice Selection */}
                             {activeSheet === 'voice' && (() => {
@@ -635,7 +486,174 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                             {/* Content */}
                             <div className="flex-1 overflow-y-auto p-4">
 
-                                {/* Script View - Editable */}
+                                {/* Face Selection - Full Screen */}
+                                {activeSheet === 'face' && (() => {
+                                    const uniqueAvatars = savedAvatars.filter((avatar, index, self) =>
+                                        index === self.findIndex((a) => a.image_url === avatar.image_url)
+                                    );
+                                    return (
+                                        <div className="space-y-6">
+                                            {/* Mode Selection */}
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-500 mb-3">Video Style</h3>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <button
+                                                        onClick={() => { setMode('face'); }}
+                                                        className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'face' ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
+                                                    >
+                                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                                            <span className="text-2xl">👤</span>
+                                                        </div>
+                                                        <span className="font-bold">With Face</span>
+                                                        {mode === 'face' && <span className="text-[var(--brand-primary)]">✓</span>}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setMode('faceless'); onClose(); }}
+                                                        className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'faceless' ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10' : 'border-gray-200'}`}
+                                                    >
+                                                        <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center">
+                                                            <svg className="w-6 h-6 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <circle cx="12" cy="12" r="10" />
+                                                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                                            </svg>
+                                                        </div>
+                                                        <span className="font-bold">Faceless</span>
+                                                        {mode === 'faceless' && <span className="text-[var(--brand-primary)]">✓</span>}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {mode === 'face' && (
+                                                <>
+                                                    {/* Current Avatar Preview */}
+                                                    {avatarUrl && (
+                                                        <div>
+                                                            <h3 className="text-sm font-bold text-gray-500 mb-3">Current Avatar</h3>
+                                                            <div className="relative w-40 aspect-[9/16] mx-auto rounded-2xl border-2 border-[var(--brand-primary)] overflow-hidden shadow-lg">
+                                                                <img
+                                                                    src={useStudioImage && studioReadyUrl ? studioReadyUrl : avatarUrl}
+                                                                    className="w-full h-full object-cover"
+                                                                    alt="Current Avatar"
+                                                                />
+                                                                {useStudioImage && (
+                                                                    <div className="absolute top-2 right-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                                                        ✨ Studio
+                                                                    </div>
+                                                                )}
+                                                                {isGeneratingStudio && (
+                                                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
+                                                                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mb-2" />
+                                                                        <p className="text-white font-bold text-sm">Enhancing...</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Studio Ready Style Options */}
+                                                    {avatarUrl && !studioReadyUrl && (
+                                                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-200">
+                                                            <h3 className="text-base font-bold mb-2 flex items-center gap-2">
+                                                                <span className="text-lg">✨</span> Make Studio Ready
+                                                            </h3>
+                                                            <p className="text-xs text-gray-600 mb-4">
+                                                                Transform your photo into a professional AI-ready avatar. Choose a style:
+                                                            </p>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                {[
+                                                                    { id: 'professional', label: 'Professional', emoji: '👔', desc: 'Formal business' },
+                                                                    { id: 'casual', label: 'Casual', emoji: '😊', desc: 'Friendly look' },
+                                                                    { id: 'trendy', label: 'Trendy', emoji: '✨', desc: 'Modern style' },
+                                                                    { id: 'minimal', label: 'Minimal', emoji: '🤍', desc: 'Clean & simple' }
+                                                                ].map((style) => (
+                                                                    <button
+                                                                        key={style.id}
+                                                                        onClick={() => onMakeStudioReady(style.id)}
+                                                                        disabled={isGeneratingStudio}
+                                                                        className="flex items-center gap-3 p-3 bg-white rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:shadow-md transition-all disabled:opacity-50"
+                                                                    >
+                                                                        <span className="text-2xl">{style.emoji}</span>
+                                                                        <div className="text-left">
+                                                                            <p className="text-sm font-bold">{style.label}</p>
+                                                                            <p className="text-[10px] text-gray-500">{style.desc}</p>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Toggle Studio Image if already created */}
+                                                    {studioReadyUrl && (
+                                                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                                            <div>
+                                                                <p className="font-bold">Use Studio Ready</p>
+                                                                <p className="text-xs text-gray-500">AI-enhanced avatar</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={toggleStudioImage}
+                                                                className={`w-12 h-6 rounded-full p-1 transition-colors ${useStudioImage ? 'bg-purple-500' : 'bg-gray-300'}`}
+                                                            >
+                                                                <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform ${useStudioImage ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Avatar Library */}
+                                                    <div>
+                                                        <h3 className="text-sm font-bold text-gray-500 mb-3">Your Avatars</h3>
+                                                        <div className="grid grid-cols-3 gap-3">
+                                                            {/* Upload Button */}
+                                                            <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-[var(--brand-primary)] hover:bg-gray-50 transition-all">
+                                                                <span className="text-3xl text-gray-400">+</span>
+                                                                <span className="text-xs text-gray-400 mt-1">Upload</span>
+                                                                <input type="file" accept="image/*" onChange={(e) => { onUploadAvatar(e); setMode('face'); }} className="hidden" />
+                                                            </label>
+
+                                                            {/* Avatar Grid */}
+                                                            {uniqueAvatars.map((avatar) => (
+                                                                <div key={avatar.id} className="relative group">
+                                                                    <button
+                                                                        onClick={() => { onSelectAvatar(avatar); setMode('face'); }}
+                                                                        className={`w-full aspect-square rounded-xl overflow-hidden border-2 transition-all ${avatarUrl === avatar.image_url ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]' : 'border-gray-200'}`}
+                                                                    >
+                                                                        <img src={avatar.image_url} className="w-full h-full object-cover" alt="" />
+                                                                        {avatar.is_default && (
+                                                                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1 px-2">
+                                                                                <span className="text-[10px] text-white font-bold">✨ Studio</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); onDeleteAvatar(avatar.id); }}
+                                                                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {/* Onboarding if no avatars */}
+                                            {mode === 'face' && uniqueAvatars.length === 0 && !avatarUrl && (
+                                                <div className="text-center py-8">
+                                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mx-auto mb-4 flex items-center justify-center">
+                                                        <span className="text-4xl">📷</span>
+                                                    </div>
+                                                    <h3 className="text-lg font-bold mb-2">Upload Your Photo</h3>
+                                                    <p className="text-sm text-gray-500 mb-4">We'll transform it into an AI-ready avatar</p>
+                                                    <label className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white font-bold rounded-xl cursor-pointer hover:bg-gray-800 transition-colors">
+                                                        <span>Choose Photo</span>
+                                                        <input type="file" accept="image/*" onChange={(e) => { onUploadAvatar(e); setMode('face'); }} className="hidden" />
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 {activeSheet === 'script' && (
                                     <div className="h-full flex flex-col">
                                         {/* Write with AI Button */}
