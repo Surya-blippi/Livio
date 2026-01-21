@@ -476,7 +476,7 @@ export const useDashboardState = () => {
         setStudioReadyUrl(''); setUseStudioImage(false);
     };
 
-    const handleMakeStudioReady = async () => {
+    const handleMakeStudioReady = async (style: string = 'professional') => {
         if (!photoPreview || !dbUser) return;
 
         // Check credits (45 credits)
@@ -519,7 +519,7 @@ export const useDashboardState = () => {
             const response = await fetch('/api/make-studio-ready', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageUrl: inputUrl }),
+                body: JSON.stringify({ imageUrl: inputUrl, style }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to generate studio image');

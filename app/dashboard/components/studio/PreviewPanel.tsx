@@ -27,7 +27,7 @@ interface PreviewPanelProps {
     studioReadyUrl: string;
     isGeneratingStudio: boolean;
     toggleStudioImage: () => void;
-    onMakeStudioReady: () => void;
+    onMakeStudioReady: (style?: string) => void;
     onRemovePhoto: () => void;
     savedAvatars: DbAvatar[];
     onSelectAvatar: (avatar: DbAvatar) => void;
@@ -525,16 +525,38 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                         <div className="flex-1">
                                             <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">Transform to Studio Ready</h4>
                                             <p className="text-xs text-[var(--text-secondary)] mb-3">
-                                                Convert your photo into a professional AI-ready avatar for high-quality face videos.
+                                                Choose a style and convert your photo into a professional AI-ready avatar.
                                             </p>
-                                            <button
-                                                onClick={onMakeStudioReady}
-                                                disabled={isGeneratingStudio}
-                                                className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-                                            >
-                                                <SparklesIcon className={`w-4 h-4 ${isGeneratingStudio ? 'animate-spin' : ''}`} />
-                                                {isGeneratingStudio ? 'Enhancing...' : 'Make Studio Ready'}
-                                            </button>
+
+                                            {/* Style Selection Grid */}
+                                            <div className="grid grid-cols-2 gap-2 mb-3">
+                                                {[
+                                                    { id: 'professional', label: 'Professional', emoji: '👔', desc: 'Formal business look' },
+                                                    { id: 'casual', label: 'Casual', emoji: '😊', desc: 'Friendly & relaxed' },
+                                                    { id: 'trendy', label: 'Trendy', emoji: '✨', desc: 'Modern influencer' },
+                                                    { id: 'minimal', label: 'Minimal', emoji: '🤍', desc: 'Clean & simple' }
+                                                ].map((style) => (
+                                                    <button
+                                                        key={style.id}
+                                                        onClick={() => onMakeStudioReady(style.id)}
+                                                        disabled={isGeneratingStudio}
+                                                        className="flex items-center gap-2 p-2.5 rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        <span className="text-lg">{style.emoji}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{style.label}</p>
+                                                            <p className="text-[10px] text-[var(--text-secondary)] truncate">{style.desc}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {isGeneratingStudio && (
+                                                <div className="flex items-center gap-2 text-purple-600 text-xs font-medium">
+                                                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                                    Enhancing your photo...
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

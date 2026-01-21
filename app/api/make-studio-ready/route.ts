@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
         }
 
-        const { imageUrl } = await request.json();
+        const { imageUrl, style = 'professional' } = await request.json();
 
         if (!imageUrl) {
             return NextResponse.json({ error: 'Image URL is required' }, { status: 400 });
@@ -70,20 +70,70 @@ export async function POST(request: NextRequest) {
         console.log('[Studio Ready] Processing image:', imageUrl);
         console.log(`  💳 Credits deducted: ${cost}`);
 
-        // Use Nano Banana Pro to transform the image
-        const result = await fal.subscribe('fal-ai/nano-banana-pro/edit', {
-            input: {
-                prompt: `Transform this person into a professional podcast speaker portrait. 
-                
+        // Style-specific prompts
+        const stylePrompts: Record<string, string> = {
+            professional: `Transform this person into a professional podcast speaker portrait.
+
 Requirements:
+- Person facing directly at the camera, looking straight ahead
 - Vertical 9:16 aspect ratio perfect for social media
 - Professional studio lighting with soft shadows
 - Clean, minimal gradient or solid background
 - Keep the EXACT same facial features, face shape, and appearance
-- Professional attire (blazer or smart casual)
-- Confident, engaging expression
+- Professional attire (blazer or formal business wear)
+- Confident, authoritative expression
 - High quality, sharp, broadcast-ready image
-- The person should look like they're about to deliver insightful content`,
+- The person should look like a thought leader delivering expert content`,
+
+            casual: `Transform this person into a friendly, approachable content creator portrait.
+
+Requirements:
+- Person facing directly at the camera, looking straight ahead
+- Vertical 9:16 aspect ratio perfect for social media
+- Natural, warm lighting
+- Clean, simple background (solid color or subtle gradient)
+- Keep the EXACT same facial features, face shape, and appearance
+- Casual, relaxed attire (t-shirt or casual shirt)
+- Warm, friendly smile
+- High quality, sharp, social media-ready image
+- The person should look approachable and relatable`,
+
+            trendy: `Transform this person into a stylish, modern influencer portrait.
+
+Requirements:
+- Person facing directly at the camera, looking straight ahead
+- Vertical 9:16 aspect ratio perfect for social media
+- Aesthetic, trendy lighting with creative color tones
+- Visually interesting background with bokeh or gradient
+- Keep the EXACT same facial features, face shape, and appearance
+- Fashionable, trendy attire (streetwear or stylish outfit)
+- Confident, cool expression
+- High quality, sharp, Instagram-ready image
+- The person should look like a modern content creator`,
+
+            minimal: `Transform this person into a clean, minimalist portrait.
+
+Requirements:
+- Person facing directly at the camera, looking straight ahead
+- Vertical 9:16 aspect ratio perfect for social media
+- Soft, even lighting
+- Pure white or very light solid background
+- Keep the EXACT same facial features, face shape, and appearance
+- Simple, neutral attire (plain shirt or top)
+- Neutral, calm expression
+- High quality, sharp, clean image
+- The person should look professional yet understated`
+        };
+
+        // Use the style from request (already parsed above)
+        const prompt = stylePrompts[style] || stylePrompts.professional;
+
+        console.log(`[Studio Ready] Using style: ${style}`);
+
+        // Use Nano Banana Pro to transform the image
+        const result = await fal.subscribe('fal-ai/nano-banana-pro/edit', {
+            input: {
+                prompt,
                 image_urls: [imageUrl],
                 aspect_ratio: '9:16',
                 resolution: '2K',
