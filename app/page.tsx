@@ -314,17 +314,33 @@ export default function LandingPage() {
                     >
                         {/* Input/Output Display */}
                         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
-                            {/* Input - Photo */}
-                            <div className="flex flex-col items-center">
-                                <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Input Photo</span>
-                                <div className="relative">
-                                    <div className="absolute -inset-2 bg-gradient-to-br from-zinc-600 to-zinc-800 rounded-2xl blur-sm opacity-50"></div>
-                                    <div className="relative bg-zinc-800 rounded-xl p-1.5 border-2 border-zinc-700">
-                                        <img
-                                            src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/WhatsApp%20Image%202026-01-20%20at%206.34.51%20PM.jpeg"
-                                            alt="Input photo"
-                                            className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
-                                        />
+                            {/* Input Section - Photo + Topic */}
+                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                {/* Input - Photo */}
+                                <div className="flex flex-col items-center">
+                                    <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Input Photo</span>
+                                    <div className="relative">
+                                        <div className="absolute -inset-2 bg-gradient-to-br from-zinc-600 to-zinc-800 rounded-2xl blur-sm opacity-50"></div>
+                                        <div className="relative bg-zinc-800 rounded-xl p-1.5 border-2 border-zinc-700">
+                                            <img
+                                                src="https://tfaumdiiljwnjmfnonrc.supabase.co/storage/v1/object/public/Showcase/WhatsApp%20Image%202026-01-20%20at%206.34.51%20PM.jpeg"
+                                                alt="Input photo"
+                                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Input - Topic */}
+                                <div className="flex flex-col items-center">
+                                    <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">Topic</span>
+                                    <div className="relative">
+                                        <div className="absolute -inset-2 bg-gradient-to-br from-zinc-600 to-zinc-800 rounded-2xl blur-sm opacity-50"></div>
+                                        <div className="relative bg-zinc-800 rounded-xl p-4 border-2 border-zinc-700 min-w-[160px]">
+                                            <div className="text-white font-bold text-lg text-center leading-snug">
+                                                &quot;Sushant Singh<br />Rajput&quot;
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
