@@ -72,18 +72,19 @@ export async function POST(request: NextRequest) {
 
         // Style-specific prompts
         const stylePrompts: Record<string, string> = {
-            professional: `Transform this person into a professional podcast speaker portrait.
+            podcaster: `Transform this person into a professional podcaster portrait.
 
 Requirements:
 - Person facing directly at the camera, looking straight ahead
+- Include a professional studio podcast microphone on a boom arm, slightly off-center near the mouth, softly lit, not obscuring the face
 - Vertical 9:16 aspect ratio perfect for social media
 - Professional studio lighting with soft shadows
 - Clean, minimal gradient or solid background
 - Keep the EXACT same facial features, face shape, and appearance
-- Professional attire (blazer or formal business wear)
-- Confident, authoritative expression
+- Professional attire (blazer or smart casual)
+- Confident, engaging expression
 - High quality, sharp, broadcast-ready image
-- The person should look like a thought leader delivering expert content`,
+- The person should look like a podcast host delivering expert content`,
 
             casual: `Transform this person into a friendly, approachable content creator portrait.
 

@@ -561,7 +561,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                             </p>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 {[
-                                                                    { id: 'professional', label: 'Professional', emoji: '👔', desc: 'Formal business' },
+                                                                    { id: 'podcaster', label: 'Podcaster', emoji: '🎙️', desc: 'With microphone' },
                                                                     { id: 'casual', label: 'Casual', emoji: '😊', desc: 'Friendly look' },
                                                                     { id: 'trendy', label: 'Trendy', emoji: '✨', desc: 'Modern style' },
                                                                     { id: 'minimal', label: 'Minimal', emoji: '🤍', desc: 'Clean & simple' }

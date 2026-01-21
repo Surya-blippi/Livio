@@ -531,7 +531,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
                                             {/* Style Selection Grid */}
                                             <div className="grid grid-cols-2 gap-2 mb-3">
                                                 {[
-                                                    { id: 'professional', label: 'Professional', emoji: '👔', desc: 'Formal business look' },
+                                                    { id: 'podcaster', label: 'Podcaster', emoji: '🎙️', desc: 'With microphone' },
                                                     { id: 'casual', label: 'Casual', emoji: '😊', desc: 'Friendly & relaxed' },
                                                     { id: 'trendy', label: 'Trendy', emoji: '✨', desc: 'Modern influencer' },
                                                     { id: 'minimal', label: 'Minimal', emoji: '🤍', desc: 'Clean & simple' }
