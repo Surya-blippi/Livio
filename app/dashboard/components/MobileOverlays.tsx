@@ -523,6 +523,42 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                 </div>
                                             </div>
 
+                                            {/* Onboarding Banner - Show when no avatar is selected */}
+                                            {mode === 'face' && !avatarUrl && !studioReadyUrl && uniqueAvatars.length === 0 && (
+                                                <div className="mt-6 mb-2 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl border-2 border-purple-300">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                                            <span className="text-white text-lg">✨</span>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-purple-800 text-sm mb-1">
+                                                                Let's get you studio ready!
+                                                            </h4>
+                                                            <p className="text-xs text-purple-700">
+                                                                Upload your photo and we'll transform it into a professional AI-ready avatar. <strong>This is a one-time setup.</strong>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Faceless Mode Info - shown when Faceless is selected */}
+                                            {mode === 'faceless' && (
+                                                <div className="mt-6 mb-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-[var(--brand-primary)]/20 flex items-center justify-center flex-shrink-0">
+                                                            <ImageIcon className="w-4 h-4 text-gray-500" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-gray-900 text-sm mb-1">Faceless Mode</h4>
+                                                            <p className="text-xs text-gray-600">
+                                                                Stock images and videos will be automatically selected based on your script. Review them in the <strong>Assets</strong> section.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {mode === 'face' && (
                                                 <>
                                                     {/* Current Avatar Preview */}
