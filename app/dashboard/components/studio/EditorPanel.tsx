@@ -89,6 +89,29 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     const [showEditTypeMenu, setShowEditTypeMenu] = useState(false);
     const [showEditingModeMenu, setShowEditingModeMenu] = useState(false);
     const [editingMode, setEditingMode] = useState<'raw' | 'minimal' | 'polished'>('polished');
+    const [showShortInputWarning, setShowShortInputWarning] = useState(false);
+
+    // Helper to count words in input text
+    const getWordCount = (text: string) => {
+        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    };
+
+    // Check if input is too short (5 words or less) - likely just a topic, not a full script
+    const isInputTooShort = (text: string) => {
+        return getWordCount(text) <= 5;
+    };
+
+    // Handle generate button click with validation
+    const handleGenerateClick = () => {
+        if (isInputTooShort(inputText)) {
+            setShowShortInputWarning(true);
+            // Auto-hide warning after 5 seconds
+            setTimeout(() => setShowShortInputWarning(false), 5000);
+            return;
+        }
+        setShowShortInputWarning(false);
+        handleCreateVideo();
+    };
 
     // Auto-resize textarea with max height
     useEffect(() => {
@@ -416,40 +439,58 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                             </div>
 
                             {/* C. Footer Actions */}
-                            <div className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded-b-[var(--radius-lg)] border-t border-gray-100">
+                            <div className="flex flex-col gap-2 p-2 bg-gray-50 rounded-b-[var(--radius-lg)] border-t border-gray-100">
 
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={onEnhance}
-                                        disabled={!inputText.trim() || isProcessing || isEnhancing}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-bold text-gray-600 hover:border-[var(--brand-primary)] hover:text-black hover:shadow-[2px_2px_0px_var(--brand-primary)] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:hover:border-gray-200"
-                                    >
-                                        <SparklesIcon className="w-3 h-3 text-purple-600" />
-                                        <span>{isEnhancing ? 'Writing...' : 'Research'}</span>
-                                    </button>
+                                {/* Short Input Warning Message */}
+                                {showShortInputWarning && (
+                                    <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg animate-pulse">
+                                        <span className="text-amber-600 text-lg">💡</span>
+                                        <p className="text-xs text-amber-700 font-medium">
+                                            Your input looks like a topic, not a full script. Click <strong>"Research"</strong> to generate a complete script first!
+                                        </p>
+                                        <button
+                                            onClick={() => setShowShortInputWarning(false)}
+                                            className="ml-auto text-amber-500 hover:text-amber-700 text-sm"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={onEnhance}
+                                            disabled={!inputText.trim() || isProcessing || isEnhancing}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-bold text-gray-600 hover:border-[var(--brand-primary)] hover:text-black hover:shadow-[2px_2px_0px_var(--brand-primary)] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:hover:border-gray-200"
+                                        >
+                                            <SparklesIcon className="w-3 h-3 text-purple-600" />
+                                            <span>{isEnhancing ? 'Writing...' : 'Research'}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={onCollectAssets}
+                                            disabled={!inputText.trim() || isProcessing || isCollectingAssets}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-bold text-gray-600 hover:border-blue-400 hover:text-black hover:shadow-[2px_2px_0px_#60A5FA] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:hover:border-gray-200"
+                                        >
+                                            <svg className="w-3 h-3 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                <polyline points="21 15 16 10 5 21"></polyline>
+                                            </svg>
+                                            <span>{isCollectingAssets ? 'Finding...' : 'Collect'}</span>
+                                        </button>
+                                    </div>
 
                                     <button
-                                        onClick={onCollectAssets}
-                                        disabled={!inputText.trim() || isProcessing || isCollectingAssets}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-bold text-gray-600 hover:border-blue-400 hover:text-black hover:shadow-[2px_2px_0px_#60A5FA] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:hover:border-gray-200"
+                                        onClick={handleGenerateClick}
+                                        disabled={!inputText.trim() || isProcessing}
+                                        className="flex items-center gap-2 px-6 py-2 bg-[var(--brand-primary)] hover:bg-[#b3e600] text-black text-sm font-black rounded-lg border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[2px_2px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0px_#000] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
                                     >
-                                        <svg className="w-3 h-3 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                            <polyline points="21 15 16 10 5 21"></polyline>
-                                        </svg>
-                                        <span>{isCollectingAssets ? 'Finding...' : 'Collect'}</span>
+                                        <span>Generate</span>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                     </button>
                                 </div>
-
-                                <button
-                                    onClick={handleCreateVideo}
-                                    disabled={!inputText.trim() || isProcessing}
-                                    className="flex items-center gap-2 px-6 py-2 bg-[var(--brand-primary)] hover:bg-[#b3e600] text-black text-sm font-black rounded-lg border-2 border-black shadow-[4px_4px_0px_#000] hover:shadow-[2px_2px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0px_#000] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
-                                >
-                                    <span>Generate</span>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                </button>
 
                             </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { SparklesIcon, MicIcon, ClockIcon, ImageIcon, VideoIcon } from './icons';
 import { MobileSheetType } from './MobileOverlays';
 
@@ -66,6 +66,29 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     hasVideo,
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [showShortInputWarning, setShowShortInputWarning] = useState(false);
+
+    // Helper to count words in input text
+    const getWordCount = (text: string) => {
+        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    };
+
+    // Check if input is too short (5 words or less) - likely just a topic, not a full script
+    const isInputTooShort = (text: string) => {
+        return getWordCount(text) <= 5;
+    };
+
+    // Handle generate button click with validation
+    const handleGenerateClick = () => {
+        if (isInputTooShort(inputText)) {
+            setShowShortInputWarning(true);
+            // Auto-hide warning after 5 seconds
+            setTimeout(() => setShowShortInputWarning(false), 5000);
+            return;
+        }
+        setShowShortInputWarning(false);
+        onGenerate();
+    };
 
     useEffect(() => {
         if (textareaRef.current) {
@@ -253,37 +276,56 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                     />
 
                     {/* Actions Row */}
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                        {/* AI Enhance */}
-                        <button
-                            onClick={onEnhance}
-                            disabled={!inputText.trim() || isEnhancing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-purple-500 hover:text-purple-600 disabled:opacity-30 transition-all"
-                        >
-                            <SparklesIcon className="w-3 h-3" />
-                            {isEnhancing ? 'Writing...' : 'AI Write'}
-                        </button>
+                    <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-100">
 
-                        {/* Find Assets */}
-                        <button
-                            onClick={onCollectAssets}
-                            disabled={!inputText.trim() || isCollectingAssets}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500 hover:text-blue-600 disabled:opacity-30 transition-all"
-                        >
-                            <ImageIcon className="w-3 h-3" />
-                            {isCollectingAssets ? 'Finding...' : 'Find Assets'}
-                        </button>
+                        {/* Short Input Warning Message */}
+                        {showShortInputWarning && (
+                            <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg animate-pulse">
+                                <span className="text-amber-600 text-base">💡</span>
+                                <p className="text-[11px] text-amber-700 font-medium flex-1">
+                                    Short input! Click <strong>"AI Write"</strong> to generate a full script first.
+                                </p>
+                                <button
+                                    onClick={() => setShowShortInputWarning(false)}
+                                    className="text-amber-500 hover:text-amber-700 text-xs"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        )}
 
-                        <div className="flex-1" />
+                        <div className="flex items-center gap-2">
+                            {/* AI Enhance */}
+                            <button
+                                onClick={onEnhance}
+                                disabled={!inputText.trim() || isEnhancing}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-purple-500 hover:text-purple-600 disabled:opacity-30 transition-all"
+                            >
+                                <SparklesIcon className="w-3 h-3" />
+                                {isEnhancing ? 'Writing...' : 'AI Write'}
+                            </button>
 
-                        {/* Generate Button - Neo-brutalist style */}
-                        <button
-                            onClick={onGenerate}
-                            disabled={!inputText.trim()}
-                            className="px-5 py-2 bg-[var(--brand-primary)] text-black rounded-xl font-black text-sm border-2 border-black shadow-[3px_3px_0px_#000] hover:shadow-[5px_5px_0px_#000] hover:-translate-y-0.5 active:shadow-none active:translate-y-0 disabled:opacity-30 disabled:hover:shadow-[3px_3px_0px_#000] disabled:hover:translate-y-0 transition-all"
-                        >
-                            Generate →
-                        </button>
+                            {/* Find Assets */}
+                            <button
+                                onClick={onCollectAssets}
+                                disabled={!inputText.trim() || isCollectingAssets}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500 hover:text-blue-600 disabled:opacity-30 transition-all"
+                            >
+                                <ImageIcon className="w-3 h-3" />
+                                {isCollectingAssets ? 'Finding...' : 'Find Assets'}
+                            </button>
+
+                            <div className="flex-1" />
+
+                            {/* Generate Button - Neo-brutalist style */}
+                            <button
+                                onClick={handleGenerateClick}
+                                disabled={!inputText.trim()}
+                                className="px-5 py-2 bg-[var(--brand-primary)] text-black rounded-xl font-black text-sm border-2 border-black shadow-[3px_3px_0px_#000] hover:shadow-[5px_5px_0px_#000] hover:-translate-y-0.5 active:shadow-none active:translate-y-0 disabled:opacity-30 disabled:hover:shadow-[3px_3px_0px_#000] disabled:hover:translate-y-0 transition-all"
+                            >
+                                Generate →
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
