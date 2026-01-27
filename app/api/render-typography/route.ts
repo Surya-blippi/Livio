@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 20,
+            framesPerLambda: 200, // Reduced concurrency to avoid rate limits (was 20)
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
