@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
             const outputUrl = progress.outputFile || '';
 
             // Update Job to Completed
-            await authClient
+            const { error: updateError } = await authClient
                 .from('video_jobs')
                 .update({
                     status: 'completed',
@@ -84,6 +84,12 @@ export async function POST(request: NextRequest) {
                     progress_message: 'Render complete'
                 })
                 .eq('id', jobId);
+
+            if (updateError) {
+                console.error('[Typography Status] Failed to update job completion:', updateError);
+            } else {
+                console.log('[Typography Status] Job marked as completed in DB.');
+            }
 
             // Note: The 'saveVideo' (inserting to public.videos) was typically done by Frontend upon receiving success.
             // We can rely on Frontend to call 'saveVideo' upon receiving done=true here.
