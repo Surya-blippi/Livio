@@ -80,9 +80,18 @@ export async function POST(request: NextRequest) {
             const imageUrl = clerkUser?.imageUrl || undefined;
 
             // Get Clerk Token for Supabase RLS
-            const token = await getToken({ template: 'supabase' });
+            // Try 'supabase' template, fallback to default
+            let token = await getToken({ template: 'supabase' });
+            if (!token) {
+                console.log('[Typography API] Warning: No "supabase" template token, trying default...');
+                token = await getToken();
+            }
+
             if (token) {
                 authClient = createAuthenticatedClient(token);
+                console.log('[Typography API] Authenticated client created');
+            } else {
+                console.warn('[Typography API] Failed to get Clerk token - RLS may block DB ops');
             }
 
             const user = await getOrCreateUser(clerkId, email, name, imageUrl);
