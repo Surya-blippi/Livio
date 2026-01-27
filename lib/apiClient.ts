@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '@/lib/supabase';
 
 export interface ApiError {
     message: string;
@@ -515,6 +516,51 @@ export const createCaptionVideo = async (
  * Create typography video with animated text synced to audio
  * Returns a video URL with animated word display on colorful backgrounds
  */
+/**
+ * Helper: Upload base64 audio to Supabase Storage to avoid API body limits (4.5MB)
+ */
+async function uploadAudioToStorage(audioBase64: string): Promise<string> {
+    try {
+        // Convert base64 to Blob
+        const fetchRes = await fetch(audioBase64);
+        const blob = await fetchRes.blob();
+
+        const fileName = `typography_upload_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`;
+
+        // Upload to 'voices' or 'videos' bucket (using 'videos' as it's likely public)
+        // Check if there's a temp bucket? 'voices' is often used for samples.
+        // Let's use 'videos' folder 'temp'.
+        // 1. Get Signed URL from API
+        const signRes = await axios.post('/api/storage/sign-upload', {
+            fileName,
+            fileType: blob.type
+        });
+
+        const { path, token, publicUrl } = signRes.data;
+        if (!path || !token) throw new Error('Failed to get signed upload parameters');
+
+        // 2. Upload directly to Supabase Storage using the signed token
+        const { error } = await supabase.storage
+            .from('videos')
+            .uploadToSignedUrl(path, token, blob);
+
+        if (error) throw error;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('videos')
+            .getPublicUrl(`temp/${fileName}`);
+
+        return publicUrlData.publicUrl;
+    } catch (e) {
+        console.warn('Failed to upload audio to storage, falling back to direct base64:', e);
+        return ''; // Fallback
+    }
+}
+
+/**
+ * Create typography video with animated text synced to audio
+ * Returns a video URL with animated word display on colorful backgrounds
+ */
 export const createTypographyVideo = async (
     audioBase64: string,
     wordTimings: WordTiming[],
@@ -526,6 +572,7 @@ export const createTypographyVideo = async (
 ): Promise<{
     videoUrl: string;
     duration: number;
+    jobId?: string;
 }> => {
     const {
         wordsPerGroup = 3,
@@ -533,8 +580,24 @@ export const createTypographyVideo = async (
         aspectRatio = '9:16'
     } = options;
 
+    let finalAudioUrl = '';
+    let finalAudioBase64 = audioBase64;
+
+    // optimization: Upload to storage if base64 is large (> 1MB)
+    // Actually, always upload to be safe against Vercel 4.5MB limit.
+    if (audioBase64 && audioBase64.startsWith('data:')) {
+        console.log('[createTypographyVideo] Uploading audio to storage to avoid body limit...');
+        const uploadedUrl = await uploadAudioToStorage(audioBase64);
+        if (uploadedUrl) {
+            finalAudioUrl = uploadedUrl;
+            finalAudioBase64 = ''; // Clear base64 to save body size
+            console.log('[createTypographyVideo] Upload successful:', finalAudioUrl);
+        }
+    }
+
     const response = await axios.post('/api/render-typography', {
-        audioBase64,
+        audioBase64: finalAudioBase64, // Send empty if uploaded
+        audioUrl: finalAudioUrl,       // Send URL if uploaded
         wordTimings,
         wordsPerGroup,
         animationStyle,
@@ -543,7 +606,8 @@ export const createTypographyVideo = async (
 
     return {
         videoUrl: response.data.videoUrl,
-        duration: response.data.duration
+        duration: response.data.duration,
+        jobId: response.data.jobId
     };
 };
 
