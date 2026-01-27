@@ -1,18 +1,16 @@
-import React from 'react';
-import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import React, { useMemo } from 'react';
+import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, random } from 'remotion';
 
-// Colorful backgrounds for typography mode
-const TYPOGRAPHY_COLORS = [
-    '#FF6B6B', // Coral Red
-    '#4ECDC4', // Teal
-    '#45B7D1', // Sky Blue
-    '#96CEB4', // Sage Green
-    '#FFEAA7', // Soft Yellow
-    '#DDA0DD', // Plum
-    '#98D8C8', // Mint
-    '#F7DC6F', // Golden
-    '#BB8FCE', // Lavender
-    '#85C1E9', // Light Blue
+// Colorful gradients for typography mode
+const GRADIENTS = [
+    'linear-gradient(135deg, #FF6B6B 0%, #C44D56 100%)', // Coral
+    'linear-gradient(135deg, #4ECDC4 0%, #2980B9 100%)', // Sea Blue
+    'linear-gradient(135deg, #8E44AD 0%, #3498DB 100%)', // Purple Rain
+    'linear-gradient(135deg, #F1C40F 0%, #E67E22 100%)', // Sunburst
+    'linear-gradient(135deg, #2ECC71 0%, #16A085 100%)', // Emerald
+    'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', // Crimson
+    'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)', // Amethyst
+    'linear-gradient(135deg, #34495E 0%, #2C3E50 100%)', // Midnight
 ];
 
 export interface TypographyWord {
@@ -24,55 +22,50 @@ export interface TypographyWord {
 export interface TypographyCompositionProps {
     audioUrl: string;
     words: TypographyWord[];
-    wordsPerGroup?: number; // How many words to show at once
+    wordsPerGroup?: number;
     animationStyle?: 'pop' | 'slide' | 'fade' | 'typewriter';
 }
 
-// Individual word component with animation
 const AnimatedWord: React.FC<{
     word: string;
     isActive: boolean;
-    animationStyle: string;
+    hasPassed: boolean;
     frame: number;
     fps: number;
-}> = ({ word, isActive, animationStyle, frame, fps }) => {
-    // Spring animation for pop effect
-    const popScale = spring({
+}> = ({ word, isActive, hasPassed, frame, fps }) => {
+    // Current word pops in
+    const scale = spring({
         frame: isActive ? frame : 0,
         fps,
-        config: {
-            damping: 10,
-            stiffness: 100,
-            mass: 0.5,
-        },
+        config: { damping: 12, stiffness: 200, mass: 0.5 },
     });
 
-    const opacity = isActive ? 1 : 0;
-    let transform = '';
+    // Style calculation
+    const activeScale = interpolate(scale, [0, 1], [0.8, 1.2]);
+    const inactiveScale = 1.0;
 
-    switch (animationStyle) {
-        case 'pop':
-            transform = `scale(${interpolate(popScale, [0, 1], [0.5, 1])})`;
-            break;
-        case 'slide':
-            transform = `translateY(${isActive ? 0 : 50}px)`;
-            break;
-        case 'typewriter':
-            transform = 'none';
-            break;
-        case 'fade':
-        default:
-            transform = 'none';
-    }
+    // Color transition
+    const color = isActive ? '#FFE66D' : (hasPassed ? '#FFFFFF' : '#FFFFFF');
+    // Opacity: Past words dim slightly, future words are visible
+    const opacity = isActive ? 1 : (hasPassed ? 0.6 : 0.8);
+    // Text Shadow: Stronger for active word
+    const textShadow = isActive
+        ? '0px 0px 20px rgba(255, 230, 109, 0.6), 4px 4px 0px rgba(0,0,0,0.5)'
+        : '2px 2px 0px rgba(0,0,0,0.3)';
 
     return (
         <span
             style={{
                 display: 'inline-block',
                 opacity,
-                transform,
-                transition: 'opacity 0.15s ease, transform 0.15s ease',
-                margin: '0 12px',
+                transform: `scale(${isActive ? activeScale : inactiveScale})`,
+                color,
+                textShadow,
+                fontFamily: "'Anton', sans-serif",
+                margin: '0 10px',
+                transition: 'color 0.1s, transform 0.1s, opacity 0.2s',
+                zIndex: isActive ? 10 : 1,
+                position: 'relative'
             }}
         >
             {word}
@@ -84,105 +77,114 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     audioUrl,
     words,
     wordsPerGroup = 3,
-    animationStyle = 'pop',
 }) => {
     const frame = useCurrentFrame();
-    const { fps } = useVideoConfig();
+    const { fps, width, height } = useVideoConfig();
 
-    // Group words for display (show wordsPerGroup at a time)
-    const wordGroups: TypographyWord[][] = [];
-    for (let i = 0; i < words.length; i += wordsPerGroup) {
-        wordGroups.push(words.slice(i, i + wordsPerGroup));
-    }
+    // Group words
+    const wordGroups = useMemo(() => {
+        const groups: TypographyWord[][] = [];
+        for (let i = 0; i < words.length; i += wordsPerGroup) {
+            groups.push(words.slice(i, i + wordsPerGroup));
+        }
+        return groups;
+    }, [words, wordsPerGroup]);
 
-    // Find current group based on frame
+    // Determine current group
     let currentGroupIndex = 0;
     for (let i = 0; i < wordGroups.length; i++) {
         const group = wordGroups[i];
-        const groupStart = group[0]?.startFrame ?? 0;
-        const groupEnd = group[group.length - 1]?.endFrame ?? 0;
-        if (frame >= groupStart && frame <= groupEnd) {
+        if (frame >= (group[0]?.startFrame ?? 0)) {
             currentGroupIndex = i;
-            break;
         }
-        if (frame < groupStart) {
-            currentGroupIndex = Math.max(0, i - 1);
-            break;
-        }
-        currentGroupIndex = i;
     }
 
-    // Get current group's text
+    // Safety check
     const currentGroup = wordGroups[currentGroupIndex] || [];
-    const currentText = currentGroup.map(w => w.text).join(' ');
 
-    // Cycle through background colors based on group index
-    const colorIndex = currentGroupIndex % TYPOGRAPHY_COLORS.length;
-    const backgroundColor = TYPOGRAPHY_COLORS[colorIndex];
-
-    // Calculate opacity for smooth transition
-    const groupStart = currentGroup[0]?.startFrame ?? 0;
-    const fadeInDuration = 5; // frames
-    const fadeProgress = interpolate(
-        frame,
-        [groupStart, groupStart + fadeInDuration],
-        [0, 1],
-        { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
-    );
+    // Dynamic Gradient Background
+    const gradientIndex = currentGroupIndex % GRADIENTS.length;
+    const currentGradient = GRADIENTS[gradientIndex];
+    // We can interpret a slow rotation of the hue or gradient position
+    const gradientPos = (frame / 2) % 100;
 
     return (
-        <AbsoluteFill
-            style={{
-                backgroundColor,
-                transition: 'background-color 0.3s ease',
-            }}
-        >
+        <AbsoluteFill>
+            {/* Load Google Font */}
+            <style>
+                {`@import url('https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@800&display=swap');`}
+            </style>
+
+            {/* Background */}
+            <AbsoluteFill
+                style={{
+                    background: currentGradient,
+                    backgroundSize: '200% 200%',
+                    backgroundPosition: `${gradientPos}% 50%`,
+                    transition: 'background 0.5s ease',
+                }}
+            >
+                {/* Noise Texture Overlay for "Reel" feel */}
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: 0.1,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+                }} />
+            </AbsoluteFill>
+
             {/* Audio */}
             <Audio src={audioUrl} />
 
-            {/* Main text container */}
+            {/* Text Container */}
             <AbsoluteFill
                 style={{
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: '60px',
+                    padding: '40px',
                 }}
             >
                 <div
                     style={{
-                        fontFamily: 'Inter, Arial Black, sans-serif',
-                        fontSize: 90,
-                        fontWeight: 900,
-                        color: '#FFFFFF',
-                        textAlign: 'center',
-                        textShadow: '4px 4px 0px rgba(0,0,0,0.3), 8px 8px 20px rgba(0,0,0,0.2)',
-                        lineHeight: 1.3,
-                        opacity: fadeProgress,
-                        transform: `scale(${interpolate(fadeProgress, [0, 1], [0.9, 1])})`,
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        gap: '20px',
                         maxWidth: '90%',
-                        wordWrap: 'break-word',
+                        transform: `scale(${interpolate(currentGroupIndex % 2, [0, 1], [1, 1.05])})`, // Subtle alternating scale per group
+                        transition: 'transform 0.3s ease'
                     }}
                 >
-                    {currentGroup.map((wordData, idx) => (
-                        <AnimatedWord
-                            key={`${currentGroupIndex}-${idx}`}
-                            word={wordData.text}
-                            isActive={frame >= wordData.startFrame && frame <= wordData.endFrame}
-                            animationStyle={animationStyle}
-                            frame={frame - wordData.startFrame}
-                            fps={fps}
-                        />
-                    ))}
+                    {currentGroup.map((wordData, idx) => {
+                        const isWordActive = frame >= wordData.startFrame && frame < wordData.endFrame;
+                        const hasWordPassed = frame >= wordData.endFrame;
+                        const relativeFrame = Math.max(0, frame - wordData.startFrame);
+
+                        return (
+                            <AnimatedWord
+                                key={`${currentGroupIndex}-${idx}`}
+                                word={wordData.text}
+                                isActive={isWordActive}
+                                hasPassed={hasWordPassed}
+                                frame={relativeFrame}
+                                fps={fps}
+                            />
+                        );
+                    })}
                 </div>
             </AbsoluteFill>
 
-            {/* Subtle gradient overlay for depth */}
-            <AbsoluteFill
-                style={{
-                    background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 100%)',
-                    pointerEvents: 'none',
-                }}
-            />
+            {/* Progress Bar (Optional, looks nice on reels) */}
+            <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                height: '8px',
+                backgroundColor: '#FFE66D',
+                width: `${(frame / (words[words.length - 1]?.endFrame ?? 1)) * 100}%`,
+                zIndex: 100
+            }} />
+
         </AbsoluteFill>
     );
 };
