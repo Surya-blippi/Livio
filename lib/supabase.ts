@@ -175,13 +175,20 @@ export async function saveVideo(
     assets?: { url: string; source?: string }[],
     client: any = supabase
 ): Promise<DbVideo | null> {
+    // Auto-generate topic from first 4-5 words of script if not provided
+    let finalTopic = topic;
+    if (!finalTopic && script) {
+        const words = script.trim().split(/\s+/).slice(0, 5);
+        finalTopic = words.join(' ') + (words.length >= 5 ? '...' : '');
+    }
+
     const { data, error } = await client
         .from('videos')
         .insert({
             user_id: userId,
             video_url: videoUrl,
             script,
-            topic: topic || null,
+            topic: finalTopic || null,
             assets: assets || [],
             mode,
             duration: Math.round(duration),

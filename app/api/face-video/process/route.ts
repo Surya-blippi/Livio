@@ -316,13 +316,16 @@ export async function POST(request: NextRequest) {
                     const script = processedScenes.map(ps => ps.text).join('\n\n');
                     // Get thumbnail from first face scene
                     const thumbnailUrl = processedScenes.find(ps => ps.type === 'face')?.clipUrl || null;
+                    // Auto-generate topic from first 5 words of script
+                    const topicWords = script.trim().split(/\s+/).slice(0, 5);
+                    const topic = topicWords.join(' ') + (topicWords.length >= 5 ? '...' : '');
 
                     const { data: videoData, error: videoError } = await supabase.from('videos').insert({
                         user_id: job.user_uuid || job.user_id,
                         video_url: result.videoUrl,
                         script: script,
                         mode: 'face',
-                        topic: '',
+                        topic: topic,
                         duration: Math.round(result.duration || 0), // Convert to integer for DB
                         has_captions: inputData.enableCaptions || false,
                         has_music: inputData.enableBackgroundMusic || false,

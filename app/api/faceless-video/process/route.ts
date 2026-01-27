@@ -430,12 +430,16 @@ export async function POST(request: NextRequest) {
                 // Save to permanent 'videos' table FIRST (to avoid race condition with frontend polling)
                 try {
                     const script = processedScenes.map(s => s.text).join('\n\n');
+                    // Auto-generate topic from first 5 words of script
+                    const topicWords = script.trim().split(/\s+/).slice(0, 5);
+                    const topic = topicWords.join(' ') + (topicWords.length >= 5 ? '...' : '');
+
                     const { data: videoData, error: videoError } = await supabase.from('videos').insert({
                         user_id: job.user_uuid || job.user_id,
                         video_url: status.videoUrl,
                         script: script,
                         mode: 'faceless',
-                        topic: '', // Could extract from input if available
+                        topic: topic,
                         duration: Math.round(totalDuration),
                         has_captions: input.enableCaptions || false,
                         has_music: input.enableBackgroundMusic || false,
