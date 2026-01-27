@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 25, // Extreme concurrency: ~1s per Lambda for max speed.
+            framesPerLambda: 80, // Safe concurrency: ~4 Lambdas for 10s video. Reverted from 25 (rate limit).
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
