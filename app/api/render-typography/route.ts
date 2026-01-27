@@ -33,6 +33,11 @@ const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amaz
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
 
+    console.log('[Typography API] ===== REQUEST RECEIVED =====');
+    console.log('[Typography API] Region:', REMOTION_AWS_REGION);
+    console.log('[Typography API] Function:', FUNCTION_NAME);
+    console.log('[Typography API] ServeURL:', SERVE_URL);
+
     try {
         const body = await request.json();
         const {
@@ -44,25 +49,32 @@ export async function POST(request: NextRequest) {
             aspectRatio = '9:16'
         } = body;
 
+        console.log('[Typography API] Body received:');
+        console.log('[Typography API]   - audioUrl:', audioUrl ? 'present' : 'missing');
+        console.log('[Typography API]   - audioBase64:', audioBase64 ? `${audioBase64.length} chars` : 'missing');
+        console.log('[Typography API]   - wordTimings:', wordTimings?.length || 0, 'words');
+        console.log('[Typography API]   - wordsPerGroup:', wordsPerGroup);
+        console.log('[Typography API]   - animationStyle:', animationStyle);
+        console.log('[Typography API]   - aspectRatio:', aspectRatio);
+
         if (!wordTimings || wordTimings.length === 0) {
+            console.log('[Typography API] ERROR: No word timings');
             return NextResponse.json({ error: 'Word timings are required' }, { status: 400 });
         }
 
         if (!audioUrl && !audioBase64) {
+            console.log('[Typography API] ERROR: No audio');
             return NextResponse.json({ error: 'Audio (audioUrl or audioBase64) is required' }, { status: 400 });
         }
 
-        console.log('[Typography Lambda] Starting video generation');
-
-        // Create temp directory
+        console.log('[Typography API] Creating temp directory...');
         await fs.mkdir(tempDir, { recursive: true });
 
         // Prepare audio URL
         let finalAudioUrl = audioUrl;
         if (audioBase64 && !audioUrl) {
-            // For base64 audio, we need to upload to a public URL
-            // For now, use a data URL (works for small files)
             finalAudioUrl = `data:audio/mp3;base64,${audioBase64}`;
+            console.log('[Typography API] Using base64 audio, length:', finalAudioUrl.length);
         }
 
         // Determine dimensions
@@ -75,19 +87,29 @@ export async function POST(request: NextRequest) {
             width = 1080;
             height = 1080;
         }
+        console.log('[Typography API] Dimensions:', width, 'x', height);
 
         const fps = 30;
 
         // Convert word timings to frame-based format
         const typographyWords = convertToFrameTimings(wordTimings, fps);
-        console.log(`[Typography Lambda] Converted ${typographyWords.length} words to frame timings`);
+        console.log('[Typography API] Converted', typographyWords.length, 'words to frame timings');
+        console.log('[Typography API] First word:', JSON.stringify(typographyWords[0]));
+        console.log('[Typography API] Last word:', JSON.stringify(typographyWords[typographyWords.length - 1]));
 
         // Calculate total duration from last word
         const lastWord = typographyWords[typographyWords.length - 1];
-        const durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5); // Add 0.5s padding
+        const durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5);
+        console.log('[Typography API] Duration in frames:', durationInFrames, '(', durationInFrames / fps, 's)');
 
         // Render on Lambda
-        console.log('[Typography Lambda] Starting Lambda render...');
+        console.log('[Typography API] ===== CALLING LAMBDA =====');
+        console.log('[Typography API] Input props:', JSON.stringify({
+            audioUrl: finalAudioUrl.substring(0, 100) + '...',
+            words: typographyWords.slice(0, 2),
+            wordsPerGroup,
+            animationStyle,
+        }, null, 2));
 
         const renderResult = await renderMediaOnLambda({
             region: REMOTION_AWS_REGION as any,
@@ -109,14 +131,19 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        console.log('[Typography Lambda] Render started, polling for progress...');
-        console.log('[Typography Lambda] Render ID:', renderResult.renderId);
+        console.log('[Typography API] ===== LAMBDA STARTED =====');
+        console.log('[Typography API] Render ID:', renderResult.renderId);
+        console.log('[Typography API] Bucket:', renderResult.bucketName);
 
         // Poll for completion
         let completed = false;
         let outputUrl = '';
+        let pollCount = 0;
 
         while (!completed) {
+            pollCount++;
+            console.log('[Typography API] Polling progress (attempt', pollCount, ')...');
+
             const progress = await getRenderProgress({
                 region: REMOTION_AWS_REGION as any,
                 functionName: FUNCTION_NAME,
@@ -124,31 +151,51 @@ export async function POST(request: NextRequest) {
                 renderId: renderResult.renderId,
             });
 
+            console.log('[Typography API] Progress response:', JSON.stringify({
+                done: progress.done,
+                overallProgress: progress.overallProgress,
+                fatalErrorEncountered: progress.fatalErrorEncountered,
+                errors: progress.errors,
+                outputFile: progress.outputFile,
+            }));
+
             if (progress.done) {
                 completed = true;
                 outputUrl = progress.outputFile || '';
-                console.log('[Typography Lambda] Render complete:', outputUrl);
+                console.log('[Typography API] ===== RENDER COMPLETE =====');
+                console.log('[Typography API] Output URL:', outputUrl);
             } else if (progress.fatalErrorEncountered) {
+                console.log('[Typography API] ===== FATAL ERROR =====');
+                console.log('[Typography API] Errors:', JSON.stringify(progress.errors, null, 2));
                 throw new Error(`Lambda render failed: ${JSON.stringify(progress.errors)}`);
             } else {
-                console.log(`[Typography Lambda] Progress: ${Math.round((progress.overallProgress || 0) * 100)}%`);
-                // Wait before polling again
+                const pct = Math.round((progress.overallProgress || 0) * 100);
+                console.log(`[Typography API] Progress: ${pct}%`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            // Safety: max 60 polls (2 minutes)
+            if (pollCount > 60) {
+                throw new Error('Render timeout - exceeded 2 minutes');
             }
         }
 
-        // Clean up temp directory
+        // Clean up
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
         } catch { }
 
+        console.log('[Typography API] ===== SUCCESS =====');
         return NextResponse.json({
             videoUrl: outputUrl,
             duration: durationInFrames / fps,
         });
 
     } catch (error) {
-        console.error('[Typography Lambda] Error:', error);
+        console.error('[Typography API] ===== ERROR =====');
+        console.error('[Typography API] Error type:', error?.constructor?.name);
+        console.error('[Typography API] Error message:', error instanceof Error ? error.message : String(error));
+        console.error('[Typography API] Full error:', error);
 
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
