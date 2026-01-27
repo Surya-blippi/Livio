@@ -22,8 +22,8 @@ interface TypographyWord {
 function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): TypographyWord[] {
     return wordTimings.map(wt => ({
         text: wt.word,
-        startFrame: Math.floor(wt.start * fps),
-        endFrame: Math.floor(wt.end * fps),
+        startFrame: Math.max(0, Math.round(wt.start * fps)),
+        endFrame: Math.max(0, Math.round(wt.end * fps)),
     }));
 }
 
