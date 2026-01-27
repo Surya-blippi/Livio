@@ -405,7 +405,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                                     {editType === 'motion' && <span>✓</span>}
                                                 </button>
                                                 <button
-                                                    onClick={() => { setEditType('typography'); setShowEditTypeMenu(false); }}
+                                                    onClick={() => { setEditType('typography'); setMode?.('faceless'); setShowEditTypeMenu(false); }}
                                                     className={`w-full px-4 py-2.5 text-left text-xs font-bold transition-colors flex items-center justify-between ${editType === 'typography' ? 'bg-pink-500 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
                                                 >
                                                     <div>

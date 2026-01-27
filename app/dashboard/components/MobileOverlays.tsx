@@ -437,7 +437,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                             {editType === 'motion' && <span className="text-purple-500 text-xl">✓</span>}
                                         </button>
                                         <button
-                                            onClick={() => { setEditType('typography'); onClose(); }}
+                                            onClick={() => { setEditType('typography'); setMode('faceless'); onClose(); }}
                                             className={`w-full p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${editType === 'typography' ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:border-gray-300'}`}
                                         >
                                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editType === 'typography' ? 'bg-pink-500' : 'bg-gray-200'}`}>
