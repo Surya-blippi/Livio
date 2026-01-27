@@ -6,8 +6,8 @@ interface EditorPanelProps {
     // Core
     mode: 'face' | 'faceless';
     setMode?: (mode: 'face' | 'faceless') => void;
-    editType: 'minimal' | 'motion';
-    setEditType: (type: 'minimal' | 'motion') => void;
+    editType: 'minimal' | 'motion' | 'typography';
+    setEditType: (type: 'minimal' | 'motion' | 'typography') => void;
 
     // Chat / Input
     inputText: string;
@@ -359,11 +359,17 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                 <div className="relative">
                                     <button
                                         onClick={() => { setShowEditTypeMenu(!showEditTypeMenu); setShowDurationMenu(false); setShowAspectMenu(false); }}
-                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : editType === 'typography' ? 'border-pink-400 bg-pink-50 text-pink-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
                                     >
                                         {editType === 'motion' ? (
                                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                            </svg>
+                                        ) : editType === 'typography' ? (
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                                <line x1="9" y1="20" x2="15" y2="20"></line>
+                                                <line x1="12" y1="4" x2="12" y2="20"></line>
                                             </svg>
                                         ) : (
                                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -371,7 +377,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                                 <line x1="9" y1="3" x2="9" y2="21"></line>
                                             </svg>
                                         )}
-                                        <span>{editType === 'motion' ? 'Motion' : 'Minimal'}</span>
+                                        <span>{editType === 'motion' ? 'Motion' : editType === 'typography' ? 'Typography' : 'Minimal'}</span>
                                         <svg className="w-2 h-2 ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 15l-6-6-6 6" /></svg>
                                     </button>
                                     {showEditTypeMenu && (
@@ -397,6 +403,16 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                                                         <span className="text-[10px] font-normal opacity-70">AI visuals per scene</span>
                                                     </div>
                                                     {editType === 'motion' && <span>✓</span>}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditType('typography'); setShowEditTypeMenu(false); }}
+                                                    className={`w-full px-4 py-2.5 text-left text-xs font-bold transition-colors flex items-center justify-between ${editType === 'typography' ? 'bg-pink-500 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+                                                >
+                                                    <div>
+                                                        <span className="block">Typography ✏️</span>
+                                                        <span className="text-[10px] font-normal opacity-70">Animated text on screen</span>
+                                                    </div>
+                                                    {editType === 'typography' && <span>✓</span>}
                                                 </button>
                                             </div>
                                         </>

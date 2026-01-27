@@ -98,8 +98,8 @@ interface MobileOverlaysProps {
     setAspectRatio: (r: string) => void;
 
     // Edit Type
-    editType: 'minimal' | 'motion';
-    setEditType: (type: 'minimal' | 'motion') => void;
+    editType: 'minimal' | 'motion' | 'typography';
+    setEditType: (type: 'minimal' | 'motion' | 'typography') => void;
 
     // Script
     script: string;
@@ -435,6 +435,23 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                 <p className="text-xs text-gray-500">AI visuals per scene</p>
                                             </div>
                                             {editType === 'motion' && <span className="text-purple-500 text-xl">✓</span>}
+                                        </button>
+                                        <button
+                                            onClick={() => { setEditType('typography'); onClose(); }}
+                                            className={`w-full p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${editType === 'typography' ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editType === 'typography' ? 'bg-pink-500' : 'bg-gray-200'}`}>
+                                                <svg className={`w-6 h-6 ${editType === 'typography' ? 'text-white' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                                    <line x1="9" y1="20" x2="15" y2="20"></line>
+                                                    <line x1="12" y1="4" x2="12" y2="20"></line>
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <p className="font-bold text-base">Typography ✏️</p>
+                                                <p className="text-xs text-gray-500">Animated text on screen</p>
+                                            </div>
+                                            {editType === 'typography' && <span className="text-pink-500 text-xl">✓</span>}
                                         </button>
                                     </div>
                                 </div>

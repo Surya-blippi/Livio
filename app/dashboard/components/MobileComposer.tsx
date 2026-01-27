@@ -29,7 +29,7 @@ interface MobileComposerProps {
     voiceName?: string;
     avatarUrl?: string;
     mode?: 'face' | 'faceless';
-    editType?: 'minimal' | 'motion';
+    editType?: 'minimal' | 'motion' | 'typography';
     duration?: number;
     aspectRatio?: string;
     hasScript: boolean;
@@ -230,11 +230,17 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                     {/* Edit Type Pill */}
                     <button
                         onClick={() => onOpenSheet('editType')}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wide ${editType === 'motion' ? 'border-purple-400 bg-purple-50 text-purple-700' : editType === 'typography' ? 'border-pink-400 bg-pink-50 text-pink-700' : 'border-transparent hover:border-gray-200 hover:bg-white text-[var(--text-secondary)] hover:text-black'}`}
                     >
                         {editType === 'motion' ? (
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                        ) : editType === 'typography' ? (
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                <line x1="9" y1="20" x2="15" y2="20"></line>
+                                <line x1="12" y1="4" x2="12" y2="20"></line>
                             </svg>
                         ) : (
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -242,7 +248,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                                 <line x1="9" y1="3" x2="9" y2="21"></line>
                             </svg>
                         )}
-                        <span>{editType === 'motion' ? 'Motion' : 'Minimal'}</span>
+                        <span>{editType === 'motion' ? 'Motion' : editType === 'typography' ? 'Typo' : 'Minimal'}</span>
                     </button>
 
                     <div className="flex-1" />

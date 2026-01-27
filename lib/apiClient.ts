@@ -510,6 +510,43 @@ export const createCaptionVideo = async (
         duration: response.data.duration
     };
 };
+
+/**
+ * Create typography video with animated text synced to audio
+ * Returns a video URL with animated word display on colorful backgrounds
+ */
+export const createTypographyVideo = async (
+    audioBase64: string,
+    wordTimings: WordTiming[],
+    options: {
+        wordsPerGroup?: number;
+        animationStyle?: 'pop' | 'slide' | 'fade' | 'typewriter';
+        aspectRatio?: '9:16' | '16:9' | '1:1';
+    } = {}
+): Promise<{
+    videoUrl: string;
+    duration: number;
+}> => {
+    const {
+        wordsPerGroup = 3,
+        animationStyle = 'pop',
+        aspectRatio = '9:16'
+    } = options;
+
+    const response = await axios.post('/api/render-typography', {
+        audioBase64,
+        wordTimings,
+        wordsPerGroup,
+        animationStyle,
+        aspectRatio
+    });
+
+    return {
+        videoUrl: response.data.videoUrl,
+        duration: response.data.duration
+    };
+};
+
 /**
  * Post-process a video to add background music and/or captions
  */

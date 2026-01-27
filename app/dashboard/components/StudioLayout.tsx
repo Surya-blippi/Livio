@@ -43,8 +43,8 @@ interface StudioLayoutProps {
     setDuration: (d: number) => void;
     aspectRatio: string;
     setAspectRatio: (r: string) => void;
-    editType: 'minimal' | 'motion';
-    setEditType: (type: 'minimal' | 'motion') => void;
+    editType: 'minimal' | 'motion' | 'typography';
+    setEditType: (type: 'minimal' | 'motion' | 'typography') => void;
 
     script: string;
     assets: any[];

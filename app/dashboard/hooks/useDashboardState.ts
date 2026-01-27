@@ -23,7 +23,8 @@ import {
     CollectedAsset,
     Scene,
     SceneTiming,
-    generateSceneBasedSpeech
+    generateSceneBasedSpeech,
+    createTypographyVideo
 } from '@/lib/apiClient';
 import { useCredits } from '../context/CreditsContext';
 import { CREDIT_COSTS, estimateTotalCredits, calculateFacelessVideoCredits, calculateFaceVideoCredits } from '@/lib/credits';
@@ -96,7 +97,7 @@ export const useDashboardState = () => {
 
     // Core state
     const [mode, setMode] = useState<'face' | 'faceless'>('face');
-    const [editType, setEditType] = useState<'minimal' | 'motion'>('motion');
+    const [editType, setEditType] = useState<'minimal' | 'motion' | 'typography'>('motion');
     const [duration, setDuration] = useState(30);
     const [inputText, setInputText] = useState('');
     const [isEnhanced, setIsEnhanced] = useState(false);
@@ -834,7 +835,8 @@ export const useDashboardState = () => {
 
         // --- PRE-FLIGHT CHECKS FOR FACE MODE ---
         // Guide users to set up avatar and voice before generating
-        if (mode === 'face') {
+        // Skip for typography mode which doesn't need avatar or voice setup
+        if (mode === 'face' && editType !== 'typography') {
             // Check if avatar/face is set
             const hasAvatar = photoPreview || (useStudioImage && studioReadyUrl);
             if (!hasAvatar) {
@@ -853,7 +855,8 @@ export const useDashboardState = () => {
         }
 
         // --- PRE-FLIGHT CHECKS FOR FACELESS MODE ---
-        if (mode === 'faceless') {
+        // Skip for typography mode which doesn't need assets
+        if (mode === 'faceless' && editType !== 'typography') {
             // Check if assets are collected
             if (collectedAssets.length === 0) {
                 setPreviewMode('assets');
@@ -898,7 +901,10 @@ export const useDashboardState = () => {
 
         // --- CREDIT PRE-CHECK ---
         let estimatedCost = 0;
-        if (mode === 'faceless') {
+        if (editType === 'typography') {
+            // Typography mode: fixed cost
+            estimatedCost = 20; // 20 credits for typography video
+        } else if (mode === 'faceless') {
             // Use scene count to match backend: (sceneCount * 30) + 80 render
             const sceneCount = workingScenes.length > 0 ? workingScenes.length : 1;
             estimatedCost = calculateFacelessVideoCredits(sceneCount);
@@ -922,6 +928,59 @@ export const useDashboardState = () => {
         setError('');
 
         try {
+            // ========== TYPOGRAPHY MODE ==========
+            if (editType === 'typography') {
+                console.log('[Typography] Starting typography video generation');
+                setProcessingMessage('Generating voiceover...');
+
+                // Generate TTS audio with word timings
+                const speechResult = await generateElevenLabsSpeech(inputText);
+                const { audioUrl, wordTimings, duration } = speechResult;
+
+                console.log(`[Typography] Got ${wordTimings.length} words, duration: ${duration}s`);
+
+                setProcessingStep(2);
+                setProcessingMessage('Creating animated text video...');
+
+                // Convert data URL audio to base64
+                const audioBase64 = audioUrl.includes('base64,')
+                    ? audioUrl.split('base64,')[1]
+                    : audioUrl;
+
+                // Render typography video
+                const videoResult = await createTypographyVideo(audioBase64, wordTimings, {
+                    wordsPerGroup: 3,
+                    animationStyle: 'pop',
+                    aspectRatio: aspectRatio as '9:16' | '16:9' | '1:1'
+                });
+
+                setVideoUrl(videoResult.videoUrl);
+
+                // Save to history
+                if (dbUser) {
+                    const freshSb = await getSupabase();
+                    await saveVideo(
+                        dbUser.id,
+                        videoResult.videoUrl,
+                        inputText,
+                        'faceless', // Use faceless for db schema compatibility
+                        videoResult.duration,
+                        false, // No captions overlay needed (text is the video)
+                        enableBackgroundMusic,
+                        undefined,
+                        'Typography Video',
+                        [],
+                        freshSb
+                    );
+                    await refreshVideoHistory();
+                }
+
+                setIsProcessing(false);
+                setProcessingStep(0);
+                return; // EXIT for typography mode
+            }
+            // =====================================
+
             // Determine voice ID to use
             let voiceIdToUse: string | undefined = undefined;
 
