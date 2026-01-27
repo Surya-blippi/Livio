@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, random, Easing } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 
 // Colorful gradients for typography mode
 const GRADIENTS = [
@@ -12,6 +12,12 @@ const GRADIENTS = [
     'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)', // Amethyst
     'linear-gradient(135deg, #34495E 0%, #2C3E50 100%)', // Midnight
 ];
+
+// Spring config for snappy, bouncy feel
+const SPRING_CONFIG = {
+    stiffness: 150,
+    damping: 12,
+};
 
 export interface TypographyWord {
     text: string;
@@ -30,31 +36,46 @@ const AnimatedWord: React.FC<{
     word: string;
     isActive: boolean;
     hasPassed: boolean;
-    frame: number;
+    relativeFrame: number; // Frame relative to this word's start
     fps: number;
-}> = ({ word, isActive, hasPassed, frame, fps }) => {
-    // Glide Animation: Slide up slightly + Fade in
-    // interpolate frame 0-10: translateY 20px -> 0px
-    const slideUp = interpolate(frame, [0, 8], [20, 0], { extrapolateRight: 'clamp', easing: Easing.out(Easing.quad) });
+}> = ({ word, isActive, hasPassed, relativeFrame, fps }) => {
+    // Spring-based scale animation (starts at 0, springs to 1)
+    const scaleSpring = spring({
+        frame: relativeFrame,
+        fps,
+        config: SPRING_CONFIG,
+        durationInFrames: 15, // Quick but bouncy
+    });
 
-    // Style: Minimalist. Active = White (1.0). Inactive = Gray (0.6).
-    const opacity = isActive ? 1 : 0.6;
+    // "Squash" effect: scaleY slightly taller during the spring overshoot
+    // Interpolate based on the spring value: 0 -> 1.15 -> 1.0 (taller before settling)
+    const scaleY = interpolate(scaleSpring, [0, 0.5, 1], [0, 1.15, 1], { extrapolateRight: 'clamp' });
+    const scaleX = interpolate(scaleSpring, [0, 0.5, 1], [0, 0.9, 1], { extrapolateRight: 'clamp' });
+
+    // Translate Y: Slide up from 30px to 0px during the entrance
+    const translateY = interpolate(relativeFrame, [0, 10], [30, 0], {
+        extrapolateRight: 'clamp',
+        easing: Easing.out(Easing.quad),
+    });
+
+    // Opacity: Fade in quickly, then stay visible. Dim past words slightly.
+    const opacity = isActive ? 1 : hasPassed ? 0.7 : scaleSpring; // Dim past, fade in current
 
     return (
         <span
             style={{
                 display: 'inline-block',
                 opacity,
-                transform: `translateY(${slideUp}px)`, // Glide up
-                color: '#FFFFFF', // Simple white
-                textShadow: '2px 2px 4px rgba(0,0,0,0.5)', // Subtle shadow
+                transform: `translateY(${translateY}px) scaleX(${scaleX}) scaleY(${scaleY})`,
+                transformOrigin: 'center bottom', // Bounce from the bottom
+                color: '#FFFFFF',
+                textShadow: '3px 3px 6px rgba(0,0,0,0.6)', // Deeper shadow for pop
                 fontFamily: "'Montserrat', sans-serif",
                 fontWeight: 800,
                 fontSize: '80px',
-                margin: '0 10px',
-                transition: 'opacity 0.2s ease',
+                margin: '0 12px',
                 zIndex: isActive ? 10 : 1,
-                position: 'relative'
+                position: 'relative',
             }}
         >
             {word}
@@ -94,7 +115,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     // Dynamic Gradient Background
     const gradientIndex = currentGroupIndex % GRADIENTS.length;
     const currentGradient = GRADIENTS[gradientIndex];
-    // Slower, simpler gradient movement
+    // Slow gradient movement for subtle visual interest
     const gradientPos = (frame / 5) % 100;
 
     return (
@@ -104,7 +125,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                 {`@import url('https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@800&display=swap');`}
             </style>
 
-            {/* Background - Removed Noise Filter for Performance */}
+            {/* Background */}
             <AbsoluteFill
                 style={{
                     background: currentGradient,
@@ -130,9 +151,9 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                         display: 'flex',
                         flexWrap: 'wrap',
                         justifyContent: 'center',
+                        alignItems: 'flex-end', // Anchor to bottom for squash effect
                         gap: '20px',
                         maxWidth: '90%',
-                        // Removed container scaling to save layout recalculations
                     }}
                 >
                     {currentGroup.map((wordData, idx) => {
@@ -146,7 +167,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                                 word={wordData.text}
                                 isActive={isWordActive}
                                 hasPassed={hasWordPassed}
-                                frame={relativeFrame}
+                                relativeFrame={relativeFrame}
                                 fps={fps}
                             />
                         );
@@ -154,7 +175,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                 </div>
             </AbsoluteFill>
 
-            {/* Progress Bar (Optional, looks nice on reels) */}
+            {/* Progress Bar */}
             <div style={{
                 position: 'absolute',
                 bottom: 0,
