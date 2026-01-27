@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { supabase, getOrCreateUser } from '@/lib/supabase';
+import { supabase, getOrCreateUser, createAuthenticatedClient } from '@/lib/supabase';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
 // Type definitions
@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
         } = body;
 
         // AUTH & DB SETUP
-        const { userId: clerkId } = await auth();
+        const { userId: clerkId, getToken } = await auth();
+        let authClient = supabase;
 
         if (clerkId) {
             // Get full user details to ensure reliable creation
@@ -77,10 +78,16 @@ export async function POST(request: NextRequest) {
             const name = clerkUser?.firstName || undefined;
             const imageUrl = clerkUser?.imageUrl || undefined;
 
+            // Get Clerk Token for Supabase RLS
+            const token = await getToken({ template: 'supabase' });
+            if (token) {
+                authClient = createAuthenticatedClient(token);
+            }
+
             const user = await getOrCreateUser(clerkId, email, name, imageUrl);
             if (user) {
                 // Create Video Job
-                const { data: job, error: jobError } = await supabase
+                const { data: job, error: jobError } = await authClient
                     .from('video_jobs')
                     .insert({
                         user_id: user.id,
@@ -270,7 +277,7 @@ export async function POST(request: NextRequest) {
 
         // Update DB Job Success
         if (dbJobId) {
-            await supabase
+            await authClient
                 .from('video_jobs')
                 .update({
                     status: 'completed',
