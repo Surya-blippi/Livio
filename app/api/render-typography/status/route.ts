@@ -37,9 +37,10 @@ export async function POST(request: NextRequest) {
 
         // If already completed/failed, return result
         if (job.status === 'completed') {
+            const resultData = job.result_data as any || {};
             return NextResponse.json({
                 done: true,
-                videoUrl: job.output_url,
+                videoUrl: resultData.videoUrl || '',
                 status: 'completed'
             });
         }
@@ -76,13 +77,18 @@ export async function POST(request: NextRequest) {
 
             // Update Job to Completed
             // CRITICAL: Use admin 'supabase' client (not authClient) to bypass RLS for UPDATE
+            // Store videoUrl in result_data since output_url column doesn't exist
+            const existingResultData = job.result_data as any || {};
             const { error: updateError } = await supabase
                 .from('video_jobs')
                 .update({
                     status: 'completed',
                     progress: 100,
-                    output_url: outputUrl,
-                    progress_message: 'Render complete'
+                    progress_message: 'Render complete',
+                    result_data: {
+                        ...existingResultData,
+                        videoUrl: outputUrl,
+                    }
                 })
                 .eq('id', jobId);
 
