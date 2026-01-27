@@ -49,6 +49,7 @@ const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
 const FUNCTION_NAME = 'remotion-render-4-0-410-mem3008mb-disk2048mb-300sec'; // Upgraded to 3GB RAM
 const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v6/index.html';
 const BUCKET_NAME = 'remotionlambda-eunorth1-uzdpd4m8du'; // Hardcoded since getOrCreateBucket is not in client
+export const maxDuration = 300; // Allow 5 minutes for processing
 
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
                     .insert({
                         user_id: user.id,
                         user_uuid: user.id, // REQUIRED for dashboard visibility
+                        job_type: 'typography', // Explicitly set type to override default 'faceless'
                         status: 'processing', // Synchronous render, so straight to processing
                         input_data: {
                             jobType: 'typography',
@@ -277,7 +279,8 @@ export async function POST(request: NextRequest) {
 
         // Update DB Job Success
         if (dbJobId) {
-            await authClient
+            console.log('[Typography API] Updating DB Job to COMPLETED...');
+            const { error: updateError } = await authClient
                 .from('video_jobs')
                 .update({
                     status: 'completed',
@@ -286,6 +289,12 @@ export async function POST(request: NextRequest) {
                     progress_message: 'Render complete'
                 })
                 .eq('id', dbJobId);
+
+            if (updateError) {
+                console.error('[Typography API] Failed to update DB job:', updateError);
+            } else {
+                console.log('[Typography API] DB Job updated successfully');
+            }
         }
 
         return NextResponse.json({
