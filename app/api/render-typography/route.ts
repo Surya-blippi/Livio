@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { renderMediaOnLambda, getRenderProgress, getOrCreateBucket } from '@remotion/lambda/client';
+import { renderMediaOnLambda, getRenderProgress } from '@remotion/lambda/client';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -31,6 +31,7 @@ function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): Typ
 const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
 const FUNCTION_NAME = 'remotion-render-4-0-410-mem2048mb-disk2048mb-240sec';
 const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v3/index.html';
+const BUCKET_NAME = 'remotionlambda-eunorth1-uzdpd4m8du'; // Hardcoded since getOrCreateBucket is not in client
 
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
@@ -73,11 +74,8 @@ export async function POST(request: NextRequest) {
             console.log('[Typography API] Uploading base64 audio to S3...');
 
             try {
-                // 1. Get/Create Bucket
-                const { bucketName } = await getOrCreateBucket({
-                    region: REMOTION_AWS_REGION as any,
-                });
-                console.log('[Typography API] Using bucket:', bucketName);
+                // 1. Use hardcoded bucket
+                console.log('[Typography API] Using bucket:', BUCKET_NAME);
 
                 // 2. Convert base64 to buffer
                 const audioBuffer = Buffer.from(audioBase64, 'base64');
@@ -93,14 +91,14 @@ export async function POST(request: NextRequest) {
                 });
 
                 await s3Client.send(new PutObjectCommand({
-                    Bucket: bucketName,
+                    Bucket: BUCKET_NAME,
                     Key: fileName,
                     Body: audioBuffer,
                     ContentType: 'audio/mpeg',
                     ACL: 'public-read', // Make it accessible to Lambda
                 }));
 
-                finalAudioUrl = `https://${bucketName}.s3.${REMOTION_AWS_REGION}.amazonaws.com/${fileName}`;
+                finalAudioUrl = `https://${BUCKET_NAME}.s3.${REMOTION_AWS_REGION}.amazonaws.com/${fileName}`;
                 console.log('[Typography API] Audio uploaded to S3:', finalAudioUrl);
             } catch (s3Error) {
                 console.error('[Typography API] S3 Upload failed:', s3Error);
@@ -149,7 +147,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 60,
+            framesPerLambda: 60, // Balanced: ~2s per Lambda
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
