@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 100, // Optimized for lighter composition: can handle 100 frames easily.
+            framesPerLambda: 25, // Extreme concurrency: ~1s per Lambda for max speed.
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
