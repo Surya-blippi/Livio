@@ -33,25 +33,16 @@ const AnimatedWord: React.FC<{
     frame: number;
     fps: number;
 }> = ({ word, isActive, hasPassed, frame, fps }) => {
-    // Current word pops in
-    const scale = spring({
-        frame: isActive ? frame : 0,
-        fps,
-        config: { damping: 12, stiffness: 200, mass: 0.5 },
-    });
-
-    // Style calculation
-    const activeScale = interpolate(scale, [0, 1], [0.8, 1.2]);
+    // Simple linear pop-in (cheaper than spring)
+    const activeScale = interpolate(frame, [0, 5], [0.9, 1.1], { extrapolateRight: 'clamp' });
     const inactiveScale = 1.0;
 
-    // Color transition
-    const color = isActive ? '#FFE66D' : (hasPassed ? '#FFFFFF' : '#FFFFFF');
-    // Opacity: Past words dim slightly, future words are visible
+    // Simple colors (no heavy shadows)
+    const color = isActive ? '#FFE66D' : '#FFFFFF';
     const opacity = isActive ? 1 : (hasPassed ? 0.6 : 0.8);
-    // Text Shadow: Stronger for active word
-    const textShadow = isActive
-        ? '0px 0px 20px rgba(255, 230, 109, 0.6), 4px 4px 0px rgba(0,0,0,0.5)'
-        : '2px 2px 0px rgba(0,0,0,0.3)';
+
+    // Static shadow for readability, not dynamic
+    const textShadow = '2px 2px 0px rgba(0,0,0,0.3)';
 
     return (
         <span
@@ -63,7 +54,8 @@ const AnimatedWord: React.FC<{
                 textShadow,
                 fontFamily: "'Anton', sans-serif",
                 margin: '0 10px',
-                transition: 'color 0.1s, transform 0.1s, opacity 0.2s',
+                // Use CSS transition for smooth color even if frames skip
+                transition: 'color 0.2s, transform 0.2s',
                 zIndex: isActive ? 10 : 1,
                 position: 'relative'
             }}
@@ -105,8 +97,8 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     // Dynamic Gradient Background
     const gradientIndex = currentGroupIndex % GRADIENTS.length;
     const currentGradient = GRADIENTS[gradientIndex];
-    // We can interpret a slow rotation of the hue or gradient position
-    const gradientPos = (frame / 2) % 100;
+    // Slower, simpler gradient movement
+    const gradientPos = (frame / 5) % 100;
 
     return (
         <AbsoluteFill>
@@ -115,7 +107,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                 {`@import url('https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@800&display=swap');`}
             </style>
 
-            {/* Background */}
+            {/* Background - Removed Noise Filter for Performance */}
             <AbsoluteFill
                 style={{
                     background: currentGradient,
@@ -123,15 +115,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                     backgroundPosition: `${gradientPos}% 50%`,
                     transition: 'background 0.5s ease',
                 }}
-            >
-                {/* Noise Texture Overlay for "Reel" feel */}
-                <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.1,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-                }} />
-            </AbsoluteFill>
+            />
 
             {/* Audio */}
             <Audio src={audioUrl} />
@@ -151,8 +135,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                         justifyContent: 'center',
                         gap: '20px',
                         maxWidth: '90%',
-                        transform: `scale(${interpolate(currentGroupIndex % 2, [0, 1], [1, 1.05])})`, // Subtle alternating scale per group
-                        transition: 'transform 0.3s ease'
+                        // Removed container scaling to save layout recalculations
                     }}
                 >
                     {currentGroup.map((wordData, idx) => {
