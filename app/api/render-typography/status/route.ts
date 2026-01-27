@@ -4,7 +4,7 @@ import { supabase, createAuthenticatedClient, getOrCreateUser } from '@/lib/supa
 import { auth } from '@clerk/nextjs/server';
 
 const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
-const FUNCTION_NAME = 'remotion-render-4-0-410-mem3008mb-disk2048mb-300sec';
+const FUNCTION_NAME = 'remotion-render-4-0-410-mem3008mb-disk2048mb-900sec';
 
 export async function POST(request: NextRequest) {
     try {
