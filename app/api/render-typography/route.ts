@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { renderMediaOnLambda, getRenderProgress } from '@remotion/lambda/client';
+import { renderMediaOnLambda, getRenderProgress, getOrCreateBucket } from '@remotion/lambda/client';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
+// Type definitions
 interface WordTiming {
     word: string;
     start: number;
@@ -34,9 +36,6 @@ export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
 
     console.log('[Typography API] ===== REQUEST RECEIVED =====');
-    console.log('[Typography API] Region:', REMOTION_AWS_REGION);
-    console.log('[Typography API] Function:', FUNCTION_NAME);
-    console.log('[Typography API] ServeURL:', SERVE_URL);
 
     try {
         const body = await request.json();
@@ -53,9 +52,6 @@ export async function POST(request: NextRequest) {
         console.log('[Typography API]   - audioUrl:', audioUrl ? 'present' : 'missing');
         console.log('[Typography API]   - audioBase64:', audioBase64 ? `${audioBase64.length} chars` : 'missing');
         console.log('[Typography API]   - wordTimings:', wordTimings?.length || 0, 'words');
-        console.log('[Typography API]   - wordsPerGroup:', wordsPerGroup);
-        console.log('[Typography API]   - animationStyle:', animationStyle);
-        console.log('[Typography API]   - aspectRatio:', aspectRatio);
 
         if (!wordTimings || wordTimings.length === 0) {
             console.log('[Typography API] ERROR: No word timings');
@@ -70,11 +66,48 @@ export async function POST(request: NextRequest) {
         console.log('[Typography API] Creating temp directory...');
         await fs.mkdir(tempDir, { recursive: true });
 
-        // Prepare audio URL
+        // Upload audio to S3 if only base64 is provided
         let finalAudioUrl = audioUrl;
+
         if (audioBase64 && !audioUrl) {
-            finalAudioUrl = `data:audio/mp3;base64,${audioBase64}`;
-            console.log('[Typography API] Using base64 audio, length:', finalAudioUrl.length);
+            console.log('[Typography API] Uploading base64 audio to S3...');
+
+            try {
+                // 1. Get/Create Bucket
+                const { bucketName } = await getOrCreateBucket({
+                    region: REMOTION_AWS_REGION as any,
+                });
+                console.log('[Typography API] Using bucket:', bucketName);
+
+                // 2. Convert base64 to buffer
+                const audioBuffer = Buffer.from(audioBase64, 'base64');
+                const fileName = `typography-audio-${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`;
+
+                // 3. Upload using AWS SDK directly for speed
+                const s3Client = new S3Client({
+                    region: REMOTION_AWS_REGION,
+                    credentials: {
+                        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+                        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+                    },
+                });
+
+                await s3Client.send(new PutObjectCommand({
+                    Bucket: bucketName,
+                    Key: fileName,
+                    Body: audioBuffer,
+                    ContentType: 'audio/mpeg',
+                    ACL: 'public-read', // Make it accessible to Lambda
+                }));
+
+                finalAudioUrl = `https://${bucketName}.s3.${REMOTION_AWS_REGION}.amazonaws.com/${fileName}`;
+                console.log('[Typography API] Audio uploaded to S3:', finalAudioUrl);
+            } catch (s3Error) {
+                console.error('[Typography API] S3 Upload failed:', s3Error);
+                // Fallback to data URL if S3 fails (though unlikely if keys are valid)
+                finalAudioUrl = `data:audio/mp3;base64,${audioBase64}`;
+                console.warn('[Typography API] Falling back to data URL');
+            }
         }
 
         // Determine dimensions
@@ -94,8 +127,6 @@ export async function POST(request: NextRequest) {
         // Convert word timings to frame-based format
         const typographyWords = convertToFrameTimings(wordTimings, fps);
         console.log('[Typography API] Converted', typographyWords.length, 'words to frame timings');
-        console.log('[Typography API] First word:', JSON.stringify(typographyWords[0]));
-        console.log('[Typography API] Last word:', JSON.stringify(typographyWords[typographyWords.length - 1]));
 
         // Calculate total duration from last word
         const lastWord = typographyWords[typographyWords.length - 1];
@@ -104,12 +135,7 @@ export async function POST(request: NextRequest) {
 
         // Render on Lambda
         console.log('[Typography API] ===== CALLING LAMBDA =====');
-        console.log('[Typography API] Input props:', JSON.stringify({
-            audioUrl: finalAudioUrl.substring(0, 100) + '...',
-            words: typographyWords.slice(0, 2),
-            wordsPerGroup,
-            animationStyle,
-        }, null, 2));
+        console.log('[Typography API] Audio URL:', finalAudioUrl);
 
         const renderResult = await renderMediaOnLambda({
             region: REMOTION_AWS_REGION as any,
@@ -123,7 +149,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 60, // Balanced: ~2s per Lambda. 200 was too slow, 20 was hitting limits.
+            framesPerLambda: 60,
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
@@ -193,7 +219,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('[Typography API] ===== ERROR =====');
-        console.error('[Typography API] Error type:', error?.constructor?.name);
         console.error('[Typography API] Error message:', error instanceof Error ? error.message : String(error));
         console.error('[Typography API] Full error:', error);
 
