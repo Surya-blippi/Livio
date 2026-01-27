@@ -1369,16 +1369,20 @@ export const useDashboardState = () => {
 
                 // Get FRESH token before saving - original token may have expired during long video generation
                 const freshSb = await getSupabase();
+
+                // Extract plain text script from scene inputs (not JSON)
+                const scriptText = sceneInputs.map(s => s.text).join('\n\n');
+
                 await saveVideo(
                     dbUser.id,
                     finalVideoUrl,
-                    JSON.stringify(sceneInputs), // Use local state variable which is trusted
+                    scriptText, // Plain text script, not JSON
                     'face',
                     sceneResult.duration || 0,
                     !!enableCaptions,
                     !!enableBackgroundMusic,
                     undefined,
-                    'Face Video',
+                    undefined, // Let saveVideo auto-generate topic from script
                     allAssets,
                     freshSb // Pass authenticated client with fresh token
                 );
