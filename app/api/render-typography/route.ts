@@ -20,11 +20,26 @@ interface TypographyWord {
 
 // Convert word timings (seconds) to frame-based timing for Remotion
 function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): TypographyWord[] {
-    return wordTimings.map(wt => ({
-        text: wt.word,
-        startFrame: Math.max(0, Math.round(wt.start * fps)),
-        endFrame: Math.max(0, Math.round(wt.end * fps)),
-    }));
+    return wordTimings.map((wt, index) => {
+        const startFrame = Math.max(0, Math.round(wt.start * fps));
+        let endFrame = Math.max(0, Math.round(wt.end * fps));
+
+        // Gap Filling: Extend this word to the next word's start, if the gap is small (< 1s)
+        // This prevents the highlight from turning off during natural pauses, making it feel smoother/more synced.
+        if (index < wordTimings.length - 1) {
+            const nextStartFrame = Math.max(0, Math.round(wordTimings[index + 1].start * fps));
+            const gap = nextStartFrame - endFrame;
+            if (gap > 0 && gap < 30) { // If gap is less than 1 second (30 frames)
+                endFrame = nextStartFrame;
+            }
+        }
+
+        return {
+            text: wt.word,
+            startFrame,
+            endFrame,
+        };
+    });
 }
 
 // Lambda configuration
