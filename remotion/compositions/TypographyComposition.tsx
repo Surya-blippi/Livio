@@ -1,46 +1,17 @@
-import React, { useMemo } from 'react';
-import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
+import React from 'react';
+import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 
-// Colorful gradients for typography mode
-const GRADIENTS = [
-    'linear-gradient(135deg, #FF6B6B 0%, #C44D56 100%)', // Coral
-    'linear-gradient(135deg, #4ECDC4 0%, #2980B9 100%)', // Sea Blue
-    'linear-gradient(135deg, #8E44AD 0%, #3498DB 100%)', // Purple Rain
-    'linear-gradient(135deg, #F1C40F 0%, #E67E22 100%)', // Sunburst
-    'linear-gradient(135deg, #2ECC71 0%, #16A085 100%)', // Emerald
-    'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', // Crimson
-    'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)', // Amethyst
-    'linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)', // Deep Night
+// Clean, solid background colors (no gradients)
+const SOLID_COLORS = [
+    '#1A1A2E', // Deep Navy
+    '#16213E', // Dark Blue
+    '#0F3460', // Royal Blue
+    '#533483', // Deep Purple
+    '#E94560', // Vibrant Pink
+    '#0D7377', // Teal
+    '#14274E', // Night Blue
+    '#2C3333', // Charcoal
 ];
-
-// Animation styles for variety
-type AnimationStyle = 'pop' | 'slideLeft' | 'slideRight' | 'zoom' | 'rotate' | 'drop';
-const ANIMATION_STYLES: AnimationStyle[] = ['pop', 'slideLeft', 'slideRight', 'zoom', 'rotate', 'drop'];
-
-// Font sizes for visual hierarchy
-const FONT_SIZES = {
-    small: 60,
-    medium: 80,
-    large: 110,
-    xlarge: 140,
-};
-
-// Simple hash function to deterministically vary styles per word
-function hashWord(word: string, index: number): number {
-    let hash = 0;
-    for (let i = 0; i < word.length; i++) {
-        hash = ((hash << 5) - hash) + word.charCodeAt(i);
-        hash = hash & hash;
-    }
-    return Math.abs(hash + index);
-}
-
-// Keywords that should be emphasized (larger, different color)
-const EMPHASIS_WORDS = ['you', 'ai', 'love', 'hate', 'best', 'worst', 'free', 'money', 'secret', 'amazing', 'incredible', 'powerful', 'easy', 'fast', 'new', 'now', 'today', 'never', 'always', 'stop', 'start', 'why', 'how', 'what', 'who', 'when', 'where'];
-
-function isEmphasisWord(word: string): boolean {
-    return EMPHASIS_WORDS.includes(word.toLowerCase().replace(/[^a-z]/g, ''));
-}
 
 export interface TypographyWord {
     text: string;
@@ -55,117 +26,52 @@ export interface TypographyCompositionProps {
     animationStyle?: 'pop' | 'slide' | 'fade' | 'typewriter';
 }
 
+// Single, polished word animation component
 const AnimatedWord: React.FC<{
     word: string;
-    wordIndex: number;
     isActive: boolean;
-    hasPassed: boolean;
-    hasStarted: boolean;
     relativeFrame: number;
     fps: number;
-}> = ({ word, wordIndex, isActive, hasPassed, hasStarted, relativeFrame, fps }) => {
+}> = ({ word, isActive, relativeFrame, fps }) => {
 
-    if (!hasStarted) {
-        return null;
-    }
-
-    // Deterministic variety based on word content and index
-    const hash = hashWord(word, wordIndex);
-    const animStyle = ANIMATION_STYLES[hash % ANIMATION_STYLES.length];
-    const isEmphasis = isEmphasisWord(word);
-
-    // Font size: emphasis words are large, others vary
-    let fontSize: number;
-    if (isEmphasis) {
-        fontSize = FONT_SIZES.xlarge;
-    } else {
-        const sizeOptions = [FONT_SIZES.small, FONT_SIZES.medium, FONT_SIZES.large];
-        fontSize = sizeOptions[hash % sizeOptions.length];
-    }
-
-    // Spring config varies by animation
-    const springConfig = {
-        stiffness: isEmphasis ? 180 : 200,
-        damping: isEmphasis ? 10 : 14
-    };
-
+    // Snappy spring config for professional pop-in
     const scaleSpring = spring({
         frame: relativeFrame,
         fps,
-        config: springConfig,
-        durationInFrames: isEmphasis ? 12 : 8,
+        config: {
+            stiffness: 220,   // Very snappy
+            damping: 16,      // Minimal bounce
+        },
+        durationInFrames: 6,  // Ultra-fast entrance
     });
 
-    // Calculate animation transforms based on style
-    let transform = '';
-    let initialOpacity = 1;
+    // Clean scale animation: 0 -> 1.05 -> 1 (tiny overshoot)
+    const scale = interpolate(scaleSpring, [0, 0.8, 1], [0.3, 1.05, 1], {
+        extrapolateRight: 'clamp',
+    });
 
-    switch (animStyle) {
-        case 'pop': {
-            const scaleY = interpolate(scaleSpring, [0, 0.5, 1], [0.3, 1.15, 1], { extrapolateRight: 'clamp' });
-            const scaleX = interpolate(scaleSpring, [0, 0.5, 1], [1.2, 0.9, 1], { extrapolateRight: 'clamp' });
-            const translateY = interpolate(relativeFrame, [0, 6], [20, 0], { extrapolateRight: 'clamp' });
-            transform = `translateY(${translateY}px) scaleX(${scaleX}) scaleY(${scaleY})`;
-            break;
-        }
-        case 'slideLeft': {
-            const translateX = interpolate(scaleSpring, [0, 1], [100, 0], { extrapolateRight: 'clamp' });
-            const scale = interpolate(scaleSpring, [0, 1], [0.8, 1], { extrapolateRight: 'clamp' });
-            transform = `translateX(${translateX}px) scale(${scale})`;
-            break;
-        }
-        case 'slideRight': {
-            const translateX = interpolate(scaleSpring, [0, 1], [-100, 0], { extrapolateRight: 'clamp' });
-            const scale = interpolate(scaleSpring, [0, 1], [0.8, 1], { extrapolateRight: 'clamp' });
-            transform = `translateX(${translateX}px) scale(${scale})`;
-            break;
-        }
-        case 'zoom': {
-            const scale = interpolate(scaleSpring, [0, 0.6, 1], [2.5, 0.9, 1], { extrapolateRight: 'clamp' });
-            transform = `scale(${scale})`;
-            initialOpacity = interpolate(scaleSpring, [0, 0.3], [0, 1], { extrapolateRight: 'clamp' });
-            break;
-        }
-        case 'rotate': {
-            const rotate = interpolate(scaleSpring, [0, 1], [-15, 0], { extrapolateRight: 'clamp' });
-            const scale = interpolate(scaleSpring, [0, 1], [0.5, 1], { extrapolateRight: 'clamp' });
-            const translateY = interpolate(scaleSpring, [0, 1], [30, 0], { extrapolateRight: 'clamp' });
-            transform = `translateY(${translateY}px) rotate(${rotate}deg) scale(${scale})`;
-            break;
-        }
-        case 'drop': {
-            const translateY = interpolate(scaleSpring, [0, 0.7, 1], [-80, 5, 0], { extrapolateRight: 'clamp' });
-            const scale = interpolate(scaleSpring, [0, 0.7, 1], [0.5, 1.1, 1], { extrapolateRight: 'clamp' });
-            transform = `translateY(${translateY}px) scale(${scale})`;
-            break;
-        }
-    }
+    // Subtle slide up: 15px -> 0px
+    const translateY = interpolate(scaleSpring, [0, 1], [15, 0], {
+        extrapolateRight: 'clamp',
+    });
 
-    // Opacity: active = full, passed = slightly dimmed
-    const opacity = (isActive ? 1 : hasPassed ? 0.6 : 1) * initialOpacity;
-
-    // Color: emphasis words get accent color
-    const color = isEmphasis ? '#FFE66D' : '#FFFFFF';
-    const textShadow = isEmphasis
-        ? '4px 4px 8px rgba(0,0,0,0.8), 0 0 30px rgba(255,230,109,0.3)'
-        : '3px 3px 6px rgba(0,0,0,0.6)';
+    // Opacity: instant full visibility, dim when passed
+    const opacity = isActive ? 1 : 0.5;
 
     return (
         <span
             style={{
                 display: 'inline-block',
                 opacity,
-                transform,
+                transform: `translateY(${translateY}px) scale(${scale})`,
                 transformOrigin: 'center center',
-                color,
-                textShadow,
+                color: '#FFFFFF',
+                textShadow: '2px 2px 8px rgba(0,0,0,0.8)',
                 fontFamily: "'Montserrat', sans-serif",
-                fontWeight: isEmphasis ? 900 : 800,
-                fontSize: `${fontSize}px`,
-                margin: '0 12px',
-                zIndex: isActive ? 10 : 1,
-                position: 'relative',
-                textTransform: isEmphasis ? 'uppercase' : 'none',
+                fontWeight: 800,
+                fontSize: '90px',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
             }}
         >
             {word}
@@ -176,136 +82,74 @@ const AnimatedWord: React.FC<{
 export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     audioUrl,
     words,
-    wordsPerGroup = 1, // Default to single word for sync, but can vary
 }) => {
     const frame = useCurrentFrame();
-    const { fps, width, height } = useVideoConfig();
+    const { fps } = useVideoConfig();
 
-    // Dynamic grouping: vary between 1-3 words based on word lengths
-    const wordGroups = useMemo(() => {
-        const groups: TypographyWord[][] = [];
-        let i = 0;
-        while (i < words.length) {
-            // Determine group size based on word length
-            const word = words[i];
-            const wordLen = word.text.length;
-
-            // Short words (1-4 chars) can be grouped with next words
-            // Long words (8+ chars) stand alone
-            let groupSize = 1;
-            if (wordLen <= 3 && i + 1 < words.length) {
-                // Short word - maybe group with next
-                const nextWord = words[i + 1];
-                if (nextWord && nextWord.text.length <= 4) {
-                    groupSize = 2; // Group two short words together
-                    // Check for third
-                    if (i + 2 < words.length && words[i + 2].text.length <= 3) {
-                        groupSize = 3;
-                    }
-                }
-            } else if (isEmphasisWord(word.text)) {
-                groupSize = 1; // Emphasis words always alone for impact
-            }
-
-            groups.push(words.slice(i, i + groupSize));
-            i += groupSize;
-        }
-        return groups;
-    }, [words]);
-
-    // Find current group
-    let currentGroupIndex = 0;
-    for (let i = 0; i < wordGroups.length; i++) {
-        const group = wordGroups[i];
-        if (frame >= (group[0]?.startFrame ?? 0)) {
-            currentGroupIndex = i;
+    // Find current word (ONE word at a time for perfect sync)
+    let currentWordIndex = 0;
+    for (let i = 0; i < words.length; i++) {
+        if (frame >= words[i].startFrame) {
+            currentWordIndex = i;
         }
     }
 
-    const currentGroup = wordGroups[currentGroupIndex] || [];
+    const currentWord = words[currentWordIndex];
 
-    // Background gradient changes per group
-    const gradientIndex = currentGroupIndex % GRADIENTS.length;
-    const currentGradient = GRADIENTS[gradientIndex];
-    const gradientPos = (frame / 5) % 100;
+    // Background color changes every few words for variety
+    const colorIndex = Math.floor(currentWordIndex / 3) % SOLID_COLORS.length;
+    const backgroundColor = SOLID_COLORS[colorIndex];
 
-    // Calculate global word index for consistent styling
-    let globalWordOffset = 0;
-    for (let i = 0; i < currentGroupIndex; i++) {
-        globalWordOffset += wordGroups[i].length;
-    }
+    // Calculate relative frame for animation
+    const hasStarted = currentWord && frame >= currentWord.startFrame;
+    const isActive = hasStarted && frame < currentWord.endFrame;
+    const relativeFrame = hasStarted ? frame - currentWord.startFrame : 0;
 
     return (
         <AbsoluteFill>
+            {/* Load Google Font */}
             <style>
-                {`@import url('https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@800;900&display=swap');`}
+                {`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap');`}
             </style>
 
-            {/* Background */}
+            {/* Solid Color Background */}
             <AbsoluteFill
                 style={{
-                    background: currentGradient,
-                    backgroundSize: '200% 200%',
-                    backgroundPosition: `${gradientPos}% 50%`,
-                    transition: 'background 0.5s ease',
+                    backgroundColor,
+                    transition: 'background-color 0.3s ease',
                 }}
             />
 
             {/* Audio */}
             <Audio src={audioUrl} />
 
-            {/* Text Container */}
+            {/* Single Word - Centered */}
             <AbsoluteFill
                 style={{
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: '40px',
+                    padding: '60px',
                 }}
             >
-                <div
-                    style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '15px',
-                        maxWidth: '90%',
-                        textAlign: 'center',
-                    }}
-                >
-                    {currentGroup.map((wordData, idx) => {
-                        const globalIdx = globalWordOffset + idx;
-                        const hasStarted = frame >= wordData.startFrame;
-                        const isWordActive = hasStarted && frame < wordData.endFrame;
-                        const hasWordPassed = frame >= wordData.endFrame;
-                        const relativeFrame = Math.max(0, frame - wordData.startFrame);
-
-                        return (
-                            <AnimatedWord
-                                key={`${currentGroupIndex}-${idx}`}
-                                word={wordData.text}
-                                wordIndex={globalIdx}
-                                isActive={isWordActive}
-                                hasPassed={hasWordPassed}
-                                hasStarted={hasStarted}
-                                relativeFrame={relativeFrame}
-                                fps={fps}
-                            />
-                        );
-                    })}
-                </div>
+                {hasStarted && currentWord && (
+                    <AnimatedWord
+                        word={currentWord.text}
+                        isActive={isActive}
+                        relativeFrame={relativeFrame}
+                        fps={fps}
+                    />
+                )}
             </AbsoluteFill>
 
-            {/* Progress Bar */}
+            {/* Minimal Progress Bar */}
             <div style={{
                 position: 'absolute',
                 bottom: 0,
                 left: 0,
-                height: '6px',
-                background: 'linear-gradient(90deg, #FFE66D, #FF6B6B)',
+                height: '4px',
+                backgroundColor: '#FFFFFF',
                 width: `${(frame / (words[words.length - 1]?.endFrame ?? 1)) * 100}%`,
-                zIndex: 100,
-                boxShadow: '0 0 10px rgba(255,230,109,0.5)',
+                opacity: 0.7,
             }} />
 
         </AbsoluteFill>
