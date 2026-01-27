@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
             const outputUrl = progress.outputFile || '';
 
             // Update Job to Completed
-            const { error: updateError } = await authClient
+            // CRITICAL: Use admin 'supabase' client (not authClient) to bypass RLS for UPDATE
+            const { error: updateError } = await supabase
                 .from('video_jobs')
                 .update({
                     status: 'completed',
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
             console.error('[Typography Status] Fatal error:', progress.errors);
             const errorMsg = JSON.stringify(progress.errors);
 
-            await authClient
+            await supabase
                 .from('video_jobs')
                 .update({
                     status: 'failed',
@@ -125,11 +126,8 @@ export async function POST(request: NextRequest) {
             // Still going
             const pct = Math.round((progress.overallProgress || 0) * 100);
             // Update progress in DB moderately (dont spam DB every poll)
-            // Maybe every 10%?
-            // Since client polls, we can just return status. 
-            // Updating DB is good for persistent visibility.
             if (pct > (job.progress || 0) + 5) {
-                await authClient
+                await supabase
                     .from('video_jobs')
                     .update({
                         progress: pct,
