@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
                     .from('video_jobs')
                     .insert({
                         user_id: user.id,
+                        user_uuid: user.id, // REQUIRED for dashboard visibility
                         status: 'processing', // Synchronous render, so straight to processing
                         input_data: {
                             jobType: 'typography',
