@@ -933,8 +933,18 @@ export const useDashboardState = () => {
                 console.log('[Typography] Starting typography video generation');
                 setProcessingMessage('Generating voiceover...');
 
-                // Generate TTS audio with word timings
-                const speechResult = await generateElevenLabsSpeech(inputText);
+                // Determine voice ID to use (same logic as face/minimal modes)
+                let voiceIdForTypography: string | undefined = undefined;
+
+                if (savedVoice && savedVoice.voice_id && savedVoice.voice_id !== 'pending') {
+                    voiceIdForTypography = savedVoice.voice_id;
+                    console.log('[Typography] Using saved voice:', voiceIdForTypography);
+                } else {
+                    console.log('[Typography] Using default voice (no saved voice)');
+                }
+
+                // Generate TTS audio with word timings using user's voice
+                const speechResult = await generateElevenLabsSpeech(inputText, voiceIdForTypography);
                 const { audioUrl, wordTimings, duration } = speechResult;
 
                 console.log(`[Typography] Got ${wordTimings.length} words, duration: ${duration}s`);
