@@ -71,7 +71,13 @@ export async function POST(request: NextRequest) {
         const { userId: clerkId } = await auth();
 
         if (clerkId) {
-            const user = await getOrCreateUser(clerkId, ''); // Basic fetch if email missing
+            // Get full user details to ensure reliable creation
+            const clerkUser = await currentUser();
+            const email = clerkUser?.emailAddresses[0]?.emailAddress || '';
+            const name = clerkUser?.firstName || undefined;
+            const imageUrl = clerkUser?.imageUrl || undefined;
+
+            const user = await getOrCreateUser(clerkId, email, name, imageUrl);
             if (user) {
                 // Create Video Job
                 const { data: job, error: jobError } = await supabase
