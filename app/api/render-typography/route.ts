@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
+import { renderMediaOnLambda, getRenderProgress } from '@remotion/lambda/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
 
 interface WordTiming {
     word: string;
@@ -28,16 +25,15 @@ function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): Typ
     }));
 }
 
+// Lambda configuration
+const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
+const FUNCTION_NAME = 'remotion-render-4-0-407-mem2048mb-disk2048mb-240sec';
+const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v2/index.html';
+
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
 
     try {
-        // Authenticate
-        const { userId: clerkId } = await auth();
-        if (!clerkId) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
         const body = await request.json();
         const {
             audioUrl,
@@ -56,43 +52,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Audio (audioUrl or audioBase64) is required' }, { status: 400 });
         }
 
-        // Check credits
-        const currentUserData = await currentUser();
-        const user = await getOrCreateUser(
-            clerkId,
-            currentUserData?.emailAddresses[0]?.emailAddress || '',
-            currentUserData?.firstName || undefined,
-            currentUserData?.imageUrl || undefined
-        );
-
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Typography video cost (similar to faceless video)
-        const cost = 20; // 20 credits for typography video
-        const hasCredits = await hasEnoughCredits(user.id, cost);
-
-        if (!hasCredits) {
-            return NextResponse.json({
-                error: `Insufficient credits. Typography video requires ${cost} credits.`,
-                code: 'INSUFFICIENT_CREDITS'
-            }, { status: 402 });
-        }
-
-        console.log('[Typography] Starting video generation');
+        console.log('[Typography Lambda] Starting video generation');
 
         // Create temp directory
         await fs.mkdir(tempDir, { recursive: true });
 
-        // Prepare audio
+        // Prepare audio URL
         let finalAudioUrl = audioUrl;
         if (audioBase64 && !audioUrl) {
-            // Save base64 audio to temp file
-            const audioBuffer = Buffer.from(audioBase64, 'base64');
-            const audioPath = path.join(tempDir, 'audio.mp3');
-            await fs.writeFile(audioPath, audioBuffer);
-            finalAudioUrl = `file://${audioPath}`;
+            // For base64 audio, we need to upload to a public URL
+            // For now, use a data URL (works for small files)
+            finalAudioUrl = `data:audio/mp3;base64,${audioBase64}`;
         }
 
         // Determine dimensions
@@ -110,81 +80,75 @@ export async function POST(request: NextRequest) {
 
         // Convert word timings to frame-based format
         const typographyWords = convertToFrameTimings(wordTimings, fps);
-        console.log(`[Typography] Converted ${typographyWords.length} words to frame timings`);
+        console.log(`[Typography Lambda] Converted ${typographyWords.length} words to frame timings`);
 
         // Calculate total duration from last word
         const lastWord = typographyWords[typographyWords.length - 1];
         const durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5); // Add 0.5s padding
 
-        // Bundle the Remotion project
-        console.log('[Typography] Bundling Remotion project...');
-        const bundleLocation = await bundle({
-            entryPoint: path.join(process.cwd(), 'remotion', 'index.ts'),
-            webpackOverride: (config) => config,
-        });
+        // Render on Lambda
+        console.log('[Typography Lambda] Starting Lambda render...');
 
-        // Select the composition
-        const composition = await selectComposition({
-            serveUrl: bundleLocation,
-            id: 'TypographyComposition',
+        const renderResult = await renderMediaOnLambda({
+            region: REMOTION_AWS_REGION as any,
+            functionName: FUNCTION_NAME,
+            serveUrl: SERVE_URL,
+            composition: 'TypographyComposition',
             inputProps: {
                 audioUrl: finalAudioUrl,
                 words: typographyWords,
                 wordsPerGroup,
                 animationStyle,
             },
-        });
-
-        // Override duration based on audio
-        const compositionWithDuration = {
-            ...composition,
-            durationInFrames,
-            width,
-            height,
-        };
-
-        // Render the video
-        const outputPath = path.join(tempDir, 'output.mp4');
-        console.log('[Typography] Rendering video...');
-
-        await renderMedia({
-            composition: compositionWithDuration,
-            serveUrl: bundleLocation,
             codec: 'h264',
-            outputLocation: outputPath,
-            inputProps: {
-                audioUrl: finalAudioUrl,
-                words: typographyWords,
-                wordsPerGroup,
-                animationStyle,
+            framesPerLambda: 20,
+            privacy: 'public',
+            downloadBehavior: {
+                type: 'download',
+                fileName: 'typography-video.mp4',
             },
         });
 
-        console.log('[Typography] Video rendered successfully');
+        console.log('[Typography Lambda] Render started, polling for progress...');
+        console.log('[Typography Lambda] Render ID:', renderResult.renderId);
 
-        // Read the output video
-        const videoBuffer = await fs.readFile(outputPath);
-        const videoBase64 = videoBuffer.toString('base64');
+        // Poll for completion
+        let completed = false;
+        let outputUrl = '';
 
-        // Clean up
-        await fs.rm(tempDir, { recursive: true, force: true });
+        while (!completed) {
+            const progress = await getRenderProgress({
+                region: REMOTION_AWS_REGION as any,
+                functionName: FUNCTION_NAME,
+                bucketName: renderResult.bucketName,
+                renderId: renderResult.renderId,
+            });
 
-        // Deduct credits
-        await deductCredits(user.id, cost, 'Typography Video', {
-            wordCount: wordTimings.length,
-            durationSeconds: durationInFrames / fps,
-            animationStyle,
-        });
+            if (progress.done) {
+                completed = true;
+                outputUrl = progress.outputFile || '';
+                console.log('[Typography Lambda] Render complete:', outputUrl);
+            } else if (progress.fatalErrorEncountered) {
+                throw new Error(`Lambda render failed: ${JSON.stringify(progress.errors)}`);
+            } else {
+                console.log(`[Typography Lambda] Progress: ${Math.round((progress.overallProgress || 0) * 100)}%`);
+                // Wait before polling again
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
 
-        const videoUrl = `data:video/mp4;base64,${videoBase64}`;
+        // Clean up temp directory
+        try {
+            await fs.rm(tempDir, { recursive: true, force: true });
+        } catch { }
 
         return NextResponse.json({
-            videoUrl,
+            videoUrl: outputUrl,
             duration: durationInFrames / fps,
         });
 
     } catch (error) {
-        console.error('[Typography] Error rendering video:', error);
+        console.error('[Typography Lambda] Error:', error);
 
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
