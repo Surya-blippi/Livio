@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 200, // Reduced concurrency to avoid rate limits (was 20)
+            framesPerLambda: 60, // Balanced: ~2s per Lambda. 200 was too slow, 20 was hitting limits.
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
@@ -174,9 +174,9 @@ export async function POST(request: NextRequest) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            // Safety: max 60 polls (2 minutes)
-            if (pollCount > 60) {
-                throw new Error('Render timeout - exceeded 2 minutes');
+            // Safety: max 300 polls (10 minutes)
+            if (pollCount > 300) {
+                throw new Error('Render timeout - exceeded 10 minutes');
             }
         }
 
