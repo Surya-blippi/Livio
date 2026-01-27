@@ -49,13 +49,13 @@ const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
 const FUNCTION_NAME = 'remotion-render-4-0-410-mem3008mb-disk2048mb-300sec'; // Upgraded to 3GB RAM
 const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v6/index.html';
 const BUCKET_NAME = 'remotionlambda-eunorth1-uzdpd4m8du'; // Hardcoded since getOrCreateBucket is not in client
-export const maxDuration = 300; // Allow 5 minutes for processing
+export const maxDuration = 300; // Allow 5 minutes (though async return makes this less critical)
 
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
     let dbJobId: string | null = null; // Declare outside try for catch block access
 
-    console.log('[Typography API] ===== REQUEST RECEIVED =====');
+    console.log('[Typography API] ===== REQUEST RECEIVED (ASYNC) =====');
 
     try {
         const body = await request.json();
@@ -96,14 +96,14 @@ export async function POST(request: NextRequest) {
 
             const user = await getOrCreateUser(clerkId, email, name, imageUrl);
             if (user) {
-                // Create Video Job
+                // Create Video Job using AUTHENTICATED client
                 const { data: job, error: jobError } = await authClient
                     .from('video_jobs')
                     .insert({
                         user_id: user.id,
                         user_uuid: user.id, // REQUIRED for dashboard visibility
                         job_type: 'typography', // Explicitly set type to override default 'faceless'
-                        status: 'processing', // Synchronous render, so straight to processing
+                        status: 'processing',
                         input_data: {
                             jobType: 'typography',
                             audioUrl,
@@ -120,8 +120,14 @@ export async function POST(request: NextRequest) {
                 if (job) {
                     dbJobId = job.id;
                     console.log('[Typography API] Created DB Job:', dbJobId);
+                } else if (jobError) {
+                    console.error('[Typography API] Failed to create DB Job:', jobError);
                 }
+            } else {
+                console.error('[Typography API] Failed to get/create Supabase user');
             }
+        } else {
+            console.warn('[Typography API] Unauthenticated request - no DB job will be created');
         }
 
         console.log('[Typography API] Body received:');
@@ -177,7 +183,7 @@ export async function POST(request: NextRequest) {
                 console.log('[Typography API] Audio uploaded to S3:', finalAudioUrl);
             } catch (s3Error) {
                 console.error('[Typography API] S3 Upload failed:', s3Error);
-                // Fallback to data URL if S3 fails (though unlikely if keys are valid)
+                // Fallback to data URL
                 finalAudioUrl = `data:audio/mp3;base64,${audioBase64}`;
                 console.warn('[Typography API] Falling back to data URL');
             }
@@ -206,9 +212,13 @@ export async function POST(request: NextRequest) {
         const durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5);
         console.log('[Typography API] Duration in frames:', durationInFrames, '(', durationInFrames / fps, 's)');
 
-        // Render on Lambda
-        console.log('[Typography API] ===== CALLING LAMBDA =====');
+        // Render on Lambda (Async Start)
+        console.log('[Typography API] ===== CALLING LAMBDA (ASYNC) =====');
         console.log('[Typography API] Audio URL:', finalAudioUrl);
+
+        // Increase framesPerLambda to reduce concurrency and avoid Rate Exceeded
+        // 1048 frames / 600 = ~2 lambdas. Much safer than 80 (~13 lambdas).
+        const FRAMES_PER_LAMBDA = 600;
 
         const renderResult = await renderMediaOnLambda({
             region: REMOTION_AWS_REGION as any,
@@ -222,7 +232,7 @@ export async function POST(request: NextRequest) {
                 animationStyle,
             },
             codec: 'h264',
-            framesPerLambda: 80, // Safe concurrency: ~4 Lambdas for 10s video. Reverted from 25 (rate limit).
+            framesPerLambda: FRAMES_PER_LAMBDA,
             privacy: 'public',
             downloadBehavior: {
                 type: 'download',
@@ -234,82 +244,41 @@ export async function POST(request: NextRequest) {
         console.log('[Typography API] Render ID:', renderResult.renderId);
         console.log('[Typography API] Bucket:', renderResult.bucketName);
 
-        // Poll for completion
-        let completed = false;
-        let outputUrl = '';
-        let pollCount = 0;
+        // Update DB Job with Render Details (so we can poll it)
+        if (dbJobId) {
+            console.log('[Typography API] Saving Render State to DB...');
+            // Need to fetch fresh state to modify jsonb? No, insert overrides? No update updates.
+            // We append to input_data or result_data.
+            const { error: updateError } = await authClient
+                .from('video_jobs')
+                .update({
+                    status: 'processing', // Still processing
+                    progress: 10,
+                    progress_message: 'Rendering started...',
+                    // Store render details in result_data (or input, but result is cleaner for interim state?)
+                    result_data: {
+                        renderId: renderResult.renderId,
+                        bucketName: renderResult.bucketName,
+                        region: REMOTION_AWS_REGION,
+                        functionName: FUNCTION_NAME
+                    }
+                })
+                .eq('id', dbJobId);
 
-        while (!completed) {
-            pollCount++;
-            console.log('[Typography API] Polling progress (attempt', pollCount, ')...');
-
-            const progress = await getRenderProgress({
-                region: REMOTION_AWS_REGION as any,
-                functionName: FUNCTION_NAME,
-                bucketName: renderResult.bucketName,
-                renderId: renderResult.renderId,
-            });
-
-            console.log('[Typography API] Progress response:', JSON.stringify({
-                done: progress.done,
-                overallProgress: progress.overallProgress,
-                fatalErrorEncountered: progress.fatalErrorEncountered,
-                errors: progress.errors,
-                outputFile: progress.outputFile,
-            }));
-
-            if (progress.done) {
-                completed = true;
-                outputUrl = progress.outputFile || '';
-                console.log('[Typography API] ===== RENDER COMPLETE =====');
-                console.log('[Typography API] Output URL:', outputUrl);
-            } else if (progress.fatalErrorEncountered) {
-                console.log('[Typography API] ===== FATAL ERROR =====');
-                console.log('[Typography API] Errors:', JSON.stringify(progress.errors, null, 2));
-                throw new Error(`Lambda render failed: ${JSON.stringify(progress.errors)}`);
-            } else {
-                const pct = Math.round((progress.overallProgress || 0) * 100);
-                console.log(`[Typography API] Progress: ${pct}%`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-
-            // Safety: max 300 polls (10 minutes)
-            if (pollCount > 300) {
-                throw new Error('Render timeout - exceeded 10 minutes');
-            }
+            if (updateError) console.error('[Typography API] Failed to save render state:', updateError);
         }
 
-        // Clean up
+        // Clean up temp dir immediately since we are not waiting
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
         } catch { }
 
-        console.log('[Typography API] ===== SUCCESS =====');
-
-        // Update DB Job Success
-        if (dbJobId) {
-            console.log('[Typography API] Updating DB Job to COMPLETED...');
-            const { error: updateError } = await authClient
-                .from('video_jobs')
-                .update({
-                    status: 'completed',
-                    progress: 100,
-                    output_url: outputUrl,
-                    progress_message: 'Render complete'
-                })
-                .eq('id', dbJobId);
-
-            if (updateError) {
-                console.error('[Typography API] Failed to update DB job:', updateError);
-            } else {
-                console.log('[Typography API] DB Job updated successfully');
-            }
-        }
-
+        // Return immediately so client can poll
         return NextResponse.json({
-            videoUrl: outputUrl,
-            duration: durationInFrames / fps,
-            jobId: dbJobId
+            jobId: dbJobId,
+            status: 'processing',
+            renderId: renderResult.renderId,
+            duration: durationInFrames / fps
         });
 
     } catch (error) {
@@ -317,9 +286,8 @@ export async function POST(request: NextRequest) {
         console.error('[Typography API] Error message:', error instanceof Error ? error.message : String(error));
         console.error('[Typography API] Full error:', error);
 
-        try {
-            await fs.rm(tempDir, { recursive: true, force: true });
-        } catch { }
+        // Cleanup temp dir
+        try { await fs.rm(tempDir, { recursive: true, force: true }); } catch { }
 
         // Update DB Job Failure
         if (dbJobId) {
@@ -333,7 +301,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-            { error: `Failed to render typography video: ${error instanceof Error ? error.message : 'Unknown error'}` },
+            { error: `Failed to start typography render: ${error instanceof Error ? error.message : 'Unknown error'}` },
             { status: 500 }
         );
     }

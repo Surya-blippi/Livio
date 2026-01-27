@@ -595,7 +595,9 @@ export const createTypographyVideo = async (
         }
     }
 
-    const response = await axios.post('/api/render-typography', {
+    // 1. Start Job (Async)
+    console.log('[createTypographyVideo] Starting render job...');
+    const startRes = await axios.post('/api/render-typography', {
         audioBase64: finalAudioBase64, // Send empty if uploaded
         audioUrl: finalAudioUrl,       // Send URL if uploaded
         wordTimings,
@@ -604,11 +606,54 @@ export const createTypographyVideo = async (
         aspectRatio
     });
 
-    return {
-        videoUrl: response.data.videoUrl,
-        duration: response.data.duration,
-        jobId: response.data.jobId
-    };
+    const { jobId, status, videoUrl: initialVideoUrl } = startRes.data;
+
+    // Backward compatibility: If server returns videoUrl immediately (sync mode), return it
+    if (initialVideoUrl) {
+        return {
+            videoUrl: initialVideoUrl,
+            duration: startRes.data.duration,
+            jobId
+        };
+    }
+
+    // 2. Poll for Completion
+    if (!jobId) throw new Error('Failed to start render job (no jobId)');
+    console.log(`[createTypographyVideo] Job started: ${jobId}. Polling for status...`);
+
+    let polls = 0;
+    const MAX_POLLS = 600; // 10 minutes (1s interval) -> actually let's do 2s interval -> 300 polls
+
+    while (polls < MAX_POLLS) {
+        polls++;
+        await new Promise(r => setTimeout(r, 2000)); // Wait 2s
+
+        try {
+            const statusRes = await axios.post('/api/render-typography/status', { jobId });
+            const { done, status, videoUrl, error } = statusRes.data;
+
+            console.log(`[createTypographyVideo] Poll ${polls}: ${status}`);
+
+            if (done) {
+                if (error) {
+                    throw new Error(error || 'Render failed');
+                }
+                if (videoUrl) {
+                    return {
+                        videoUrl,
+                        duration: startRes.data.duration, // Duration is determined at start
+                        jobId
+                    };
+                }
+            }
+        } catch (err) {
+            console.warn(`[createTypographyVideo] Poll error (retrying):`, err);
+            // Allow transient network errors, but maybe fail if repeated?
+            // For now continue loop
+        }
+    }
+
+    throw new Error('Render timeout - job took too long');
 };
 
 /**
