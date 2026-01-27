@@ -30,7 +30,7 @@ function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): Typ
 // Lambda configuration
 const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
 const FUNCTION_NAME = 'remotion-render-4-0-410-mem3008mb-disk2048mb-300sec'; // Upgraded to 3GB RAM
-const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v4/index.html';
+const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v5/index.html';
 const BUCKET_NAME = 'remotionlambda-eunorth1-uzdpd4m8du'; // Hardcoded since getOrCreateBucket is not in client
 
 export async function POST(request: NextRequest) {

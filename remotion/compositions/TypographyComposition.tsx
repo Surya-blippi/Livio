@@ -53,6 +53,7 @@ const AnimatedWord: React.FC<{
                 color,
                 textShadow,
                 fontFamily: "'Anton', sans-serif",
+                fontSize: '90px', // Explicit large font size
                 margin: '0 10px',
                 // Use CSS transition for smooth color even if frames skip
                 transition: 'color 0.2s, transform 0.2s',
