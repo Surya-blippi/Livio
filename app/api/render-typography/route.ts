@@ -27,7 +27,7 @@ function convertToFrameTimings(wordTimings: WordTiming[], fps: number = 30): Typ
 
 // Lambda configuration
 const REMOTION_AWS_REGION = process.env.REMOTION_AWS_REGION || 'eu-north-1';
-const FUNCTION_NAME = 'remotion-render-4-0-407-mem2048mb-disk2048mb-240sec';
+const FUNCTION_NAME = 'remotion-render-4-0-410-mem2048mb-disk2048mb-240sec';
 const SERVE_URL = 'https://remotionlambda-eunorth1-uzdpd4m8du.s3.eu-north-1.amazonaws.com/sites/typography-site-v2/index.html';
 
 export async function POST(request: NextRequest) {
