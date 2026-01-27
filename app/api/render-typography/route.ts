@@ -4,6 +4,8 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
+import { supabase, getOrCreateUser } from '@/lib/supabase';
+import { auth, currentUser } from '@clerk/nextjs/server';
 
 // Type definitions
 interface WordTiming {
@@ -50,6 +52,7 @@ const BUCKET_NAME = 'remotionlambda-eunorth1-uzdpd4m8du'; // Hardcoded since get
 
 export async function POST(request: NextRequest) {
     const tempDir = path.join(os.tmpdir(), `typography-${Date.now()}`);
+    let dbJobId: string | null = null; // Declare outside try for catch block access
 
     console.log('[Typography API] ===== REQUEST RECEIVED =====');
 
@@ -63,6 +66,38 @@ export async function POST(request: NextRequest) {
             animationStyle = 'pop',
             aspectRatio = '9:16'
         } = body;
+
+        // AUTH & DB SETUP
+        const { userId: clerkId } = await auth();
+
+        if (clerkId) {
+            const user = await getOrCreateUser(clerkId, ''); // Basic fetch if email missing
+            if (user) {
+                // Create Video Job
+                const { data: job, error: jobError } = await supabase
+                    .from('video_jobs')
+                    .insert({
+                        user_id: user.id,
+                        status: 'processing', // Synchronous render, so straight to processing
+                        input_data: {
+                            jobType: 'typography',
+                            audioUrl,
+                            animationStyle,
+                            aspectRatio,
+                            wordCount: wordTimings?.length || 0
+                        },
+                        progress: 0,
+                        progress_message: 'Starting typography render...'
+                    })
+                    .select()
+                    .single();
+
+                if (job) {
+                    dbJobId = job.id;
+                    console.log('[Typography API] Created DB Job:', dbJobId);
+                }
+            }
+        }
 
         console.log('[Typography API] Body received:');
         console.log('[Typography API]   - audioUrl:', audioUrl ? 'present' : 'missing');
@@ -225,9 +260,24 @@ export async function POST(request: NextRequest) {
         } catch { }
 
         console.log('[Typography API] ===== SUCCESS =====');
+
+        // Update DB Job Success
+        if (dbJobId) {
+            await supabase
+                .from('video_jobs')
+                .update({
+                    status: 'completed',
+                    progress: 100,
+                    output_url: outputUrl,
+                    progress_message: 'Render complete'
+                })
+                .eq('id', dbJobId);
+        }
+
         return NextResponse.json({
             videoUrl: outputUrl,
             duration: durationInFrames / fps,
+            jobId: dbJobId
         });
 
     } catch (error) {
@@ -238,6 +288,17 @@ export async function POST(request: NextRequest) {
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
         } catch { }
+
+        // Update DB Job Failure
+        if (dbJobId) {
+            await supabase
+                .from('video_jobs')
+                .update({
+                    status: 'failed',
+                    error_message: error instanceof Error ? error.message : 'Unknown error'
+                })
+                .eq('id', dbJobId);
+        }
 
         return NextResponse.json(
             { error: `Failed to render typography video: ${error instanceof Error ? error.message : 'Unknown error'}` },
