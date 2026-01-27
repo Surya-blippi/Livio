@@ -30,13 +30,13 @@ export async function POST(request: NextRequest) {
 
         console.log('🎙️ Transcribing audio with Whisper for exact word timings...');
 
-        // Call Whisper via fal.ai - use segment level (word level not supported)
+        // Call Whisper via fal.ai with WORD-LEVEL timestamps for perfect sync
         const result = await fal.subscribe('fal-ai/wizper', {
             input: {
                 audio_url: audioUrl,
                 task: 'transcribe',
                 language: 'en',
-                // chunk_level defaults to 'segment' - we'll parse words from segments
+                chunk_level: 'word',  // TRUE word-level timestamps for perfect sync
                 version: '3'
             },
             logs: true,
@@ -60,34 +60,22 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Parse segments into word-level timings
-        // Each segment has text and [start, end] timestamp - we distribute words proportionally
+        // With chunk_level: 'word', each chunk IS a single word with precise timestamps
+        // No need to split/distribute - just map directly
         const wordTimings: WordTiming[] = [];
 
         for (const chunk of whisperData.chunks) {
-            const segmentStart = chunk.timestamp[0];
-            const segmentEnd = chunk.timestamp[1];
-            const segmentDuration = segmentEnd - segmentStart;
+            const wordText = chunk.text.trim();
+            if (wordText.length === 0) continue;
 
-            // Split segment text into words
-            const words = chunk.text.trim().split(/\s+/).filter(w => w.length > 0);
-            if (words.length === 0) continue;
-
-            // Distribute time proportionally across words in this segment
-            const timePerWord = segmentDuration / words.length;
-            let currentTime = segmentStart;
-
-            for (const word of words) {
-                wordTimings.push({
-                    word: word,
-                    start: currentTime,
-                    end: currentTime + timePerWord
-                });
-                currentTime += timePerWord;
-            }
+            wordTimings.push({
+                word: wordText,
+                start: chunk.timestamp[0],
+                end: chunk.timestamp[1]
+            });
         }
 
-        console.log(`✅ Got ${wordTimings.length} word timings from ${whisperData.chunks.length} Whisper segments`);
+        console.log(`✅ Got ${wordTimings.length} EXACT word timings from Whisper word-level chunks`);
 
         return NextResponse.json({
             text: whisperData.text,
