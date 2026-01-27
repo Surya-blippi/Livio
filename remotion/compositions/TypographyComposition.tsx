@@ -93,7 +93,7 @@ const AnimatedWord: React.FC<{
 export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     audioUrl,
     words,
-    wordsPerGroup = 3,
+    wordsPerGroup = 1, // Single word display for accurate sync
 }) => {
     const frame = useCurrentFrame();
     const { fps, width, height } = useVideoConfig();
