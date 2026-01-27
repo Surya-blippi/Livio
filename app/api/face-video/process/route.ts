@@ -323,7 +323,7 @@ export async function POST(request: NextRequest) {
                         script: script,
                         mode: 'face',
                         topic: '',
-                        duration: result.duration || 0,
+                        duration: Math.round(result.duration || 0), // Convert to integer for DB
                         has_captions: inputData.enableCaptions || false,
                         has_music: inputData.enableBackgroundMusic || false,
                         assets: clipAssets,
