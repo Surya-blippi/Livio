@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, random } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig, random, Easing } from 'remotion';
 
 // Colorful gradients for typography mode
 const GRADIENTS = [
@@ -33,30 +33,26 @@ const AnimatedWord: React.FC<{
     frame: number;
     fps: number;
 }> = ({ word, isActive, hasPassed, frame, fps }) => {
-    // Simple linear pop-in (cheaper than spring)
-    const activeScale = interpolate(frame, [0, 5], [0.9, 1.1], { extrapolateRight: 'clamp' });
-    const inactiveScale = 1.0;
+    // Glide Animation: Slide up slightly + Fade in
+    // interpolate frame 0-10: translateY 20px -> 0px
+    const slideUp = interpolate(frame, [0, 8], [20, 0], { extrapolateRight: 'clamp', easing: Easing.out(Easing.quad) });
 
-    // Simple colors (no heavy shadows)
-    const color = isActive ? '#FFE66D' : '#FFFFFF';
-    const opacity = isActive ? 1 : (hasPassed ? 0.6 : 0.8);
-
-    // Static shadow for readability, not dynamic
-    const textShadow = '2px 2px 0px rgba(0,0,0,0.3)';
+    // Style: Minimalist. Active = White (1.0). Inactive = Gray (0.6).
+    const opacity = isActive ? 1 : 0.6;
 
     return (
         <span
             style={{
                 display: 'inline-block',
                 opacity,
-                transform: `scale(${isActive ? activeScale : inactiveScale})`,
-                color,
-                textShadow,
-                fontFamily: "'Anton', sans-serif",
-                fontSize: '90px', // Explicit large font size
+                transform: `translateY(${slideUp}px)`, // Glide up
+                color: '#FFFFFF', // Simple white
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)', // Subtle shadow
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 800,
+                fontSize: '80px',
                 margin: '0 10px',
-                // Use CSS transition for smooth color even if frames skip
-                transition: 'color 0.2s, transform 0.2s',
+                transition: 'opacity 0.2s ease',
                 zIndex: isActive ? 10 : 1,
                 position: 'relative'
             }}
