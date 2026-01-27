@@ -78,24 +78,32 @@ export async function POST(request: NextRequest) {
             // Update Job to Completed
             // CRITICAL: Use admin 'supabase' client (not authClient) to bypass RLS for UPDATE
             // Store videoUrl in result_data since output_url column doesn't exist
-            const existingResultData = job.result_data as any || {};
-            const { error: updateError } = await supabase
+            const existingResultData = (job.result_data as Record<string, unknown>) || {};
+
+            console.log('[Typography Status] Updating job to completed with videoUrl:', outputUrl);
+
+            const { data: updatedJob, error: updateError } = await supabase
                 .from('video_jobs')
                 .update({
                     status: 'completed',
                     progress: 100,
-                    progress_message: 'Render complete',
+                    progress_message: 'Video rendered successfully',
+                    updated_at: new Date().toISOString(),
                     result_data: {
                         ...existingResultData,
                         videoUrl: outputUrl,
+                        completedAt: new Date().toISOString(),
                     }
                 })
-                .eq('id', jobId);
+                .eq('id', jobId)
+                .select()
+                .single();
 
             if (updateError) {
                 console.error('[Typography Status] Failed to update job completion:', updateError);
+                // Still return success to frontend - the video was rendered, just DB update failed
             } else {
-                console.log('[Typography Status] Job marked as completed in DB.');
+                console.log('[Typography Status] Job marked as completed in DB:', updatedJob?.id, updatedJob?.status);
             }
 
             // Note: The 'saveVideo' (inserting to public.videos) was typically done by Frontend upon receiving success.
