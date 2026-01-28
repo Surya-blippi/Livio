@@ -83,7 +83,7 @@ async function pollWaveSpeed(predictionId: string): Promise<{ completed: boolean
     while (Date.now() - startTime < MAX_POLL_TIME_MS) {
         try {
             const resp = await axios.get(
-                `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`,
+                `https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result?_t=${Date.now()}`,
                 { headers: { 'Authorization': `Bearer ${getWavespeedApiKey()}` }, timeout: 10000 }
             );
             const data = resp.data.data || resp.data;
