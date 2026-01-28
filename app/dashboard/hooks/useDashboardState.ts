@@ -893,18 +893,35 @@ export const useDashboardState = () => {
         let workingScenes = scenes;
         if (scenes.length === 0 && inputText.trim().length > 0) {
             // Split script by sentences (periods, ! or ?) into individual scenes
+            // Split script by sentences (periods, ! or ?) or newlines into individual scenes
             const sentences = inputText
-                .split(/(?<=[.!?])\s+/)
+                .split(/(?<=[.!?])\s+|\n+/)
                 .map(s => s.trim())
-                .filter(s => s.length > 10); // Filter out very short fragments
+                .filter(s => s.length > 0);
 
-            // Group sentences into scenes (2-3 sentences per scene for natural pacing)
+            // Group sentences into scenes
+            // Default to 1 sentence per scene for better pacing/more asset slots
+            const scenesPerGroup = 1;
+
             const autoScenes: Scene[] = [];
             let buffer = '';
+
             for (let i = 0; i < sentences.length; i++) {
-                buffer += (buffer ? ' ' : '') + sentences[i];
-                // Create scene every 2-3 sentences or at the end
-                if ((i + 1) % 2 === 0 || i === sentences.length - 1) {
+                const currentSentence = sentences[i];
+                buffer += (buffer ? ' ' : '') + currentSentence;
+
+                const wordCount = buffer.split(/\s+/).length;
+
+                // Create scene if:
+                // 1. We hit the group limit (1 sentence)
+                // 2. OR the buffer is getting too long (>30 words)
+                // 3. BUT keep appending if the current buffer is too short (<5 words) and it's not the end
+                const isLongEnough = wordCount >= 5;
+                const isTooLong = wordCount >= 30;
+                const isGroupFull = (i + 1) % scenesPerGroup === 0;
+                const isLast = i === sentences.length - 1;
+
+                if ((isGroupFull && isLongEnough) || isTooLong || isLast) {
                     autoScenes.push({ text: buffer, keywords: [] });
                     buffer = '';
                 }
