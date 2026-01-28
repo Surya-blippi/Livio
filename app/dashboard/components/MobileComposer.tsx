@@ -68,6 +68,34 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showShortInputWarning, setShowShortInputWarning] = useState(false);
 
+    // Guided Flow State
+    const [flowStep, setFlowStep] = useState<'input' | 'refine' | 'assets' | 'ready'>('input');
+    const [didRequestEnhance, setDidRequestEnhance] = useState(false);
+    const [didRequestAssets, setDidRequestAssets] = useState(false);
+
+    // Auto-advance after enhancement
+    useEffect(() => {
+        if (didRequestEnhance && !isEnhancing) {
+            setDidRequestEnhance(false);
+            setFlowStep(editType === 'typography' ? 'ready' : 'assets');
+        }
+    }, [isEnhancing, didRequestEnhance, editType]);
+
+    // Auto-advance after asset collection
+    useEffect(() => {
+        if (didRequestAssets && !isCollectingAssets) {
+            setDidRequestAssets(false);
+            setFlowStep('ready');
+        }
+    }, [isCollectingAssets, didRequestAssets]);
+
+    // Reset flow if input is cleared
+    useEffect(() => {
+        if (!inputText.trim() && flowStep !== 'input') {
+            setFlowStep('input');
+        }
+    }, [inputText, flowStep]);
+
     // Helper to count words in input text
     const getWordCount = (text: string) => {
         return text.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -282,56 +310,121 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                     />
 
                     {/* Actions Row */}
-                    <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-100">
+                    {/* C. GUIDED FLOW ACTIONS */}
+                    <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-100 min-h-[50px] transition-all">
 
-                        {/* Short Input Warning Message */}
-                        {showShortInputWarning && (
-                            <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg animate-pulse">
-                                <span className="text-amber-600 text-base">💡</span>
-                                <p className="text-[11px] text-amber-700 font-medium flex-1">
-                                    Short input! Click <strong>"AI Write"</strong> to generate a full script first.
-                                </p>
+                        {/* STEP 1: INPUT */}
+                        {flowStep === 'input' && (
+                            <div className="flex items-center justify-end">
                                 <button
-                                    onClick={() => setShowShortInputWarning(false)}
-                                    className="text-amber-500 hover:text-amber-700 text-xs"
+                                    onClick={() => {
+                                        if (!inputText.trim()) return;
+                                        setFlowStep('refine');
+                                    }}
+                                    disabled={!inputText.trim()}
+                                    className="flex items-center gap-2 px-6 py-2 bg-black text-white text-xs font-bold rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed w-full justify-center"
                                 >
-                                    ✕
+                                    <span>Next</span>
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                 </button>
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">
-                            {/* AI Enhance */}
-                            <button
-                                onClick={onEnhance}
-                                disabled={!inputText.trim() || isEnhancing}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-purple-500 hover:text-purple-600 disabled:opacity-30 transition-all"
-                            >
-                                <SparklesIcon className="w-3 h-3" />
-                                {isEnhancing ? 'Writing...' : 'AI Write'}
-                            </button>
+                        {/* STEP 2: REFINE (AI Script) */}
+                        {flowStep === 'refine' && (
+                            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <p className="text-[10px] font-bold text-gray-900 flex items-center gap-1.5">
+                                    <SparklesIcon className="w-3 h-3 text-purple-600" />
+                                    Refine script with AI?
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setFlowStep(editType === 'typography' ? 'ready' : 'assets')}
+                                        className="flex-1 py-2 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                                    >
+                                        No, keep
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onEnhance();
+                                            setDidRequestEnhance(true);
+                                        }}
+                                        disabled={isProcessing || isEnhancing}
+                                        className="flex-[2] py-2 bg-purple-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-70"
+                                    >
+                                        {isEnhancing ? (
+                                            <>
+                                                <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <span>Writing...</span>
+                                            </>
+                                        ) : (
+                                            'Yes, AI Write'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-                            {/* Find Assets */}
-                            <button
-                                onClick={onCollectAssets}
-                                disabled={!inputText.trim() || isCollectingAssets}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500 hover:text-blue-600 disabled:opacity-30 transition-all"
-                            >
-                                <ImageIcon className="w-3 h-3" />
-                                {isCollectingAssets ? 'Finding...' : 'Find Assets'}
-                            </button>
+                        {/* STEP 3: ASSETS (Check) */}
+                        {flowStep === 'assets' && (
+                            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <p className="text-[10px] font-bold text-gray-900 flex items-center gap-1.5">
+                                    <ImageIcon className="w-3 h-3 text-blue-600" />
+                                    Find visuals?
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setFlowStep('ready')}
+                                        className="flex-1 py-2 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                                    >
+                                        No, skip
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onCollectAssets();
+                                            setDidRequestAssets(true);
+                                        }}
+                                        disabled={isProcessing || isCollectingAssets}
+                                        className="flex-[2] py-2 bg-blue-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-70"
+                                    >
+                                        {isCollectingAssets ? (
+                                            <>
+                                                <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <span>Finding...</span>
+                                            </>
+                                        ) : (
+                                            'Yes, Find Assets'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-                            <div className="flex-1" />
+                        {/* STEP 4: READY (Generate) */}
+                        {flowStep === 'ready' && (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <button
+                                        onClick={() => setFlowStep('input')}
+                                        className="text-[10px] font-bold text-gray-400 flex items-center gap-1"
+                                    >
+                                        ← Start Over
+                                    </button>
+                                    <div className="flex-1 text-right text-[10px] font-medium text-green-600 flex items-center justify-end gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                        Ready
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleGenerateClick}
+                                    disabled={!inputText.trim()}
+                                    className="w-full px-5 py-2.5 bg-[var(--brand-primary)] text-black rounded-xl font-black text-sm border-2 border-black shadow-[3px_3px_0px_#000] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-30 disabled:hover:shadow-[3px_3px_0px_#000]"
+                                >
+                                    Generate Video →
+                                </button>
+                            </div>
+                        )}
 
-                            {/* Generate Button - Neo-brutalist style */}
-                            <button
-                                onClick={handleGenerateClick}
-                                disabled={!inputText.trim()}
-                                className="px-5 py-2 bg-[var(--brand-primary)] text-black rounded-xl font-black text-sm border-2 border-black shadow-[3px_3px_0px_#000] hover:shadow-[5px_5px_0px_#000] hover:-translate-y-0.5 active:shadow-none active:translate-y-0 disabled:opacity-30 disabled:hover:shadow-[3px_3px_0px_#000] disabled:hover:translate-y-0 transition-all"
-                            >
-                                Generate →
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
