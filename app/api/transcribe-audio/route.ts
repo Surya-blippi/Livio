@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         console.log('🎙️ Transcribing audio with Whisper for exact word timings...');
 
         // Call Whisper via fal.ai with WORD-LEVEL timestamps for perfect sync
-        const result = await fal.subscribe('fal-ai/wizper', {
+        const result = await fal.subscribe('fal-ai/whisper', {
             input: {
                 audio_url: audioUrl,
                 task: 'transcribe',
