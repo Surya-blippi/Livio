@@ -88,9 +88,11 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
 
     // Find current word (ONE word at a time for perfect sync)
     let currentWordIndex = 0;
-    for (let i = 0; i < words.length; i++) {
-        if (frame >= words[i].startFrame) {
-            currentWordIndex = i;
+    if (words && words.length > 0) {
+        for (let i = 0; i < words.length; i++) {
+            if (frame >= words[i].startFrame) {
+                currentWordIndex = i;
+            }
         }
     }
 
@@ -148,7 +150,7 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
                 left: 0,
                 height: '4px',
                 backgroundColor: '#FFFFFF',
-                width: `${(frame / (words[words.length - 1]?.endFrame ?? 1)) * 100}%`,
+                width: `${(frame / ((words && words.length > 0) ? (words[words.length - 1]?.endFrame ?? 1) : 1)) * 100}%`,
                 opacity: 0.7,
             }} />
 
