@@ -852,6 +852,7 @@ export const useDashboardState = () => {
 
 
     const handleCreateVideo = async () => {
+        if (isProcessing) return; // Prevent double-submission
         if (!inputText.trim()) { setError('Please enter a script'); return; }
         if (!dbUser) { setError('Please sign in to create videos'); return; }
 

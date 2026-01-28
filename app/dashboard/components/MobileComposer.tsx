@@ -417,7 +417,7 @@ export const MobileComposer: React.FC<MobileComposerProps> = ({
                                 </div>
                                 <button
                                     onClick={handleGenerateClick}
-                                    disabled={!inputText.trim()}
+                                    disabled={!inputText.trim() || isProcessing}
                                     className="w-full px-5 py-2.5 bg-[var(--brand-primary)] text-black rounded-xl font-black text-sm border-2 border-black shadow-[3px_3px_0px_#000] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-30 disabled:hover:shadow-[3px_3px_0px_#000]"
                                 >
                                     Generate Video →
