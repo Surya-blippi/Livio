@@ -205,8 +205,35 @@ function parseSceneScript(text: string): SceneScript | null {
  * Fallback: Extract plain script if JSON parsing fails
  */
 function extractPlainScript(text: string): string {
+    let script = text.trim();
+
+    // First, try to extract text from JSON if it looks like JSON scenes
+    // This handles cases where parseSceneScript failed on malformed JSON but we can still extract text
+    if (script.startsWith('{') && script.includes('"scenes"')) {
+        try {
+            // Try to clean and parse as JSON
+            const cleanJson = script.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+            const jsonMatch = cleanJson.match(/\{[\s\S]*"scenes"[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.scenes && Array.isArray(parsed.scenes)) {
+                    const texts = parsed.scenes
+                        .filter((s: { text?: string }) => s.text && typeof s.text === 'string')
+                        .map((s: { text: string }) => s.text.trim());
+                    if (texts.length > 0) {
+                        console.log('[extractPlainScript] Successfully extracted text from JSON scenes');
+                        return texts.join(' ');
+                    }
+                }
+            }
+        } catch {
+            // JSON parsing failed, continue with text extraction
+            console.log('[extractPlainScript] JSON parse attempt failed, falling back to text extraction');
+        }
+    }
+
     // Remove common preamble patterns
-    let script = text
+    script = script
         .replace(/^I will research.*$/gim, '')
         .replace(/^I('ll| will) (now )?(research|write|create).*$/gim, '')
         .replace(/^Here('s| is) (your|the) script.*$/gim, '')
@@ -217,6 +244,7 @@ function extractPlainScript(text: string): string {
         .replace(/^[-*]\s/gm, '')
         .replace(/\n{3,}/g, '\n\n')
         .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+        .replace(/\{[\s\S]*"scenes"[\s\S]*\}/g, '') // Remove any leftover JSON objects
         .trim();
 
     // If there are multiple paragraphs, take the longest one

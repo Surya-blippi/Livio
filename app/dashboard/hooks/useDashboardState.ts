@@ -666,13 +666,16 @@ export const useDashboardState = () => {
         // Set metadata immediately for fast UI response
         setSelectedVideo(video);
 
-        // Parse script - it might be stored as JSON array of scenes
+        // Parse script - it might be stored as JSON (array of scenes or object with scenes property)
         let scriptText = video.script || '';
         try {
             const parsed = JSON.parse(scriptText);
             if (Array.isArray(parsed)) {
-                // Extract text from each scene object
+                // Extract text from each scene object (array format)
                 scriptText = parsed.map((s: { text?: string }) => s.text || '').join('\n\n');
+            } else if (parsed && parsed.scenes && Array.isArray(parsed.scenes)) {
+                // Extract text from scenes property (object format: {"scenes": [...]})
+                scriptText = parsed.scenes.map((s: { text?: string }) => s.text || '').join('\n\n');
             }
         } catch {
             // Not JSON, use as-is (already plain text)
