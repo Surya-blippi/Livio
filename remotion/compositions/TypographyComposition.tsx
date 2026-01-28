@@ -86,6 +86,11 @@ export const TypographyComposition: React.FC<TypographyCompositionProps> = ({
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
 
+    // Guard against invalid words prop
+    if (!words || !Array.isArray(words) || words.length === 0) {
+        return null;
+    }
+
     // Find current word (ONE word at a time for perfect sync)
     let currentWordIndex = 0;
     if (words && words.length > 0) {

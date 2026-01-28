@@ -208,8 +208,11 @@ export async function POST(request: NextRequest) {
         console.log('[Typography API] Converted', typographyWords.length, 'words to frame timings');
 
         // Calculate total duration from last word
-        const lastWord = typographyWords[typographyWords.length - 1];
-        const durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5);
+        let durationInFrames = 30; // Default min duration
+        if (typographyWords.length > 0) {
+            const lastWord = typographyWords[typographyWords.length - 1];
+            durationInFrames = lastWord.endFrame + Math.floor(fps * 0.5);
+        }
         console.log('[Typography API] Duration in frames:', durationInFrames, '(', durationInFrames / fps, 's)');
 
         // Render on Lambda (Async Start)

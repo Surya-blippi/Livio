@@ -808,7 +808,7 @@ export const useDashboardState = () => {
             // 3. Save to DB
             // Generate a unique name
             const voiceCount = allVoices.length + 1;
-            const voiceName = `Custom Voice ${voiceCount}`;
+            const voiceName = `Voice ${voiceCount}`;
 
             // Use authenticated client for RLS
             const sb = await getSupabase();

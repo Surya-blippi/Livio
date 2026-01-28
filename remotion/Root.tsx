@@ -62,7 +62,7 @@ export const RemotionRoot: React.FC = () => {
                 defaultProps={defaultTypographyProps}
                 calculateMetadata={async ({ props }) => {
                     const typedProps = props as typeof defaultTypographyProps;
-                    if (!typedProps.words || typedProps.words.length === 0) {
+                    if (!typedProps.words || !Array.isArray(typedProps.words) || typedProps.words.length === 0) {
                         return { durationInFrames: 30 };
                     }
                     const lastWord = typedProps.words[typedProps.words.length - 1];
