@@ -277,7 +277,9 @@ function buildJson2VideoPayload(
             if (k > 0 && allAssets && allAssets.length > 0) {
                 // Use a deterministic hash/index to pick from allAssets to avoid randomness
                 // Offset by scene index to ensure different scenes pick different "extra" assets
-                const poolIndex = (i + k) % allAssets.length;
+                // CRITICAL: We use (i + k + 1) to avoid picking the asset that belongs to the NEXT scene (i+1)
+                // This prevents the "A -> B, B -> C" pattern where the end of Scene 1 matches start of Scene 2
+                const poolIndex = (i + k + 1) % allAssets.length;
                 const candidate = allAssets[poolIndex];
 
                 // If candidate is valid, use it
