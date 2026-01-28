@@ -262,13 +262,29 @@ function buildJson2VideoPayload(
 
         let visualElements: any[] = [];
 
-        let globalAssetIndex = 0;
+        // Global index shared across cuts within a scene logic (for this scoped map)
+        // Ideally we want a global rotation, but for simplicity per scene we can offset by scene index
+        // To truly use all assets, we can just rotate based on (sceneIndex + cutIndex)
 
         for (let k = 0; k < numCuts; k++) {
+            // Cut logic:
+            // 1. First cut (k=0) ALWAYS uses the scene's assigned asset (storyboard fidelity)
+            // 2. Subsequent cuts (k>0) try to pick a different asset from the pool
 
+            let effectiveAssetUrl = scene.assetUrl;
 
-            // STRICTLY use the asset assigned to this scene to match the Storyboard
-            const effectiveAssetUrl = scene.assetUrl;
+            // Only switch assets if we have extra assets available
+            if (k > 0 && allAssets && allAssets.length > 0) {
+                // Use a deterministic hash/index to pick from allAssets to avoid randomness
+                // Offset by scene index to ensure different scenes pick different "extra" assets
+                const poolIndex = (i + k) % allAssets.length;
+                const candidate = allAssets[poolIndex];
+
+                // If candidate is valid, use it
+                if (candidate) {
+                    effectiveAssetUrl = candidate;
+                }
+            }
 
             const cuts = getVisualCutElements(
                 effectiveAssetUrl,
