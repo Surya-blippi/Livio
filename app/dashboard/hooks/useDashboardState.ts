@@ -199,6 +199,20 @@ export const useDashboardState = () => {
                 setVideoHistory(videos.data || []);
                 setSavedAvatars(avatars.data || []);
 
+                // Auto-select avatar (Default > First Created)
+                const defaultAvatar = (avatars.data || []).find((a: DbAvatar) => a.is_default);
+                const firstAvatar = (avatars.data || [])[0];
+                const avatarToUse = defaultAvatar || firstAvatar;
+
+                if (avatarToUse) {
+                    console.log('[Dashboard] Auto-selecting avatar:', avatarToUse.image_url);
+                    setPhotoPreview(avatarToUse.image_url);
+                    if (avatarToUse.is_default || avatarToUse.name?.includes('Studio')) {
+                        setStudioReadyUrl(avatarToUse.image_url);
+                        setUseStudioImage(true);
+                    }
+                }
+
                 // Check for and resume any in-progress video jobs
                 checkForActiveJobs(existing.id);
             } else {
@@ -531,11 +545,16 @@ export const useDashboardState = () => {
             setUseStudioImage(false); // Don't auto-switch, let user choose
 
             if (dbUser) {
-                // Save the STUDIO READY version to avatars
+                // Refresh avatars list to get the one saved by server
                 const sb = await getSupabase();
-                const savedStudioAvatar = await saveAvatar(dbUser.id, data.studioReadyUrl, 'Studio Ready', true, sb);
-                if (savedStudioAvatar) {
-                    setSavedAvatars(prev => [savedStudioAvatar, ...prev]);
+                const { data: latestAvatars } = await sb
+                    .from('avatars')
+                    .select('*')
+                    .eq('user_id', dbUser.id)
+                    .order('created_at', { ascending: false });
+
+                if (latestAvatars) {
+                    setSavedAvatars(latestAvatars);
                 }
             }
         } catch (err) {

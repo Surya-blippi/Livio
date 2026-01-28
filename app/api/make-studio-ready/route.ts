@@ -207,7 +207,30 @@ Requirements:
                 finalStudioUrl = data.publicUrl;
             }
 
-            console.log('[Studio Ready] Persisted URL:', finalStudioUrl);
+            // 2. Persist to DB immediately
+            const { error: dbError } = await adminSupabase
+                .from('avatars')
+                .insert({
+                    user_id: dbUser.id,
+                    image_url: finalStudioUrl,
+                    name: `Studio ${style}`,
+                    is_default: true // Auto-set as default since they just generated it
+                });
+
+            if (dbError) {
+                console.error('[Studio Ready] Failed to save to DB:', dbError);
+                // We don't fail the request, but we log it. 
+                // The frontend relies on the returned studioReadyUrl anyway.
+            } else {
+                console.log('[Studio Ready] Saved to DB successfully');
+
+                // Unset other defaults for this user to ensure only one is default
+                await adminSupabase
+                    .from('avatars')
+                    .update({ is_default: false })
+                    .eq('user_id', dbUser.id)
+                    .neq('image_url', finalStudioUrl);
+            }
 
         } catch (persistError) {
             console.error('[Studio Ready] Error persisting image:', persistError);
