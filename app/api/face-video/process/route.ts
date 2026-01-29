@@ -105,6 +105,7 @@ async function pollWaveSpeed(predictionId: string): Promise<{ completed: boolean
 
 // Start JSON2Video render (returns project ID immediately)
 async function startJson2VideoRender(
+    jobId: string,
     processedScenes: ProcessedScene[],
     enableCaptions: boolean,
     enableBackgroundMusic: boolean
@@ -125,6 +126,9 @@ async function startJson2VideoRender(
         captionStyle: 'bold-classic',
         enableBackgroundMusic: enableBackgroundMusic ?? false,
     });
+
+    // Pass Job ID for webhook to identify this job
+    moviePayload.id = jobId;
 
     // Add webhook if available
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -431,7 +435,7 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
-            const projectId = await startJson2VideoRender(processedScenes, enableCaptions, enableBackgroundMusic);
+            const projectId = await startJson2VideoRender(jobId, processedScenes, enableCaptions, enableBackgroundMusic);
 
             await supabase.from('video_jobs').update({
                 input_data: { ...inputData, pendingRender: { projectId, startedAt: Date.now() } },

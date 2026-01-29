@@ -152,6 +152,7 @@ export interface Json2VideoMovie {
     scenes: Json2VideoScene[];
     elements?: any[]; // Movie-level elements
     voice?: string;
+    id?: string; // Internal Job ID for webhooks
     exports?: { destinations: { type?: string; endpoint?: string; id?: string; file?: string }[] }[];
 }
 

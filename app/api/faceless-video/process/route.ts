@@ -651,6 +651,9 @@ export async function POST(request: NextRequest) {
 
         console.log('📦 Video Payload:', JSON.stringify(moviePayload).substring(0, 500) + '...');
 
+        // Pass Job ID for webhook to identify this job
+        moviePayload.id = jobId;
+
         const projectId = await startJson2VideoRender(moviePayload);
 
         // Save pending render state
