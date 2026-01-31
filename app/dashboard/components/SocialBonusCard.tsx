@@ -74,7 +74,7 @@ export default function SocialBonusCard({ userId }: SocialBonusCardProps) {
             }
 
             setStatus('pending');
-            setMessage({ type: 'success', text: "Submission Received! We will review your post shortly. 500 Credits will be added upon approval." });
+            setMessage({ type: 'success', text: "Thank you for submission, verification in progress - the turnaround time of approval is 12 hours or earlier." });
             setUrl('');
 
         } catch (error) {
