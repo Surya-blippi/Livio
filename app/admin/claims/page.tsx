@@ -10,57 +10,24 @@ const LoaderIcon = () => (
     </svg>
 );
 
-const CheckIcon = () => (
+const RejectIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
 );
 
-const ExternalLinkIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-    </svg>
-);
-
-interface Claim {
-    id: string;
-    user_id: string;
-    post_url: string;
-    status: 'pending' | 'approved' | 'rejected';
-    created_at: string;
-}
+// ... existing icons ...
 
 export default function AdminClaimsPage() {
-    const [claims, setClaims] = useState<Claim[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<string | null>(null);
+    // ... existing state ...
 
-    useEffect(() => {
-        fetchClaims();
-    }, []);
+    // ... existing fetch ...
 
-    const fetchClaims = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch('/api/admin/claims');
-            if (res.ok) {
-                const data = await res.json();
-                setClaims(data.claims || []);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleApprove = async (id: string) => {
+    const handleReject = async (id: string) => {
         setProcessingId(id);
         try {
-            const res = await fetch('/api/admin/claims/approve', {
+            const res = await fetch('/api/admin/claims/reject', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ claimId: id })
@@ -75,18 +42,11 @@ export default function AdminClaimsPage() {
         }
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }).format(date);
-    };
+    // ... handleApprove ...
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
+            {/* ... header ... */}
             <div className="max-w-4xl mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-2xl font-bold text-gray-900">Social Claims Review</h1>
@@ -126,14 +86,24 @@ export default function AdminClaimsPage() {
                                     </a>
                                 </div>
 
-                                <button
-                                    onClick={() => handleApprove(claim.id)}
-                                    disabled={!!processingId}
-                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm min-w-[120px]"
-                                >
-                                    {processingId === claim.id ? <LoaderIcon /> : <CheckIcon />}
-                                    <span>Approve</span>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleReject(claim.id)}
+                                        disabled={!!processingId}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed text-red-700 rounded-lg font-medium transition-colors text-sm min-w-[100px]"
+                                    >
+                                        {processingId === claim.id ? <LoaderIcon /> : <RejectIcon />}
+                                        <span>Reject</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleApprove(claim.id)}
+                                        disabled={!!processingId}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm min-w-[120px]"
+                                    >
+                                        {processingId === claim.id ? <LoaderIcon /> : <CheckIcon />}
+                                        <span>Approve</span>
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
