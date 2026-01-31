@@ -1,9 +1,11 @@
-import React from 'react';
-import { UserButton } from '@clerk/nextjs';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { UserButton, useUser } from '@clerk/nextjs';
+import { motion, AnimatePresence } from 'framer-motion';
 import { DbVideo } from '@/lib/supabase';
 import { ClockIcon, PlusIcon } from '../icons';
 import { CreditsDisplay } from '../CreditsDisplay';
+import SocialBonusCard from '../SocialBonusCard';
 
 interface ResourcePanelProps {
     videoHistory: DbVideo[];
@@ -18,6 +20,9 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
     onDeleteVideo,
     onNewProject
 }) => {
+    const { user } = useUser();
+    const [showBonusModal, setShowBonusModal] = useState(false);
+
     return (
         <div className="flex flex-col h-full bg-[var(--surface-1)] border-r-2 border-[var(--border-strong)]">
             {/* Header / Brand */}
@@ -31,8 +36,8 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                 <CreditsDisplay />
             </div>
 
-            {/* New Project Button */}
-            <div className="px-3 pt-4 pb-2">
+            {/* Actions: New Project & Free Credits */}
+            <div className="px-3 pt-4 pb-2 space-y-2">
                 <button
                     onClick={onNewProject}
                     className="w-full flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-lg)] border-2 border-[var(--border-strong)] bg-white hover:bg-[var(--surface-2)] text-[var(--text-primary)] font-bold text-sm transition-all hover:translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[2px_2px_0px_#000]"
@@ -41,6 +46,16 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                         <PlusIcon className="w-3 h-3 text-black" />
                     </div>
                     <span>New Project</span>
+                </button>
+
+                <button
+                    onClick={() => setShowBonusModal(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-lg)] border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-sm transition-all text-left"
+                >
+                    <div className="w-5 h-5 rounded-full bg-indigo-200 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                    </div>
+                    <span>Get 500 Free Credits</span>
                 </button>
             </div>
 
@@ -90,6 +105,40 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Bonus Modal */}
+            <AnimatePresence>
+                {showBonusModal && user && (
+                    createPortal(
+                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/70"
+                                onClick={() => setShowBonusModal(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="p-2 border-b flex justify-end">
+                                    <button onClick={() => setShowBonusModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                                        <svg className="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                                <div className="p-6">
+                                    <SocialBonusCard userId={user.id} />
+                                </div>
+                            </motion.div>
+                        </div>,
+                        document.body
+                    )
+                )}
+            </AnimatePresence>
         </div>
     );
 };
