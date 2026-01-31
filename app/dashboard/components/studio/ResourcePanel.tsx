@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +24,11 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
 }) => {
     const { user } = useUser();
     const [showBonusModal, setShowBonusModal] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     return (
         <div className="flex flex-col h-full bg-[var(--surface-1)] border-r-2 border-[var(--border-strong)]">
@@ -106,10 +113,10 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                 </div>
             </div>
 
-            {/* Bonus Modal */}
-            <AnimatePresence>
-                {showBonusModal && user && (
-                    createPortal(
+            {/* Bonus Modal - Render conditionally but portal needs document which is only available on client */}
+            {mounted && createPortal(
+                <AnimatePresence>
+                    {showBonusModal && (
                         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                             <motion.div
                                 initial={{ opacity: 0 }}
@@ -131,14 +138,17 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                                     </button>
                                 </div>
                                 <div className="p-6">
-                                    <SocialBonusCard userId={user.id} />
+                                    {/* Handle case where user isn't loaded yet gracefully, but button is visible so user likely exists. 
+                                        If user is null, we can show a loader or just not show the form part.
+                                    */}
+                                    {user ? <SocialBonusCard userId={user.id} /> : <div className="p-4 text-center">Loading user data...</div>}
                                 </div>
                             </motion.div>
-                        </div>,
-                        document.body
-                    )
-                )}
-            </AnimatePresence>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 };
