@@ -29,20 +29,34 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid URL. Must be LinkedIn or Twitter/X.' }, { status: 400 });
         }
 
-        // Initialize Supabase Admin to bypass RLS for checking existence/inserting if needed, 
-        // OR use standard client if we had the user's token.
-        // Since we are server-side, it's safer to use Admin client but carefully.
-        // Actually, let's use the public client for the check to respect RLS? 
-        // No, we want to allow insertion.
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Resolve Clerk ID to Internal UUID
+        // The frontend likely passes the Clerk ID (e.g. user_2...). We need the internal UUID.
+        let internalUserId = userId;
+
+        // Check if it looks like a Clerk ID (starts with "user_")
+        if (userId.startsWith('user_')) {
+            const { data: userRecord, error: userError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('clerk_id', userId)
+                .single();
+
+            if (userError || !userRecord) {
+                console.error('User lookup failed:', userError);
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+            internalUserId = userRecord.id;
+        }
 
         // Insert claim
         const { data, error } = await supabaseAdmin
             .from('bonus_claims')
             .insert({
-                user_id: userId,
+                user_id: internalUserId,
                 post_url: postUrl,
                 status: 'pending'
             })
@@ -55,7 +69,8 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'You have already submitted a claim.' }, { status: 409 });
             }
             console.error('Claim error:', error);
-            return NextResponse.json({ error: 'Failed to submit claim' }, { status: 500 });
+            // Return more specific error for debugging if needed, but standardizing to 500
+            return NextResponse.json({ error: 'Failed to submit claim', details: error.message }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, claim: data });
