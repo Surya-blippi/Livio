@@ -1,11 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ExternalLink, Check, X } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+
+// Inline Icons
+const LoaderIcon = () => (
+    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+);
+
+const CheckIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+);
+
+const ExternalLinkIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+    </svg>
+);
 
 interface Claim {
     id: string;
@@ -19,7 +37,6 @@ export default function AdminClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const supabase = createClientComponentClient();
 
     useEffect(() => {
         fetchClaims();
@@ -27,28 +44,11 @@ export default function AdminClaimsPage() {
 
     const fetchClaims = async () => {
         setLoading(true);
-        // We use supabase client to fetch "pending" claims.
-        // Assuming RLS allows admin (service role) or we authenticated as a user with enough rights
-        // If this fails due to RLS, we'd need an API route. 
-        // Admin page usually implies we have special access. 
-        // For "Hidden" page, usually the user visiting IS the owner/admin.
-        // If RLS blocks this, we must fetch via our new admin API route or use a GET route.
-        // Let's try direct DB first, if it fails, I'll update.
-        // Actually, RLS policy "Users can view their own claims" BLOCKS this.
-        // So we strictly need a server-side fetch or an Admin API GET route.
-        // But since this is a protected admin page, let's just make it Server Component?
-        // Ah, this is "use client".
-        // Fast path: Just create a GET route or use Server Actions.
-        // Let's create a GET endpoint in `app/api/admin/claims/approve/route.ts`? 
-        // Or better, `app/api/admin/claims/route.ts` that lists them.
-        // For simplicity in this turn, I will assume I can fetch OR I'll add the GET handler to `approve` route file contextually?
-        // Let's just create a new API route `app/api/admin/claims/route.ts` for listing.
-
         try {
             const res = await fetch('/api/admin/claims');
             if (res.ok) {
                 const data = await res.json();
-                setClaims(data.claims);
+                setClaims(data.claims || []);
             }
         } catch (e) {
             console.error(e);
@@ -75,51 +75,70 @@ export default function AdminClaimsPage() {
         }
     };
 
-    // Quick Hack: Just inline the GET route creation in task plan if I missed it, 
-    // but I'll add `app/api/admin/claims/route.ts` now via write_to_file tool.
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">Social Claims Review</h1>
-            {loading ? (
-                <div>Loading...</div>
-            ) : claims.length === 0 ? (
-                <div className="text-slate-500">No pending claims.</div>
-            ) : (
-                <div className="space-y-4">
-                    {claims.map(claim => (
-                        <Card key={claim.id}>
-                            <CardContent className="flex items-center justify-between p-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono text-xs text-slate-400">{claim.user_id.substring(0, 8)}</span>
-                                        <span className="text-sm text-slate-500">{formatDistanceToNow(new Date(claim.created_at))} ago</span>
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="max-w-4xl mx-auto">
+                <div className="flex items-center justify-between mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900">Social Claims Review</h1>
+                    <div className="text-sm text-gray-500">
+                        {claims.length} pending
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="flex items-center justify-center p-12">
+                        <div className="text-indigo-600"><LoaderIcon /></div>
+                    </div>
+                ) : claims.length === 0 ? (
+                    <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+                        <p className="text-gray-500">No pending claims found.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {claims.map(claim => (
+                            <div key={claim.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="space-y-1 overflow-hidden">
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                                        <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                            {claim.user_id.substring(0, 8)}...
+                                        </span>
+                                        <span>•</span>
+                                        <span>{formatDate(claim.created_at)}</span>
                                     </div>
                                     <a
                                         href={claim.post_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline flex items-center gap-1 font-medium"
+                                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 font-medium truncate"
                                     >
-                                        {claim.post_url} <ExternalLink className="h-3 w-3" />
+                                        <span className="truncate">{claim.post_url}</span>
+                                        <ExternalLinkIcon />
                                     </a>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleApprove(claim.id)}
-                                        disabled={!!processingId}
-                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                    >
-                                        {processingId === claim.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                        Approve
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            )}
+
+                                <button
+                                    onClick={() => handleApprove(claim.id)}
+                                    disabled={!!processingId}
+                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm min-w-[120px]"
+                                >
+                                    {processingId === claim.id ? <LoaderIcon /> : <CheckIcon />}
+                                    <span>Approve</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
