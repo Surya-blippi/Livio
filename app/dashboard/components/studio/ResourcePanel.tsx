@@ -34,8 +34,7 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                     </div>
                     <span className="text-black">Reven</span>
                 </div>
-                {/* Pass userId to CreditsDisplay so it can pass it to BuyCreditsModal */}
-                <CreditsDisplay userId={user?.id} />
+                <CreditsDisplay />
             </div>
 
             {/* Actions: New Project */}
