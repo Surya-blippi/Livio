@@ -28,13 +28,27 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
     const [loading, setLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
-
+    const [claimStatus, setClaimStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected' | null>(null);
 
     // Ensure we only render portal on client
     useEffect(() => {
         setMounted(true);
         return () => setMounted(false);
     }, []);
+
+    // Check claim status
+    useEffect(() => {
+        if (userId) {
+            fetch(`/api/credits/claim-bonus?userId=${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.claimed) {
+                        setClaimStatus(data.status);
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [userId]);
 
     // Prevent body scroll when modal is open
     useEffect(() => {
@@ -208,7 +222,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                         </div>
 
                         {/* Social Bonus Section */}
-                        {userId && (
+                        {userId && claimStatus !== 'approved' && (
                             <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-200">
                                 <SocialBonusCard userId={userId} />
                             </div>
