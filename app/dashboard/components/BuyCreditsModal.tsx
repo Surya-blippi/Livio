@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CREDIT_PACKAGES } from '@/lib/credits';
+import SocialBonusCard from './SocialBonusCard';
 
 interface BuyCreditsModalProps {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface BuyCreditsModalProps {
     requiredAmount?: number | null;
     operationName?: string | null;
     currentBalance?: number | null;
+    userId?: string;
 }
 
 export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
@@ -20,7 +22,8 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
     onPurchaseComplete,
     requiredAmount,
     operationName,
-    currentBalance
+    currentBalance,
+    userId
 }) => {
     const [loading, setLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -203,6 +206,13 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                                 );
                             })}
                         </div>
+
+                        {/* Social Bonus Section */}
+                        {userId && (
+                            <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-200">
+                                <SocialBonusCard userId={userId} />
+                            </div>
+                        )}
                     </div>
 
                     {/* Footer */}
