@@ -25,10 +25,21 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
     const { user } = useUser();
     const [showBonusModal, setShowBonusModal] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [claimStatus, setClaimStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected' | null>(null);
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        if (user) {
+            fetch(`/api/credits/claim-bonus?userId=${user.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.claimed) {
+                        setClaimStatus(data.status);
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [user]);
 
     return (
         <div className="flex flex-col h-full bg-[var(--surface-1)] border-r-2 border-[var(--border-strong)]">
@@ -55,15 +66,17 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({
                     <span>New Project</span>
                 </button>
 
-                <button
-                    onClick={() => setShowBonusModal(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-lg)] border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-sm transition-all text-left"
-                >
-                    <div className="w-5 h-5 rounded-full bg-indigo-200 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                    </div>
-                    <span>Get 500 Free Credits</span>
-                </button>
+                {claimStatus !== 'approved' && (
+                    <button
+                        onClick={() => setShowBonusModal(true)}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-lg)] border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-sm transition-all text-left"
+                    >
+                        <div className="w-5 h-5 rounded-full bg-indigo-200 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                        </div>
+                        <span>Get 500 Free Credits</span>
+                    </button>
+                )}
             </div>
 
             {/* List Content */}
