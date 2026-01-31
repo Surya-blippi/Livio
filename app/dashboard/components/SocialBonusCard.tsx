@@ -27,22 +27,18 @@ const CheckIcon = () => (
 
 interface SocialBonusCardProps {
     userId: string;
+    initialStatus?: 'idle' | 'pending' | 'approved' | 'rejected' | null;
 }
 
-export default function SocialBonusCard({ userId }: SocialBonusCardProps) {
+export default function SocialBonusCard({ userId, initialStatus = 'idle' }: SocialBonusCardProps) {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected'>('idle');
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-    // Check existing claim status on mount? 
-    // Ideally we pass this in, but fetching locally for simplicity.
-    // For now, let's just handle the submission. 
-    // If the user refreshed, they won't see "Pending" unless we fetch.
-    // Let's assume for MVP we just handle submission state in session or checking local storage,
-    // OR we could fetch `api/credits/claim-bonus` with GET? 
-    // Plan didn't specify GET, so let's stick to simple "Submit" flow.
-    // If they re-submit, the backend handles the "Already submitted" error.
+    const [status, setStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected' | null>(initialStatus);
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(
+        initialStatus === 'rejected'
+            ? { type: 'error', text: "Your previous claim was rejected. Please try again with a valid post." }
+            : null
+    );
 
     const handleSubmit = async () => {
         if (!url) return;

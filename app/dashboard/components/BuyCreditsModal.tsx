@@ -224,7 +224,7 @@ export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({
                         {/* Social Bonus Section */}
                         {userId && claimStatus !== 'approved' && (
                             <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-200">
-                                <SocialBonusCard userId={userId} />
+                                <SocialBonusCard userId={userId} initialStatus={claimStatus} />
                             </div>
                         )}
                     </div>

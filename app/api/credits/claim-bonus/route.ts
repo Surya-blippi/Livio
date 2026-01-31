@@ -45,31 +45,52 @@ export async function POST(req: NextRequest) {
             internalUserId = userRecord.id;
         }
 
-        // Insert claim
-        const { data, error } = await supabaseAdmin
+        // Check for existing claim first to handle re-submission
+        const { data: existingClaim } = await supabaseAdmin
             .from('bonus_claims')
-            .insert({
-                user_id: internalUserId,
-                post_url: postUrl,
-                status: 'pending'
-            })
-            .select()
+            .select('*')
+            .eq('user_id', internalUserId)
             .single();
 
-        if (error) {
-            // Check for unique constraint violation (Postgres error 23505)
-            if (error.code === '23505') {
-                // Try to fetch the existing status to be helpful
-                const { data: existing } = await supabaseAdmin
+        let data, error;
+
+        if (existingClaim) {
+            if (existingClaim.status === 'approved') {
+                return NextResponse.json({ error: 'Claim already approved', status: 'approved' }, { status: 409 });
+            } else if (existingClaim.status === 'pending') {
+                return NextResponse.json({ error: 'Claim under review', status: 'pending' }, { status: 409 });
+            } else {
+                // Rejected - allow update
+                const { data: updated, error: updateError } = await supabaseAdmin
                     .from('bonus_claims')
-                    .select('status')
-                    .eq('user_id', internalUserId)
+                    .update({
+                        post_url: postUrl,
+                        status: 'pending'
+                    })
+                    .eq('id', existingClaim.id)
+                    .select()
                     .single();
 
-                // If it is already approved, we might want to say so?
-                // But strictly 409 is correct for "already submitted".
-                return NextResponse.json({ error: 'You have already submitted a claim.', status: existing?.status || 'pending' }, { status: 409 });
+                data = updated;
+                error = updateError;
             }
+        } else {
+            // New insert
+            const { data: inserted, error: insertError } = await supabaseAdmin
+                .from('bonus_claims')
+                .insert({
+                    user_id: internalUserId,
+                    post_url: postUrl,
+                    status: 'pending'
+                })
+                .select()
+                .single();
+
+            data = inserted;
+            error = insertError;
+        }
+
+        if (error) {
             console.error('Claim error:', error);
             return NextResponse.json({ error: 'Failed to submit claim', details: error.message }, { status: 500 });
         }
