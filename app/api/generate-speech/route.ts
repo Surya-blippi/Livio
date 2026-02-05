@@ -49,6 +49,11 @@ function chunkText(text: string, maxChars = 280): string[] {
 
 /**
  * Generate TTS using Chatterbox Multilingual with zero-shot voice cloning
+ * 
+ * Parameter tuning for natural voice cloning:
+ * - exaggeration (0.25-2.0): Controls expressiveness. 0.5 is neutral, higher = more expressive
+ * - temperature (0.05-5.0): Controls variation. Higher = more varied speech patterns
+ * - cfg_scale (0.0-1.0): Guidance strength. LOWER values work better for voice cloning
  */
 async function generateChatterboxTTS(
     text: string,
@@ -60,9 +65,10 @@ async function generateChatterboxTTS(
             text,
             voice: voiceSampleUrl,
             custom_audio_language: language,
-            exaggeration: 0.5,
-            temperature: 0.8,
-            cfg_scale: 0.5
+            // Tuned parameters for natural voice cloning:
+            exaggeration: 0.65,    // Slightly more expressive - less robotic
+            temperature: 0.7,      // Slightly lower variation - more consistent
+            cfg_scale: 0.15        // Much lower guidance - better voice matching
         },
         logs: true,
         onQueueUpdate: (update) => {

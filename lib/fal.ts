@@ -62,6 +62,12 @@ type ChatterboxLanguage = 'english' | 'arabic' | 'danish' | 'german' | 'greek' |
 
 /**
  * Generate TTS for a single chunk using Chatterbox Multilingual
+ * 
+ * Parameter tuning for natural voice cloning:
+ * - exaggeration (0.25-2.0): Controls expressiveness. 0.5 is neutral, higher = more expressive
+ * - temperature (0.05-5.0): Controls variation. Higher = more varied speech patterns
+ * - cfg_scale (0.0-1.0): Guidance strength. LOWER values (0.0-0.2) work better for voice cloning
+ *   as they reduce "accent inheritance" and let the voice sample shine through
  */
 async function generateChatterboxTTS(
     text: string,
@@ -73,9 +79,10 @@ async function generateChatterboxTTS(
             text,
             voice: voiceSampleUrl, // Custom audio URL for zero-shot cloning
             custom_audio_language: language,
-            exaggeration: 0.5,
-            temperature: 0.8,
-            cfg_scale: 0.5
+            // Tuned parameters for natural voice cloning:
+            exaggeration: 0.65,    // Slightly more expressive (was 0.5) - less robotic
+            temperature: 0.7,      // Slightly lower variation (was 0.8) - more consistent
+            cfg_scale: 0.15        // Much lower guidance (was 0.5) - better voice matching
         },
         logs: false
     }) as unknown as { data: { audio: { url: string } } };
