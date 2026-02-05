@@ -261,22 +261,24 @@ export interface SceneTiming {
 }
 
 /**
- * Generate speech using MiniMax TTS (for faceless mode)
+ * Generate speech using Chatterbox TTS (for faceless mode)
  * Returns audio URL and estimated word-level timing for captions
  */
 export const generateFacelessSpeech = async (
     script: string,
-    voiceId?: string
+    voiceId?: string,
+    voiceSampleUrl?: string // New: for Chatterbox zero-shot cloning
 ): Promise<{
     audioUrl: string;
     remoteAudioUrl: string;  // Original TTS URL for cloud services like JSON2Video
     wordTimings: WordTiming[];
     duration: number;
 }> => {
-    // Use MiniMax TTS via generate-speech endpoint with Calm Woman voice
+    // Use Chatterbox TTS via generate-speech endpoint
     const response = await axios.post('/api/generate-speech', {
         script,
-        customVoiceId: voiceId || 'Calm_Woman' // Use valid MiniMax preset voice
+        customVoiceId: voiceId || 'Calm_Woman', // Legacy fallback
+        voiceSampleUrl: voiceSampleUrl // New: for Chatterbox TTS
     });
 
     const audioUrl = response.data.audioUrl;
@@ -385,7 +387,8 @@ function estimateSyllables(word: string): number {
  */
 export const generateSceneBasedSpeech = async (
     scenes: Scene[],
-    voiceId?: string
+    voiceId?: string,
+    voiceSampleUrl?: string // New: for Chatterbox zero-shot cloning
 ): Promise<{
     audioUrl: string;
     remoteAudioUrl: string;  // Original TTS URL for JSON2Video
@@ -396,8 +399,8 @@ export const generateSceneBasedSpeech = async (
     // Combine all scene texts for single TTS call
     const fullScript = scenes.map(s => s.text).join(' ');
 
-    // Generate speech for the full script
-    const result = await generateFacelessSpeech(fullScript, voiceId);
+    // Generate speech for the full script, passing voiceSampleUrl for Chatterbox
+    const result = await generateFacelessSpeech(fullScript, voiceId, voiceSampleUrl);
 
     // Now calculate scene boundaries based on word timings
     const sceneTimings: SceneTiming[] = [];

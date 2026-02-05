@@ -973,18 +973,18 @@ export const useDashboardState = () => {
                 console.log('[Typography] Starting typography video generation');
                 setProcessingMessage('Generating voiceover...');
 
-                // Determine voice ID to use (same logic as face/minimal modes)
-                let voiceIdForTypography: string | undefined = undefined;
+                // Determine voice sample URL to use (Chatterbox uses audio URL directly)
+                let voiceSampleUrlForTypography: string | undefined = undefined;
 
-                if (savedVoice && savedVoice.voice_id && savedVoice.voice_id !== 'pending') {
-                    voiceIdForTypography = savedVoice.voice_id;
-                    console.log('[Typography] Using saved voice:', voiceIdForTypography);
+                if (savedVoice && savedVoice.voice_sample_url) {
+                    voiceSampleUrlForTypography = savedVoice.voice_sample_url;
+                    console.log('[Typography] Using saved voice sample URL:', voiceSampleUrlForTypography);
                 } else {
                     console.log('[Typography] Using default voice (no saved voice)');
                 }
 
-                // Generate TTS audio with word timings using user's voice
-                const speechResult = await generateElevenLabsSpeech(inputText, voiceIdForTypography);
+                // Generate TTS audio with word timings using user's voice (Chatterbox)
+                const speechResult = await generateElevenLabsSpeech(inputText, undefined, voiceSampleUrlForTypography);
                 const { audioUrl, wordTimings, duration } = speechResult;
 
                 console.log(`[Typography] Got ${wordTimings.length} words, duration: ${duration}s`);
