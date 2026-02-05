@@ -47,7 +47,8 @@ interface PendingRenderState {
 interface JobInputData {
     scenes: SceneInput[];
     faceImageUrl: string;
-    voiceId: string;
+    voiceId: string;  // Legacy - kept for backward compat
+    voiceSampleUrl?: string;  // New - for Chatterbox TTS
     enableBackgroundMusic: boolean;
     enableCaptions: boolean;
     pendingScene?: PendingSceneState | null;
@@ -286,7 +287,7 @@ export async function POST(request: NextRequest) {
 
 
         const inputData = freshJob.input_data as JobInputData;
-        const { scenes, faceImageUrl, voiceId, enableBackgroundMusic, enableCaptions, pendingScene, pendingRender } = inputData;
+        const { scenes, faceImageUrl, voiceId, voiceSampleUrl, enableBackgroundMusic, enableCaptions, pendingScene, pendingRender } = inputData;
         const totalScenes = scenes.length;
         const currentIndex = freshJob.current_scene_index || 0;
         let processedScenes: ProcessedScene[] = freshJob.processed_scenes || [];
@@ -459,7 +460,9 @@ export async function POST(request: NextRequest) {
         }).eq('id', jobId);
 
         const scene = scenes[currentIndex];
-        const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
+        // Use voiceSampleUrl for Chatterbox TTS, fall back to default if only legacy voiceId provided
+        const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+        const { audioUrl, duration } = await generateSceneTTS(scene.text, sampleUrl);
 
         if (scene.type === 'face') {
             const imageDataUrl = await prepareFaceImage(faceImageUrl);
