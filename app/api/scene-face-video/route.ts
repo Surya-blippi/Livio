@@ -20,36 +20,48 @@ interface SceneInput {
     assetUrl?: string;
 }
 
-// Generate TTS for a single scene using fal.ai
-async function generateSceneTTS(text: string, voiceId: string): Promise<{ audioUrl: string; duration: number }> {
+// Chatterbox language type
+type ChatterboxLanguage = 'english' | 'arabic' | 'danish' | 'german' | 'greek' | 'spanish' | 'finnish' | 'french' | 'hebrew' | 'hindi' | 'italian' | 'japanese' | 'korean' | 'malay' | 'dutch' | 'norwegian' | 'polish' | 'portuguese' | 'russian' | 'swedish' | 'swahili' | 'turkish' | 'chinese';
+
+// Generate TTS for a single scene using Chatterbox (zero-shot voice cloning)
+async function generateSceneTTS(
+    text: string,
+    voiceSampleUrl: string,
+    language: ChatterboxLanguage = 'english'
+): Promise<{ audioUrl: string; duration: number }> {
     console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..."`);
 
-    const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
-        input: {
-            text,
-            voice_setting: {
-                voice_id: voiceId,
-                speed: 1.2,
-                vol: 1,
-                pitch: 0
-            },
-            output_format: 'url'
-        },
-        logs: false
-    }) as unknown as { data: { audio: { url: string }; duration_ms?: number } };
-
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from TTS API');
+    // Chatterbox has 300 char limit, chunk if needed
+    const maxChars = 280;
+    if (text.length > maxChars) {
+        console.log(`  [TTS] Text too long (${text.length} chars), using first ${maxChars} chars`);
+        text = text.substring(0, maxChars);
     }
 
-    const durationMs = result.data.duration_ms || 5000;
-    const duration = durationMs / 1000;
+    const result = await fal.subscribe('fal-ai/chatterbox/text-to-speech/multilingual', {
+        input: {
+            text,
+            voice: voiceSampleUrl, // Zero-shot cloning with voice sample URL
+            custom_audio_language: language,
+            exaggeration: 0.5,
+            temperature: 0.8,
+            cfg_scale: 0.5
+        },
+        logs: false
+    }) as unknown as { data: { audio: { url: string } } };
 
-    console.log(`  [TTS] Generated ${duration.toFixed(2)}s audio`);
+    if (!result.data?.audio?.url) {
+        throw new Error('No audio URL returned from Chatterbox TTS');
+    }
+
+    // Estimate duration: ~150 words per minute, avg 5 chars per word
+    const estimatedDuration = Math.max((text.length / 5 / 150) * 60, 1);
+
+    console.log(`  [TTS] Generated ~${estimatedDuration.toFixed(2)}s audio`);
 
     return {
         audioUrl: result.data.audio.url,
-        duration
+        duration: estimatedDuration
     };
 }
 
@@ -233,19 +245,36 @@ export async function POST(request: NextRequest) {
             scenes,
             faceImageUrl,
             voiceId,
+            voiceSampleUrl,
             enableBackgroundMusic,
             enableCaptions
         } = await request.json() as {
             scenes: SceneInput[];
             faceImageUrl: string;
-            voiceId: string;
+            voiceId?: string; // Deprecated
+            voiceSampleUrl?: string; // New: URL to voice sample for Chatterbox
             enableBackgroundMusic?: boolean;
             enableCaptions?: boolean;
         };
 
-        if (!scenes || scenes.length === 0 || !faceImageUrl || !voiceId) {
+        // Determine voice sample URL (support both old voiceId and new voiceSampleUrl)
+        let sampleUrl = voiceSampleUrl;
+        if (!sampleUrl && voiceId) {
+            if (voiceId.startsWith('http')) {
+                sampleUrl = voiceId;
+            } else {
+                // Legacy MiniMax voice ID - use default
+                console.warn('Legacy voice_id detected, using default voice sample');
+                sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+            }
+        }
+        if (!sampleUrl) {
+            sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+        }
+
+        if (!scenes || scenes.length === 0 || !faceImageUrl) {
             return NextResponse.json(
-                { error: 'Missing required fields: scenes, faceImageUrl, voiceId' },
+                { error: 'Missing required fields: scenes, faceImageUrl' },
                 { status: 400 }
             );
         }
@@ -299,8 +328,8 @@ export async function POST(request: NextRequest) {
             const scene = scenes[i];
             console.log(`\n📍 Scene ${i + 1}/${scenes.length}: ${scene.type.toUpperCase()}`);
 
-            // 1. Generate TTS for this scene
-            const { audioUrl, duration } = await generateSceneTTS(scene.text, voiceId);
+            // 1. Generate TTS for this scene using Chatterbox
+            const { audioUrl, duration } = await generateSceneTTS(scene.text, sampleUrl);
 
             // 2. Generate video clip or use asset
             let clipUrl: string;

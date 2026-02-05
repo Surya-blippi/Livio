@@ -1079,7 +1079,8 @@ export const useDashboardState = () => {
                         user_id: dbUser.id,
                         input_data: {
                             scenes: finalScenes,
-                            voiceId: selectedVoiceId,
+                            voiceId: selectedVoiceId, // Legacy - kept for backward compat
+                            voiceSampleUrl: savedVoice?.voice_sample_url, // New - for Chatterbox TTS
                             aspectRatio,
                             captionStyle,
                             enableBackgroundMusic,
@@ -1366,7 +1367,8 @@ export const useDashboardState = () => {
                     input_data: {
                         scenes: scenesToProcess,
                         faceImageUrl: avatarUrl,
-                        voiceId: selectedVoiceId,
+                        voiceId: selectedVoiceId, // Legacy - kept for backward compat
+                        voiceSampleUrl: savedVoice?.voice_sample_url, // New - for Chatterbox TTS
                         enableBackgroundMusic,
                         enableCaptions
                     }

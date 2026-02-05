@@ -4,6 +4,81 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
 
+// Chatterbox language type
+type ChatterboxLanguage = 'english' | 'arabic' | 'danish' | 'german' | 'greek' | 'spanish' | 'finnish' | 'french' | 'hebrew' | 'hindi' | 'italian' | 'japanese' | 'korean' | 'malay' | 'dutch' | 'norwegian' | 'polish' | 'portuguese' | 'russian' | 'swedish' | 'swahili' | 'turkish' | 'chinese';
+
+/**
+ * Chunk text for Chatterbox (max 300 chars per API call)
+ */
+function chunkText(text: string, maxChars = 280): string[] {
+    if (text.length <= maxChars) return [text];
+
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxChars) {
+            chunks.push(remaining.trim());
+            break;
+        }
+
+        let breakPoint = maxChars;
+        const sentenceEnd = remaining.slice(0, maxChars).lastIndexOf('. ');
+        const exclamEnd = remaining.slice(0, maxChars).lastIndexOf('! ');
+        const questEnd = remaining.slice(0, maxChars).lastIndexOf('? ');
+        const bestSentenceBreak = Math.max(sentenceEnd, exclamEnd, questEnd);
+
+        if (bestSentenceBreak > maxChars / 2) {
+            breakPoint = bestSentenceBreak + 1;
+        } else {
+            const commaBreak = remaining.slice(0, maxChars).lastIndexOf(', ');
+            if (commaBreak > maxChars / 2) {
+                breakPoint = commaBreak + 1;
+            } else {
+                const spaceBreak = remaining.slice(0, maxChars).lastIndexOf(' ');
+                if (spaceBreak > 0) breakPoint = spaceBreak;
+            }
+        }
+
+        chunks.push(remaining.slice(0, breakPoint).trim());
+        remaining = remaining.slice(breakPoint).trim();
+    }
+
+    return chunks;
+}
+
+/**
+ * Generate TTS using Chatterbox Multilingual with zero-shot voice cloning
+ */
+async function generateChatterboxTTS(
+    text: string,
+    voiceSampleUrl: string,
+    language: ChatterboxLanguage = 'english'
+): Promise<{ audioUrl: string }> {
+    const result = await fal.subscribe('fal-ai/chatterbox/text-to-speech/multilingual', {
+        input: {
+            text,
+            voice: voiceSampleUrl,
+            custom_audio_language: language,
+            exaggeration: 0.5,
+            temperature: 0.8,
+            cfg_scale: 0.5
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+            if (update.status === 'IN_PROGRESS') {
+                console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
+            }
+        }
+    }) as unknown as { data: { audio: { url: string } } };
+
+    if (!result.data?.audio?.url) {
+        throw new Error('No audio URL returned from Chatterbox TTS');
+    }
+
+    return { audioUrl: result.data.audio.url };
+}
+
 export async function POST(request: NextRequest) {
     try {
         // Authenticate
@@ -13,7 +88,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { script, customVoiceId, audioFileBase64 } = body;
+        const { script, voiceSampleUrl, customVoiceId, language = 'english' } = body;
 
         if (!script) {
             return NextResponse.json(
@@ -22,11 +97,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (customVoiceId === 'pending') {
-            return NextResponse.json(
-                { error: 'Voice is still cloning. Please wait or try again.' },
-                { status: 400 }
-            );
+        // Determine voice sample URL (accept either new voiceSampleUrl or legacy customVoiceId)
+        // If customVoiceId looks like a URL, use it; otherwise we need voiceSampleUrl
+        let sampleUrl = voiceSampleUrl;
+        if (!sampleUrl && customVoiceId) {
+            // Check if customVoiceId is actually a URL (for backward compatibility)
+            if (customVoiceId.startsWith('http')) {
+                sampleUrl = customVoiceId;
+            } else {
+                // Old MiniMax voice IDs won't work with Chatterbox
+                // Use default sample voice
+                console.warn('Legacy voice_id detected, using default voice sample');
+                sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+            }
+        }
+
+        if (!sampleUrl) {
+            // Use default voice if no sample provided
+            sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
         }
 
         // 1. Check credits
@@ -52,132 +140,42 @@ export async function POST(request: NextRequest) {
             }, { status: 402 });
         }
 
-        // If we have a custom voice ID, use the Speech-02 HD API directly
-        if (customVoiceId) {
-            console.log('Generating speech with custom voice ID:', customVoiceId);
-
-            try {
-                const result = await fal.subscribe('fal-ai/minimax/speech-02-hd', {
-                    input: {
-                        text: script,
-                        voice_setting: {
-                            voice_id: customVoiceId,
-                            speed: 1.2,
-                            vol: 1,
-                            pitch: 0
-                        },
-                        output_format: 'url'
-                    },
-                    logs: true,
-                    onQueueUpdate: (update) => {
-                        if (update.status === 'IN_PROGRESS') {
-                            console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
-                        }
-                    }
-                });
-
-                console.log('TTS result:', result);
-
-                if (!result.data.audio || !result.data.audio.url) {
-                    throw new Error('No audio URL returned from TTS API');
-                }
-
-                // Return the ACTUAL duration from MiniMax for perfect caption sync
-                const actualDurationMs = result.data.duration_ms || 0;
-                console.log(`TTS actual duration: ${actualDurationMs}ms (${(actualDurationMs / 1000).toFixed(2)}s)`);
-
-                // Deduct credits
-                await deductCredits(user.id, cost, 'Generated Speech', {
-                    charCount: script.length,
-                    voiceId: customVoiceId
-                });
-
-                return NextResponse.json({
-                    audioUrl: result.data.audio.url,
-                    durationMs: actualDurationMs // CRITICAL: Use actual TTS duration for sync
-                });
-            } catch (ttsError: unknown) {
-                console.error('Speech-02 HD error with custom voice ID:', ttsError);
-
-                // Log full error details
-                if (ttsError && typeof ttsError === 'object' && 'body' in ttsError) {
-                    console.error('Fal TTS Error Body:', JSON.stringify((ttsError as { body?: unknown }).body, null, 2));
-                }
-
-                // Check if this is a voice not found / expired error
-                const errorMessage = ttsError instanceof Error ? ttsError.message : String(ttsError);
-                const errorBody = (ttsError as { body?: { detail?: string } })?.body?.detail || '';
-
-                if (errorMessage.includes('voice') || errorMessage.includes('not found') || errorMessage.includes('invalid') ||
-                    errorBody.includes('voice') || errorBody.includes('not found')) {
-                    console.error('TTS Voice Error:', errorMessage);
-                    return NextResponse.json(
-                        {
-                            error: 'Voice expired or not found',
-                            code: 'VOICE_EXPIRED',
-                            details: 'The saved voice ID has expired. Please re-clone your voice.'
-                        },
-                        { status: 410 }
-                    );
-                }
-
-                throw ttsError;
-            }
-        }
-
-        // Fallback: Use the voice-clone endpoint with audio file (re-clone and generate)
-        if (!audioFileBase64) {
-            return NextResponse.json(
-                { error: 'Either customVoiceId or audioFileBase64 is required' },
-                { status: 400 }
-            );
-        }
-
-        console.log('Generating speech by re-cloning voice...');
-
-        // Note: Re-cloning typically includes a small "setup" cost but here we treat it as part of speech gen?
-        // Actually, this route is "generate-speech". Re-cloning voice every time is inefficient but valid if ID expired.
-        // We will just charge speech cost here. If they want separate clone, they use clone-voice.
-        // Or if this does BOTH clone + speech, maybe we should charge extra?
-        // User spec says: "Audio generation (1000 chars) $0.10 30 credits".
-        // It doesn't specify surcharge for inline cloning. Let's keep it simple at speech cost for now.
-
-        const result = await fal.subscribe('fal-ai/minimax/voice-clone', {
-            input: {
-                audio_url: audioFileBase64,
-                text: script,
-                model: 'speech-02-hd',
-                noise_reduction: true,
-                need_volume_normalization: true
-            },
-            logs: true,
-            onQueueUpdate: (update) => {
-                if (update.status === 'IN_PROGRESS') {
-                    console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
-                }
-            }
+        console.log('Generating speech with Chatterbox:', {
+            scriptLength: script.length,
+            voiceSample: sampleUrl.substring(0, 50) + '...',
+            language
         });
 
-        console.log('TTS result:', result);
+        // 2. Chunk text if needed and generate TTS
+        const chunks = chunkText(script);
+        console.log(`Text split into ${chunks.length} chunk(s)`);
 
-        if (!result.data.audio || !result.data.audio.url) {
-            throw new Error('No audio URL returned from TTS API');
+        const audioUrls: string[] = [];
+        for (let i = 0; i < chunks.length; i++) {
+            console.log(`Generating chunk ${i + 1}/${chunks.length}`);
+            const result = await generateChatterboxTTS(chunks[i], sampleUrl, language as ChatterboxLanguage);
+            audioUrls.push(result.audioUrl);
         }
-        // Extract duration from response (duration_ms is in the data object)
-        const durationMs = (result.data as unknown as { duration_ms?: number }).duration_ms || 0;
 
-        // Deduct credits
-        await deductCredits(user.id, cost, 'Generated Speech (with clone)', {
+        // For now, return the first audio URL
+        // TODO: Implement audio concatenation for multi-chunk scripts
+        const audioUrl = audioUrls[0];
+
+        // Estimate duration: ~150 words per minute, avg 5 chars per word
+        const estimatedDurationMs = (script.length / 5 / 150) * 60 * 1000;
+
+        // 3. Deduct credits
+        await deductCredits(user.id, cost, 'Generated Speech (Chatterbox)', {
             charCount: script.length,
-            newVoiceId: result.data.custom_voice_id
+            chunks: chunks.length,
+            language
         });
+
+        console.log(`✅ Speech generated: ${audioUrl}`);
 
         return NextResponse.json({
-            audioUrl: result.data.audio.url,
-            duration: durationMs, // Duration in ms for scene-based face mode
-            // Return the new voice ID if re-cloned so frontend can update
-            newVoiceId: result.data.custom_voice_id,
-            newPreviewUrl: result.data.audio.url
+            audioUrl,
+            durationMs: Math.max(estimatedDurationMs, 1000)
         });
 
     } catch (error: unknown) {

@@ -14,9 +14,9 @@ export const CREDIT_COSTS = {
     FACE_VIDEO_SCENE: 100,    // $1.00 - WaveSpeed per scene (~$0.35 cost)
     VIDEO_RENDER: 80,         // $0.80 - JSON2Video render (40 J2V credits = $0.28)
 
-    // Audio & Voice
-    AUDIO_PER_1000_CHARS: 30, // $0.30 - FAL MiniMax audio ($0.10 cost)
-    VOICE_CLONING: 300,       // $3.00 - FAL voice clone ($1.00 cost)
+    // Audio & Voice - Chatterbox TTS (zero-shot cloning included)
+    AUDIO_PER_1000_CHARS: 30, // $0.30 - FAL Chatterbox audio ($0.025 cost)
+    VOICE_CLONING: 0,         // FREE - Chatterbox does zero-shot cloning (no separate clone step)
 
     // Image generation
     AI_IMAGE: 45,             // $0.45 - FAL Nano Banana ($0.15 cost)
