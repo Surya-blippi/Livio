@@ -48,6 +48,55 @@ function chunkText(text: string, maxChars = 280): string[] {
 }
 
 /**
+ * Detect the language of text based on character patterns and Unicode ranges.
+ * Returns the most likely Chatterbox-supported language.
+ */
+function detectLanguage(text: string): ChatterboxLanguage {
+    const cleanText = text.replace(/[0-9\s.,!?;:'"()-]/g, '');
+    if (cleanText.length === 0) return 'english';
+
+    const charCounts = {
+        arabic: 0, hebrew: 0, hindi: 0, chinese: 0,
+        japanese: 0, korean: 0, greek: 0, russian: 0, latin: 0,
+    };
+
+    for (const char of cleanText) {
+        const code = char.charCodeAt(0);
+        if (code >= 0x0600 && code <= 0x06FF) charCounts.arabic++;
+        else if (code >= 0x0590 && code <= 0x05FF) charCounts.hebrew++;
+        else if (code >= 0x0900 && code <= 0x097F) charCounts.hindi++;
+        else if (code >= 0x4E00 && code <= 0x9FFF) charCounts.chinese++;
+        else if ((code >= 0x3040 && code <= 0x30FF) || (code >= 0x31F0 && code <= 0x31FF)) charCounts.japanese++;
+        else if ((code >= 0xAC00 && code <= 0xD7AF) || (code >= 0x1100 && code <= 0x11FF)) charCounts.korean++;
+        else if (code >= 0x0370 && code <= 0x03FF) charCounts.greek++;
+        else if (code >= 0x0400 && code <= 0x04FF) charCounts.russian++;
+        else if (code <= 0x024F) charCounts.latin++;
+    }
+
+    const total = cleanText.length;
+    const threshold = 0.3;
+
+    if (charCounts.arabic / total > threshold) return 'arabic';
+    if (charCounts.hebrew / total > threshold) return 'hebrew';
+    if (charCounts.hindi / total > threshold) return 'hindi';
+    if (charCounts.chinese / total > threshold) return 'chinese';
+    if (charCounts.japanese / total > threshold) return 'japanese';
+    if (charCounts.korean / total > threshold) return 'korean';
+    if (charCounts.greek / total > threshold) return 'greek';
+    if (charCounts.russian / total > threshold) return 'russian';
+
+    // Latin-script language detection via common words
+    const lowerText = text.toLowerCase();
+    if (/\b(el|la|los|las|es|está|que|con|por|para|como|más|pero|muy)\b/.test(lowerText)) return 'spanish';
+    if (/\b(le|la|les|est|sont|avec|pour|dans|sur|très|mais|aussi)\b/.test(lowerText)) return 'french';
+    if (/\b(der|die|das|ist|sind|mit|für|auf|sehr|aber|auch|wenn)\b/.test(lowerText)) return 'german';
+    if (/\b(o|a|os|as|é|são|com|para|em|muito|mas|também)\b/.test(lowerText)) return 'portuguese';
+    if (/\b(il|la|i|le|è|sono|con|per|in|molto|ma|anche)\b/.test(lowerText)) return 'italian';
+
+    return 'english';
+}
+
+/**
  * Generate TTS using Chatterbox Multilingual with zero-shot voice cloning
  * 
  * Parameter tuning for natural voice cloning:
@@ -94,7 +143,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { script, voiceSampleUrl, customVoiceId, language = 'english' } = body;
+        const { script, voiceSampleUrl, customVoiceId, language } = body;  // language is now optional
 
         if (!script) {
             return NextResponse.json(
@@ -146,20 +195,24 @@ export async function POST(request: NextRequest) {
             }, { status: 402 });
         }
 
+        // Auto-detect language from script if not provided
+        const detectedLang = language || detectLanguage(script);
+
         console.log('Generating speech with Chatterbox:', {
             scriptLength: script.length,
             voiceSample: sampleUrl.substring(0, 50) + '...',
-            language
+            language: detectedLang,
+            wasAutoDetected: !language
         });
 
         // 2. Chunk text if needed and generate TTS
         const chunks = chunkText(script);
-        console.log(`Text split into ${chunks.length} chunk(s)`);
+        console.log(`Text split into ${chunks.length} chunk(s), detected language: ${detectedLang}`);
 
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateChatterboxTTS(chunks[i], sampleUrl, language as ChatterboxLanguage);
+            const result = await generateChatterboxTTS(chunks[i], sampleUrl, detectedLang as ChatterboxLanguage);
             audioUrls.push(result.audioUrl);
         }
 
