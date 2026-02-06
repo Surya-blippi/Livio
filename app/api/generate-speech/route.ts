@@ -3,7 +3,45 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
 
+// Need fal for JIT cloning to ensure file access if needed (though we use URL directly)
+import { fal } from '@fal-ai/client';
+
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
+
+/**
+ * Helper: Clone voice via WaveSpeed MiniMax
+ */
+async function cloneVoiceWithMiniMax(audioUrl: string, userId: string): Promise<string> {
+    const customVoiceId = `v${userId.replace(/-/g, '').substring(0, 12)}${Date.now().toString(36)}`;
+    console.log('🧬 JIT Cloning: Calling WaveSpeed MiniMax voice-clone API...');
+
+    const cloneResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/voice-clone', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            audio: audioUrl,
+            custom_voice_id: customVoiceId,
+            model: 'speech-02-hd',
+            need_noise_reduction: true,
+            language_boost: 'auto',
+            text: 'Hello! This is a preview of your cloned voice.'
+        })
+    });
+
+    if (!cloneResponse.ok) {
+        const errorData = await cloneResponse.json();
+        console.error('MiniMax clone error:', errorData);
+        throw new Error(`Voice cloning failed: ${JSON.stringify(errorData)}`);
+    }
+
+    const cloneResult = await cloneResponse.json();
+    console.log('✓ MiniMax voice clone result:', cloneResult);
+
+    return customVoiceId;
+}
 
 /**
  * Text chunking for long scripts
@@ -152,21 +190,44 @@ export async function POST(request: NextRequest) {
         }
 
         // Look up minimax_voice_id from voices table
+        // Look up minimax_voice_id AND voice_sample_url from voices table
         const { data: voiceData } = await supabase
             .from('voices')
-            .select('minimax_voice_id')
+            .select('minimax_voice_id, voice_sample_url')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .single();
 
-        if (!voiceData?.minimax_voice_id) {
+        let minimaxVoiceId = voiceData?.minimax_voice_id;
+
+        // JIT Cloning Logic: If we have a sample URL but no MiniMax ID, clone it now!
+        if (!minimaxVoiceId && voiceData?.voice_sample_url) {
+            console.log('⚠️ No MiniMax ID found, but voice sample exists. Triggering JIT cloning...');
+            try {
+                minimaxVoiceId = await cloneVoiceWithMiniMax(voiceData.voice_sample_url, user.id);
+
+                // Save the new ID to the database so we don't clone again
+                await supabase
+                    .from('voices')
+                    .update({ minimax_voice_id: minimaxVoiceId })
+                    .eq('user_id', user.id)
+                    .eq('is_active', true);
+
+                console.log('✅ JIT Cloning successful. Saved new ID:', minimaxVoiceId);
+            } catch (cloneError) {
+                console.error('❌ JIT Cloning failed:', cloneError);
+                // Fall through to error
+            }
+        }
+
+        if (!minimaxVoiceId) {
             return NextResponse.json({
                 error: 'No cloned voice found. Please upload a voice sample first.',
                 code: 'NO_VOICE'
             }, { status: 400 });
         }
 
-        const minimaxVoiceId = voiceData.minimax_voice_id;
+        // const minimaxVoiceId = voiceData.minimax_voice_id; // Already set above
         console.log('Using MiniMax voice ID:', minimaxVoiceId);
 
         // Generate TTS with MiniMax
