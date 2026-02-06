@@ -325,3 +325,147 @@ export async function generateImage(prompt: string, aspectRatio: "16:9" | "9:16"
         throw error;
     }
 }
+
+export type QwenVoice = 'Vivian' | 'Serena' | 'Uncle_Fu' | 'Dylan' | 'Eric' | 'Ryan' | 'Aiden' | 'Ono_Anna' | 'Sohee';
+
+export type QwenLanguage = 'Auto' | 'English' | 'Chinese' | 'Spanish' | 'French' | 'German' | 'Italian' | 'Japanese' | 'Korean' | 'Portuguese' | 'Russian';
+
+interface QwenSpeakerEmbedding {
+    url?: string;
+    file_name?: string;
+    file_size?: number;
+}
+
+interface QwenAudioResult {
+    url?: string;
+    duration?: number;
+    file_name?: string;
+}
+
+export async function cloneVoiceWithQwen(
+    audioUrl: string,
+    referenceText?: string
+): Promise<{ embeddingUrl: string; fileName: string; fileSize: number }> {
+    console.log(`🎙️ Qwen 3 TTS: Cloning voice from ${audioUrl}`);
+
+    const result = await fal.subscribe(
+        'fal-ai/qwen-3-tts/clone-voice/1.7b',
+        {
+            input: {
+                audio_url: audioUrl,
+                reference_text: referenceText || undefined
+            },
+            logs: true
+        }
+    ) as { speaker_embedding?: QwenSpeakerEmbedding };
+
+    if (!result.speaker_embedding?.url) {
+        throw new Error('No speaker embedding URL returned from Qwen API');
+    }
+
+    console.log('✅ Qwen voice cloned:', result.speaker_embedding.url);
+
+    return {
+        embeddingUrl: result.speaker_embedding.url,
+        fileName: result.speaker_embedding.file_name || 'embedding.safetensors',
+        fileSize: result.speaker_embedding.file_size || 0
+    };
+}
+
+function chunkTextForQwen(text: string, maxChars: number = 800): string[] {
+    if (text.length <= maxChars) {
+        return [text];
+    }
+
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxChars) {
+            chunks.push(remaining.trim());
+            break;
+        }
+
+        let breakPoint = maxChars;
+
+        const sentenceEnd = remaining.slice(0, maxChars).lastIndexOf('. ');
+        const exclamEnd = remaining.slice(0, maxChars).lastIndexOf('! ');
+        const questEnd = remaining.slice(0, maxChars).lastIndexOf('? ');
+
+        const bestSentenceBreak = Math.max(sentenceEnd, exclamEnd, questEnd);
+
+        if (bestSentenceBreak > maxChars / 2) {
+            breakPoint = bestSentenceBreak + 1;
+        } else {
+            const commaBreak = remaining.slice(0, maxChars).lastIndexOf(', ');
+            if (commaBreak > maxChars / 2) {
+                breakPoint = commaBreak + 1;
+            } else {
+                const spaceBreak = remaining.slice(0, maxChars).lastIndexOf(' ');
+                if (spaceBreak > 0) {
+                    breakPoint = spaceBreak;
+                }
+            }
+        }
+
+        chunks.push(remaining.slice(0, breakPoint).trim());
+        remaining = remaining.slice(breakPoint).trim();
+    }
+
+    return chunks;
+}
+
+export async function generateSpeechWithQwen(
+    text: string,
+    options: {
+        voice?: QwenVoice;
+        language?: QwenLanguage;
+        embeddingUrl?: string;
+        referenceText?: string;
+    } = {}
+): Promise<{ audioUrl: string; audioUrls?: string[]; duration: number }> {
+    const { voice, language, embeddingUrl, referenceText } = options;
+
+    console.log(`🎤 Qwen 3 TTS: Generating speech for "${text.substring(0, 50)}..."`);
+
+    const chunks = chunkTextForQwen(text);
+    console.log(`📝 Text split into ${chunks.length} chunk(s)`);
+
+    const audioUrls: string[] = [];
+    let totalDuration = 0;
+
+    for (let i = 0; i < chunks.length; i++) {
+        console.log(`  Chunk ${i + 1}/${chunks.length}: "${chunks[i].substring(0, 30)}..."`);
+
+        const result = await fal.subscribe(
+            'fal-ai/qwen-3-tts/text-to-speech/1.7b',
+            {
+                input: {
+                    text: chunks[i],
+                    voice: voice || 'Vivian',
+                    language: language || 'Auto',
+                    speaker_voice_embedding_file_url: embeddingUrl || undefined,
+                    reference_text: referenceText || undefined
+                },
+                logs: false
+            }
+        ) as { audio?: QwenAudioResult };
+
+        if (result.audio?.url) {
+            audioUrls.push(result.audio.url);
+            totalDuration += result.audio.duration || 0;
+        }
+    }
+
+    if (audioUrls.length === 0) {
+        throw new Error('No audio generated from Qwen TTS');
+    }
+
+    console.log(`✅ Qwen TTS generated: ${audioUrls.length} audio segment(s)`);
+
+    return {
+        audioUrl: audioUrls[0],
+        audioUrls: audioUrls.length > 1 ? audioUrls : undefined,
+        duration: totalDuration
+    };
+}

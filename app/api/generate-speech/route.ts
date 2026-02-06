@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase } from '@/lib/supabase';
+import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase, updateQwenEmbedding } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
-
-// Need fal for JIT cloning to ensure file access if needed (though we use URL directly)
-import { fal } from '@fal-ai/client';
+import { cloneVoiceWithQwen, generateSpeechWithQwen } from '@/lib/fal';
 
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
+const FAL_KEY = process.env.FAL_KEY;
 
 /**
  * Helper: Clone voice via WaveSpeed MiniMax
@@ -195,6 +194,41 @@ async function pollWaveSpeedResult(pollingUrl: string): Promise<string> {
     throw new Error('MiniMax TTS timeout');
 }
 
+async function generateQwenTTS(
+    text: string,
+    embeddingUrl: string,
+    referenceText?: string
+): Promise<{ audioUrl: string; duration: number }> {
+    console.log(`🎤 Qwen TTS: Generating with embedding`);
+
+    const result = await generateSpeechWithQwen(text, {
+        embeddingUrl,
+        referenceText
+    });
+
+    return {
+        audioUrl: result.audioUrl,
+        duration: result.duration
+    };
+}
+
+async function cloneVoiceWithQwenForUser(
+    audioUrl: string,
+    userId: string,
+    voiceRecordId: string,
+    referenceText?: string
+): Promise<string> {
+    console.log('🧬 Qwen JIT Cloning: Creating speaker embedding...');
+
+    const embeddingResult = await cloneVoiceWithQwen(audioUrl, referenceText);
+
+    await updateQwenEmbedding(voiceRecordId, embeddingResult.embeddingUrl, 'qwen');
+
+    console.log('✅ Qwen embedding saved:', embeddingResult.embeddingUrl);
+
+    return embeddingResult.embeddingUrl;
+}
+
 export async function POST(request: NextRequest) {
     try {
         // Authenticate
@@ -243,81 +277,112 @@ export async function POST(request: NextRequest) {
             }, { status: 402 });
         }
 
-        // Look up minimax_voice_id from voices table
-        // Look up minimax_voice_id AND voice_sample_url from voices table
         const { data: voiceData } = await supabase
             .from('voices')
-            .select('minimax_voice_id, voice_sample_url')
+            .select('id, minimax_voice_id, qwen_embedding_url, voice_sample_url, ref_text, tts_provider')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .single();
 
-        let minimaxVoiceId = voiceData?.minimax_voice_id;
+        const ttsProvider = voiceData?.tts_provider || 'minimax';
+        let audioUrl: string;
+        let duration: number;
 
-        // JIT Cloning Logic: If we have a sample URL but no MiniMax ID, clone it now!
-        if (!minimaxVoiceId && voiceData?.voice_sample_url) {
-            console.log('⚠️ No MiniMax ID found, but voice sample exists. Triggering JIT cloning...');
-            try {
-                minimaxVoiceId = await cloneVoiceWithMiniMax(voiceData.voice_sample_url, user.id);
-
-                // Save the new ID to the database so we don't clone again
-                await supabase
-                    .from('voices')
-                    .update({ minimax_voice_id: minimaxVoiceId })
-                    .eq('user_id', user.id)
-                    .eq('is_active', true);
-
-                console.log('✅ JIT Cloning successful. Saved new ID:', minimaxVoiceId);
-            } catch (cloneError) {
-                console.error('❌ JIT Cloning failed:', cloneError);
-                // Fall through to error
+        if (ttsProvider === 'qwen') {
+            if (!voiceData?.qwen_embedding_url && voiceData?.voice_sample_url) {
+                console.log('⚠️ No Qwen embedding found, but voice sample exists. Triggering JIT cloning...');
+                try {
+                    const embeddingUrl = await cloneVoiceWithQwenForUser(
+                        voiceData.voice_sample_url,
+                        user.id,
+                        voiceData.id,
+                        voiceData.ref_text || undefined
+                    );
+                    voiceData.qwen_embedding_url = embeddingUrl;
+                } catch (cloneError) {
+                    console.error('❌ Qwen JIT Cloning failed:', cloneError);
+                }
             }
-        }
 
-        if (!minimaxVoiceId) {
+            if (!voiceData?.qwen_embedding_url) {
+                return NextResponse.json({
+                    error: 'No cloned voice found. Please upload a voice sample first.',
+                    code: 'NO_VOICE'
+                }, { status: 400 });
+            }
+
+            console.log('🎙️ Using Qwen 3 TTS for speech generation');
+            const qwenResult = await generateQwenTTS(
+                script,
+                voiceData.qwen_embedding_url,
+                voiceData.ref_text || undefined
+            );
+            audioUrl = qwenResult.audioUrl;
+            duration = qwenResult.duration;
+
+            await deductCredits(user.id, cost, 'Generated Speech (Qwen)', {
+                charCount: script.length,
+                embedding_url: voiceData.qwen_embedding_url
+            });
+        } else if (ttsProvider === 'minimax' || !voiceData?.qwen_embedding_url) {
+            let minimaxVoiceId = voiceData?.minimax_voice_id;
+
+            if (!minimaxVoiceId && voiceData?.voice_sample_url) {
+                console.log('⚠️ No MiniMax ID found, but voice sample exists. Triggering JIT cloning...');
+                try {
+                    minimaxVoiceId = await cloneVoiceWithMiniMax(voiceData.voice_sample_url, user.id);
+                    await supabase
+                        .from('voices')
+                        .update({ minimax_voice_id: minimaxVoiceId })
+                        .eq('user_id', user.id)
+                        .eq('is_active', true);
+                    console.log('✅ JIT Cloning successful. Saved new ID:', minimaxVoiceId);
+                } catch (cloneError) {
+                    console.error('❌ JIT Cloning failed:', cloneError);
+                }
+            }
+
+            if (!minimaxVoiceId) {
+                return NextResponse.json({
+                    error: 'No cloned voice found. Please upload a voice sample first.',
+                    code: 'NO_VOICE'
+                }, { status: 400 });
+            }
+
+            console.log('Using MiniMax voice ID:', minimaxVoiceId);
+
+            const chunks = chunkText(script);
+            console.log(`Text split into ${chunks.length} chunk(s)`);
+
+            const audioUrls: string[] = [];
+            for (let i = 0; i < chunks.length; i++) {
+                console.log(`Generating chunk ${i + 1}/${chunks.length}`);
+                const result = await generateMiniMaxTTS(chunks[i], minimaxVoiceId);
+                audioUrls.push(result.audioUrl);
+            }
+
+            audioUrl = audioUrls[0];
+            duration = (script.length / 5 / 150) * 60 * 1000;
+
+            await deductCredits(user.id, cost, 'Generated Speech (MiniMax)', {
+                charCount: script.length,
+                chunks: chunks.length,
+                voiceId: minimaxVoiceId
+            });
+        } else {
             return NextResponse.json({
-                error: 'No cloned voice found. Please upload a voice sample first.',
+                error: 'No valid TTS configuration found. Please re-upload your voice sample.',
                 code: 'NO_VOICE'
             }, { status: 400 });
         }
-
-        // const minimaxVoiceId = voiceData.minimax_voice_id; // Already set above
-        console.log('Using MiniMax voice ID:', minimaxVoiceId);
-
-        // Generate TTS with MiniMax
-        console.log('Generating speech with MiniMax TTS:', {
-            scriptLength: script.length,
-            voiceId: minimaxVoiceId
-        });
-
-        const chunks = chunkText(script);
-        console.log(`Text split into ${chunks.length} chunk(s)`);
-
-        const audioUrls: string[] = [];
-        for (let i = 0; i < chunks.length; i++) {
-            console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateMiniMaxTTS(chunks[i], minimaxVoiceId);
-            audioUrls.push(result.audioUrl);
-        }
-
-        const audioUrl = audioUrls[0];
-
-        // Estimate duration: ~150 words per minute, avg 5 chars per word
-        const estimatedDurationMs = (script.length / 5 / 150) * 60 * 1000;
-
-        // Deduct credits
-        await deductCredits(user.id, cost, 'Generated Speech (MiniMax)', {
-            charCount: script.length,
-            chunks: chunks.length,
-            voiceId: minimaxVoiceId
-        });
 
         console.log(`✅ Speech generated: ${audioUrl}`);
 
         return NextResponse.json({
             audioUrl,
-            duration: estimatedDurationMs,
-            cost
+            duration,
+            cost,
+            provider: ttsProvider
         });
 
     } catch (error: unknown) {
