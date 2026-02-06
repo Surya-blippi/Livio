@@ -151,40 +151,45 @@ function detectLanguage(text: string): ChatterboxLanguage {
 }
 
 /**
- * Generate TTS for a single chunk using F5 TTS
+ * Generate TTS using Dia TTS voice cloning
  * 
- * F5 TTS provides much better pronunciation with:
- * - Zero-shot voice cloning from reference audio
+ * Dia TTS provides high-quality voice cloning with:
+ * - Studio-quality speech output
+ * - Requires ref_text (transcription) to prevent random words
  * - Natural prosody and clear pronunciation
- * - No character limit
+ * - Emotional expression support
  * 
  * @param text - The text to synthesize
  * @param voiceSampleUrl - URL to the voice sample for cloning
- * @param refText - Transcription of voice sample (prevents ASR bleed)
+ * @param refText - Transcription of voice sample (required for clean output)
  */
-async function generateF5TTS(
+async function generateDiaTTS(
     text: string,
     voiceSampleUrl: string,
     refText?: string
 ): Promise<{ audioUrl: string }> {
-    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'auto-detect'})`);
+    console.log(`🎤 Dia TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'none'})`);
 
-    const result = await fal.subscribe('fal-ai/f5-tts', {
-        input: {
-            gen_text: text,
-            ref_audio_url: voiceSampleUrl,
-            ref_text: refText || '',  // Use stored transcription or let ASR detect
-            model_type: 'F5-TTS',
-            remove_silence: true
-        },
-        logs: false
-    }) as unknown as { data: { audio_url: { url: string } } };
-
-    if (!result.data?.audio_url?.url) {
-        throw new Error('No audio URL from F5 TTS');
+    // For voice cloning, ref_text is required to avoid ASR issues
+    // If no ref_text, we can't use voice cloning effectively
+    if (!refText) {
+        console.warn('⚠️ No ref_text provided - voice cloning may have artifacts');
     }
 
-    return { audioUrl: result.data.audio_url.url };
+    const result = await fal.subscribe('fal-ai/dia-tts/voice-clone', {
+        input: {
+            text: text,
+            ref_audio_url: voiceSampleUrl,
+            ref_text: refText || 'Hello, this is a voice sample.',  // Fallback
+        },
+        logs: false
+    }) as unknown as { data: { audio: { url: string } } };
+
+    if (!result.data?.audio?.url) {
+        throw new Error('No audio URL from Dia TTS');
+    }
+
+    return { audioUrl: result.data.audio.url };
 }
 
 /**
@@ -217,7 +222,7 @@ export async function generateSceneTTS(
 
         if (chunks.length === 1) {
             // Single chunk - simple case
-            const result = await generateF5TTS(chunks[0], sampleUrl, refText);
+            const result = await generateDiaTTS(chunks[0], sampleUrl, refText);
             // Estimate duration: ~150 words per minute, avg 5 chars per word
             const estimatedDuration = (text.length / 5 / 150) * 60;
             return {
@@ -230,7 +235,7 @@ export async function generateSceneTTS(
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`  Chunk ${i + 1}/${chunks.length}: "${chunks[i].substring(0, 30)}..."`);
-            const result = await generateF5TTS(chunks[i], sampleUrl, refText);
+            const result = await generateDiaTTS(chunks[i], sampleUrl, refText);
             audioUrls.push(result.audioUrl);
         }
 
