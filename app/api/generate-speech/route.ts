@@ -136,7 +136,10 @@ async function generateMiniMaxTTS(
 
     // Wait for completion if async
     if (result.status !== 'completed' && result.id) {
-        const audioUrl = await pollWaveSpeedResult(result.id);
+        // Use the explicit polling URL from the response if available, otherwise construct it
+        const pollingUrl = result.urls?.get || `https://api.wavespeed.ai/api/v3/predictions/${result.id}/result`;
+        console.log('Polling WaveSpeed at:', pollingUrl);
+        const audioUrl = await pollWaveSpeedResult(pollingUrl);
         return { audioUrl };
     }
 
@@ -155,13 +158,13 @@ async function generateMiniMaxTTS(
 /**
  * Poll WaveSpeed for async result completion
  */
-async function pollWaveSpeedResult(predictionId: string): Promise<string> {
+async function pollWaveSpeedResult(pollingUrl: string): Promise<string> {
     const maxAttempts = 60;
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 1000));
 
         // Use the /result endpoint to get the status and output
-        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`, {
+        const response = await fetch(pollingUrl, {
             headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
         });
 
