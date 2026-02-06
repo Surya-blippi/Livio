@@ -97,25 +97,25 @@ function detectLanguage(text: string): ChatterboxLanguage {
 }
 
 /**
- * Generate TTS using Dia TTS with voice cloning
+ * Generate TTS using F5 TTS with voice cloning
  * 
- * Dia TTS provides high-quality voice cloning with:
- * - Studio-quality speech output
- * - Natural prosody and clear pronunciation
- * - Requires ref_text for clean output
+ * F5 TTS supports longer audio samples unlike Dia TTS (30s limit)
+ * Uses ref_text to prevent ASR bleed (random words at start)
  */
-async function generateDiaTTS(
+async function generateF5TTS(
     text: string,
     voiceSampleUrl: string,
     refText?: string
 ): Promise<{ audioUrl: string }> {
-    console.log(`🎤 Dia TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'none'})`);
+    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'auto-detect'})`);
 
-    const result = await fal.subscribe('fal-ai/dia-tts/voice-clone', {
+    const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
-            text: text,
+            gen_text: text,
             ref_audio_url: voiceSampleUrl,
-            ref_text: refText || 'Hello, this is a voice sample.',
+            ref_text: refText || '',  // Empty = auto-detect via ASR
+            model_type: 'F5-TTS',
+            remove_silence: true
         },
         logs: true,
         onQueueUpdate: (update) => {
@@ -123,13 +123,13 @@ async function generateDiaTTS(
                 console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
             }
         }
-    }) as unknown as { data: { audio: { url: string } } };
+    }) as unknown as { data: { audio_url: { url: string } } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from Dia TTS');
+    if (!result.data?.audio_url?.url) {
+        throw new Error('No audio URL returned from F5 TTS');
     }
 
-    return { audioUrl: result.data.audio.url };
+    return { audioUrl: result.data.audio_url.url };
 }
 
 export async function POST(request: NextRequest) {
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateDiaTTS(chunks[i], sampleUrl, refText);
+            const result = await generateF5TTS(chunks[i], sampleUrl, refText);
             audioUrls.push(result.audioUrl);
         }
 

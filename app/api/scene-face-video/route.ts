@@ -20,25 +20,27 @@ interface SceneInput {
     assetUrl?: string;
 }
 
-// Generate TTS for a single scene using Dia TTS (voice cloning)
+// Generate TTS for a single scene using F5 TTS (voice cloning)
 async function generateSceneTTS(
     text: string,
     voiceSampleUrl: string,
     refText?: string
 ): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with Dia TTS`);
+    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with F5 TTS`);
 
-    const result = await fal.subscribe('fal-ai/dia-tts/voice-clone', {
+    const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
-            text: text,
+            gen_text: text,
             ref_audio_url: voiceSampleUrl,
-            ref_text: refText || 'Hello, this is a voice sample.',
+            ref_text: refText || '',  // Empty = auto-detect via ASR
+            model_type: 'F5-TTS',
+            remove_silence: true
         },
         logs: false
-    }) as unknown as { data: { audio: { url: string } } };
+    }) as unknown as { data: { audio_url: { url: string } } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from Dia TTS');
+    if (!result.data?.audio_url?.url) {
+        throw new Error('No audio URL returned from F5 TTS');
     }
 
     // Estimate duration: ~150 words per minute, avg 5 chars per word
@@ -47,7 +49,7 @@ async function generateSceneTTS(
     console.log(`  [TTS] Generated ~${estimatedDuration.toFixed(2)}s audio`);
 
     return {
-        audioUrl: result.data.audio.url,
+        audioUrl: result.data.audio_url.url,
         duration: estimatedDuration
     };
 }
