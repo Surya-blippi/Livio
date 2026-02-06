@@ -400,9 +400,10 @@ export async function updateVoiceId(
 // Update Qwen embedding URL for a voice
 export async function updateQwenEmbedding(
     voiceId: string,
-    embeddingUrl: string
+    embeddingUrl: string,
+    client: any = supabase
 ): Promise<DbVoice | null> {
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('voices')
         .update({
             qwen_embedding_url: embeddingUrl

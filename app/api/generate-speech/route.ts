@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase, updateQwenEmbedding } from '@/lib/supabase';
+import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase, updateQwenEmbedding, createAuthenticatedClient } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
 import { cloneVoiceWithQwen, generateSpeechWithQwen } from '@/lib/fal';
 
@@ -35,13 +35,14 @@ async function cloneVoiceWithQwenForUser(
     audioUrl: string,
     userId: string,
     voiceRecordId: string,
+    client: any,
     referenceText?: string
 ): Promise<string> {
     console.log('🧬 Qwen JIT Cloning: Creating speaker embedding...');
 
     const embeddingResult = await cloneVoiceWithQwen(audioUrl, referenceText);
 
-    await updateQwenEmbedding(voiceRecordId, embeddingResult.embeddingUrl);
+    await updateQwenEmbedding(voiceRecordId, embeddingResult.embeddingUrl, client);
 
     console.log('✅ Qwen embedding saved:', embeddingResult.embeddingUrl);
 
@@ -51,10 +52,14 @@ async function cloneVoiceWithQwenForUser(
 export async function POST(request: NextRequest) {
     try {
         // Authenticate
-        const { userId: clerkId } = await auth();
+        const { userId: clerkId, getToken } = await auth();
         if (!clerkId) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
+
+        // Create authenticated Supabase client using Clerk token
+        const token = await getToken({ template: 'supabase' });
+        const authClient = token ? createAuthenticatedClient(token) : supabase;
 
         if (!FAL_KEY) {
             console.error('FAL_KEY is missing');
@@ -114,6 +119,7 @@ export async function POST(request: NextRequest) {
                     voiceData.voice_sample_url,
                     user.id,
                     voiceData.id,
+                    authClient,
                     voiceData.ref_text || undefined
                 );
                 voiceData.qwen_embedding_url = embeddingUrl;
