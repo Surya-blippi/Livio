@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Upload to FAL storage to get a public URL
-        // FAL storage URLs are accessible by other FAL services including Chatterbox
         console.log('CHECKPOINT: Uploading to Fal storage...');
         const fileObj = new File([new Uint8Array(audioBuffer)], originalName, {
             type: 'audio/mpeg'
@@ -75,7 +74,29 @@ export async function POST(request: NextRequest) {
         const storageUrl = await fal.storage.upload(fileObj);
         console.log('CHECKPOINT: Audio uploaded to:', storageUrl);
 
-        // 3. Also upload to Supabase for long-term storage backup
+        // 3. Transcribe with Whisper to get ref_text for F5 TTS
+        // This prevents ASR bleed (random words appearing in TTS output)
+        console.log('CHECKPOINT: Transcribing voice sample with Whisper...');
+        let refText = '';
+        try {
+            const whisperResult = await fal.subscribe('fal-ai/whisper', {
+                input: {
+                    audio_url: storageUrl,
+                    task: 'transcribe',
+                    chunk_level: 'none',  // Get full transcription without timestamps
+                    version: '3'
+                },
+                logs: false
+            }) as unknown as { data: { text: string } };
+
+            refText = whisperResult.data?.text || '';
+            console.log('CHECKPOINT: Whisper transcription:', refText.substring(0, 100), '...');
+        } catch (whisperError) {
+            console.warn('Whisper transcription failed, will use ASR:', whisperError);
+            // Continue without ref_text - F5 TTS will use ASR fallback
+        }
+
+        // 4. Also upload to Supabase for long-term storage backup
         const fileExt = originalName.split('.').pop() || 'mp3';
         const fileName = `${user.id}_${uuidv4()}.${fileExt}`;
         const filePath = `uploads/${fileName}`;
@@ -96,15 +117,15 @@ export async function POST(request: NextRequest) {
             console.warn('Supabase upload failed, using FAL URL:', uploadError);
         }
 
-        // Note: No credits charged! Chatterbox does zero-shot cloning for free.
-        console.log('✅ Voice sample uploaded successfully. No credits charged (Chatterbox mode).');
+        console.log('✅ Voice sample uploaded successfully with transcription.');
 
         return NextResponse.json({
-            voiceId: null, // Deprecated - not used with Chatterbox
-            voiceSampleUrl: storageUrl, // Primary URL for Chatterbox TTS
-            supabaseUrl: supabaseUrl, // Backup/long-term storage
+            voiceId: null,
+            voiceSampleUrl: storageUrl,
+            refText: refText,  // New: transcription for F5 TTS
+            supabaseUrl: supabaseUrl,
             previewUrl: storageUrl,
-            message: 'Voice sample uploaded. Zero-shot cloning will happen during TTS.'
+            message: 'Voice sample uploaded with transcription for TTS.'
         });
 
     } catch (error: unknown) {

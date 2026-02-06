@@ -51,6 +51,7 @@ export interface DbVoice {
     voice_sample_url: string;
     preview_url?: string;
     name?: string;
+    ref_text?: string;  // Transcription for F5 TTS (prevents ASR bleed)
     is_active: boolean;
     created_at: string;
 }
@@ -268,6 +269,7 @@ export async function saveVoice(
     voiceSampleUrl: string,
     name?: string,
     previewUrl?: string,
+    refText?: string,  // Transcription for F5 TTS
     client: any = supabase // Use authenticated client if provided
 ): Promise<DbVoice | null> {
     // Validate userId is a UUID, not a Clerk ID
@@ -293,6 +295,7 @@ export async function saveVoice(
             voice_sample_url: voiceSampleUrl,
             preview_url: previewUrl,
             name: name || 'My Voice',
+            ref_text: refText || null,  // Store transcription for F5 TTS
             is_active: true,
         })
         .select()

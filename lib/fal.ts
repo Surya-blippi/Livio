@@ -153,22 +153,27 @@ function detectLanguage(text: string): ChatterboxLanguage {
 /**
  * Generate TTS for a single chunk using F5 TTS
  * 
- * F5 TTS provides much better pronunciation than Chatterbox with:
+ * F5 TTS provides much better pronunciation with:
  * - Zero-shot voice cloning from reference audio
  * - Natural prosody and clear pronunciation
  * - No character limit
+ * 
+ * @param text - The text to synthesize
+ * @param voiceSampleUrl - URL to the voice sample for cloning
+ * @param refText - Transcription of voice sample (prevents ASR bleed)
  */
 async function generateF5TTS(
     text: string,
-    voiceSampleUrl: string
+    voiceSampleUrl: string,
+    refText?: string
 ): Promise<{ audioUrl: string }> {
-    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (Voice: ${voiceSampleUrl.substring(0, 50)}...)`);
+    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'auto-detect'})`);
 
     const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
             gen_text: text,
-            ref_audio_url: voiceSampleUrl,  // Reference audio for voice cloning
-            ref_text: '',  // Let ASR auto-detect reference text
+            ref_audio_url: voiceSampleUrl,
+            ref_text: refText || '',  // Use stored transcription or let ASR detect
             model_type: 'F5-TTS',
             remove_silence: true
         },
@@ -183,19 +188,18 @@ async function generateF5TTS(
 }
 
 /**
- * Generate TTS for text using Chatterbox with voice cloning.
- * Handles chunking for texts > 300 chars.
- * Now with automatic language detection for better pronunciation!
+ * Generate TTS for text using F5 TTS with voice cloning.
+ * Handles chunking for long texts.
  * 
  * @param text - The text to synthesize
  * @param voiceSampleUrl - URL to the voice sample for cloning
- * @param language - Language code (optional, will auto-detect if not provided)
+ * @param refText - Transcription of voice sample (prevents ASR bleed)
  * @returns Audio URL and estimated duration
  */
 export async function generateSceneTTS(
     text: string,
     voiceSampleUrl: string,
-    language?: ChatterboxLanguage
+    refText?: string
 ): Promise<{ audioUrl: string; duration: number }> {
     // Null safety: validate inputs
     if (!text || typeof text !== 'string') {
@@ -205,10 +209,7 @@ export async function generateSceneTTS(
     // Use a default voice sample if none provided
     const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
 
-    // Auto-detect language from text if not explicitly provided
-    const detectedLang = language || detectLanguage(text);
-
-    console.log(`🎤 TTS: "${text.substring(0, 30)}..." (Voice: ${sampleUrl.substring(0, 50)}..., Lang: ${detectedLang})`);
+    console.log(`🎤 TTS: "${text.substring(0, 30)}..." (refText: ${refText ? 'provided' : 'auto'})`);
 
     try {
         const chunks = chunkText(text);
@@ -216,7 +217,7 @@ export async function generateSceneTTS(
 
         if (chunks.length === 1) {
             // Single chunk - simple case
-            const result = await generateF5TTS(chunks[0], sampleUrl);
+            const result = await generateF5TTS(chunks[0], sampleUrl, refText);
             // Estimate duration: ~150 words per minute, avg 5 chars per word
             const estimatedDuration = (text.length / 5 / 150) * 60;
             return {
@@ -229,7 +230,7 @@ export async function generateSceneTTS(
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`  Chunk ${i + 1}/${chunks.length}: "${chunks[i].substring(0, 30)}..."`);
-            const result = await generateF5TTS(chunks[i], sampleUrl);
+            const result = await generateF5TTS(chunks[i], sampleUrl, refText);
             audioUrls.push(result.audioUrl);
         }
 
