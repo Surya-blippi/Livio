@@ -221,19 +221,21 @@ export async function cloneVoiceWithQwen(
                     }
                 }
             }
-        ) as { speaker_embedding?: QwenSpeakerEmbedding };
+        ) as any;
 
-        if (!result.speaker_embedding?.url) {
+        const embedding = result.speaker_embedding || result.data?.speaker_embedding;
+
+        if (!embedding?.url) {
             console.error('Qwen Response missing embedding:', result);
             throw new Error('No speaker embedding URL returned from Qwen API');
         }
 
-        console.log('✅ Qwen voice cloned:', result.speaker_embedding.url);
+        console.log('✅ Qwen voice cloned:', embedding.url);
 
         return {
-            embeddingUrl: result.speaker_embedding.url,
-            fileName: result.speaker_embedding.file_name || 'embedding.safetensors',
-            fileSize: result.speaker_embedding.file_size || 0
+            embeddingUrl: embedding.url,
+            fileName: embedding.file_name || 'embedding.safetensors',
+            fileSize: embedding.file_size || 0
         };
     } catch (error: any) {
         console.error('❌ Qwen Cloning Error:', error);
@@ -321,11 +323,13 @@ export async function generateSpeechWithQwen(
                 },
                 logs: false
             }
-        ) as { audio?: QwenAudioResult };
+        ) as any;
 
-        if (result.audio?.url) {
-            audioUrls.push(result.audio.url);
-            totalDuration += result.audio.duration || 0;
+        const audio = result.audio || result.data?.audio;
+
+        if (audio?.url) {
+            audioUrls.push(audio.url);
+            totalDuration += audio.duration || 0;
         }
     }
 
