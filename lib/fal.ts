@@ -337,7 +337,7 @@ export async function generateSpeechWithQwen(
         throw new Error('No audio generated from Qwen TTS');
     }
 
-    console.log(`✅ Qwen TTS generated: ${audioUrls.length} audio segment(s)`);
+    console.log(`✅ Qwen TTS generated: ${audioUrls.length} audio segment(s), Total Duration: ${totalDuration.toFixed(2)}s`);
 
     return {
         audioUrl: audioUrls[0],

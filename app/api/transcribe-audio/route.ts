@@ -1,6 +1,9 @@
 import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Allow 5 minutes for Whisper transcription
+export const maxDuration = 300;
+
 interface WhisperChunk {
     text: string;
     timestamp: [number, number]; // [start, end] in seconds
@@ -47,8 +50,12 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        // Cast through unknown to handle fal.ai type differences
-        const whisperData = result.data as unknown as WhisperResult;
+        // Helper to safely get the response data, checking for nested 'data' property
+        // Fal sometimes returns { data: { text, chunks } } and sometimes just { text, chunks }
+        const rawData = result.data as any;
+        console.log('📦 Whisper Raw Response Keys:', Object.keys(rawData));
+
+        const whisperData: WhisperResult = rawData.data || rawData;
 
         console.log('Whisper result chunks:', whisperData.chunks?.length || 0);
 
