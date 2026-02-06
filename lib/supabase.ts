@@ -4,7 +4,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tfaumdiiljw
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmYXVtZGlpbGp3bmptZm5vbnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NzcwMzksImV4cCI6MjA3OTU1MzAzOX0.VbxwPIzu8kBb2MzrtT5gm17DdR5V5R_oLBn8wYwevCo';
 
 // Default anonymous client (use only for public info)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// We use a custom storage key to avoid "Multiple GoTrueClient" warnings when colliding with the AuthProvider client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        storageKey: 'sb-anon-client-token',
+        persistSession: false // We generally don't need to persist session for the utility client
+    }
+});
 
 // Authenticated client factory (for RLS)
 export const createAuthenticatedClient = (clerkToken: string) => {
@@ -14,7 +20,6 @@ export const createAuthenticatedClient = (clerkToken: string) => {
         },
     });
 };
-
 
 // ==========================================
 // TYPE DEFINITIONS

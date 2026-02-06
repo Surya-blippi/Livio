@@ -41,7 +41,8 @@ async function cloneVoiceWithMiniMax(audioUrl: string, userId: string): Promise<
     console.log('✓ MiniMax voice clone result:', cloneResult);
 
     // Some APIs return success but with an error status in the body
-    if (cloneResult.status === 'failed' || (cloneResult.code && cloneResult.code !== 0)) {
+    // WaveSpeed/MiniMax returns code: 200 for success
+    if (cloneResult.status === 'failed' || (cloneResult.code && cloneResult.code !== 0 && cloneResult.code !== 200)) {
         throw new Error(`Voice cloning failed operation: ${JSON.stringify(cloneResult)}`);
     }
 

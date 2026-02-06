@@ -1135,8 +1135,23 @@ export const useDashboardState = () => {
                 }
                 setProcessingStep(2);
                 setProcessingMessage('Generating speech...');
-                const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
-                speechUrl = result.audioUrl;
+                setProcessingMessage('Generating speech...');
+                try {
+                    const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
+                    speechUrl = result.audioUrl;
+                } catch (speechErr: any) {
+                    console.error('Speech generation details:', speechErr);
+                    // If the error object has a 'message' that is JSON, parse it
+                    let msg = speechErr.message || 'Unknown speech error';
+                    try {
+                        const parsed = JSON.parse(msg);
+                        if (parsed.error) msg = parsed.error;
+                    } catch (e) { }
+
+                    setError(`Speech failed: ${msg}`);
+                    setIsProcessing(false);
+                    return;
+                }
                 setVoiceFile(null);
             } else if (hasClonedVoice && savedVoice) {
                 setProcessingStep(2);
@@ -1176,14 +1191,23 @@ export const useDashboardState = () => {
                         setSavedVoice(updatedVoice);
                         setAllVoices(prev => prev.map(v => v.id === savedVoice.id ? updatedVoice : v));
                     }
-                } catch (voiceError: unknown) {
+                } catch (voiceError: any) {
+                    console.error('Speech API Error Payload:', voiceError);
+
                     const errorCode = (voiceError as Error & { code?: string }).code;
+
                     if (errorCode === 'VOICE_EXPIRED') {
                         setProcessingMessage('Voice expired, re-cloning...');
+                        // Ensure we have a sample URL to clone from
+                        if (!savedVoice.voice_sample_url) {
+                            throw new Error('Cannot re-clone: missing voice sample URL');
+                        }
+
                         const response = await fetch(savedVoice.voice_sample_url);
                         const blob = await response.blob();
                         const file = new File([blob], 'voice.webm', { type: blob.type || 'audio/webm' });
                         const voiceData = await cloneVoice(file);
+
                         if (dbUser) {
                             await updateVoiceId(savedVoice.id, voiceData.voiceId, voiceData.previewUrl);
                             const updatedVoice = { ...savedVoice, voice_id: voiceData.voiceId, preview_url: voiceData.previewUrl };
@@ -1193,7 +1217,17 @@ export const useDashboardState = () => {
                         const result = await generateSpeechWithVoiceId(inputText, voiceData.voiceId);
                         speechUrl = result.audioUrl;
                     } else {
-                        throw voiceError;
+                        // Standard error logging
+                        let msg = voiceError.message || 'Speech generation failed';
+                        if (msg.includes('{')) {
+                            try {
+                                const parsed = JSON.parse(msg);
+                                if (parsed.error) msg = parsed.error;
+                            } catch { }
+                        }
+                        setError(`Speech Generation Error: ${msg}`);
+                        setIsProcessing(false);
+                        return;
                     }
                 }
             } else {
