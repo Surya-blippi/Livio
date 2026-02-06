@@ -1,7 +1,7 @@
 import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { getOrCreateUser, hasEnoughCredits, deductCredits } from '@/lib/supabase';
+import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
 
 // Chatterbox language type
@@ -196,21 +196,37 @@ export async function POST(request: NextRequest) {
         // Auto-detect language from script if not provided
         const detectedLang = language || detectLanguage(script);
 
-        console.log('Generating speech with Chatterbox:', {
+        // Look up ref_text from voices table for this user
+        // This prevents random words appearing in TTS output (ASR bleed)
+        let refText: string | undefined;
+        const { data: voiceData } = await supabase
+            .from('voices')
+            .select('ref_text')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .single();
+
+        if (voiceData?.ref_text) {
+            refText = voiceData.ref_text;
+            console.log('Using stored ref_text:', refText!.substring(0, 50) + '...');
+        } else {
+            console.warn('No ref_text found for voice - may have ASR artifacts');
+        }
+
+        console.log('Generating speech with Dia TTS:', {
             scriptLength: script.length,
             voiceSample: sampleUrl.substring(0, 50) + '...',
-            language: detectedLang,
-            wasAutoDetected: !language
+            hasRefText: !!refText
         });
 
         // 2. Chunk text if needed and generate TTS
         const chunks = chunkText(script);
-        console.log(`Text split into ${chunks.length} chunk(s), detected language: ${detectedLang}`);
+        console.log(`Text split into ${chunks.length} chunk(s)`);
 
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateDiaTTS(chunks[i], sampleUrl);
+            const result = await generateDiaTTS(chunks[i], sampleUrl, refText);
             audioUrls.push(result.audioUrl);
         }
 
