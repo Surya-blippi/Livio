@@ -62,8 +62,7 @@ export async function POST(request: NextRequest) {
             undefined,
             reference_text,
             {
-                qwenEmbeddingUrl: embeddingResult.embeddingUrl,
-                ttsProvider: 'qwen'
+                qwenEmbeddingUrl: embeddingResult.embeddingUrl
             }
         );
 

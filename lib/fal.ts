@@ -326,3 +326,46 @@ export async function generateSpeechWithQwen(
         duration: totalDuration
     };
 }
+
+/**
+ * Helper to generate TTS for a scene, compatible with legacy calls.
+ * Smartly handles Qwen embeddings vs raw audio samples (JIT cloning).
+ */
+export async function generateSceneTTS(
+    text: string,
+    voiceOrResource: string
+): Promise<{ audioUrl: string; duration: number }> {
+    let embeddingUrl: string | undefined;
+    let voice: QwenVoice | undefined;
+
+    // Check if it's a URL
+    if (voiceOrResource.startsWith('http')) {
+        // Heuristic: Is it likely an embedding file?
+        // Qwen embeddings often don't have standard extensions if from Fal, but if we uploaded to Supabase they might.
+        // Raw audio usually has .wav, .mp3, .m4a
+        const isRawAudio = /\.(wav|mp3|m4a|webm|ogg)$/i.test(voiceOrResource);
+
+        if (isRawAudio) {
+            console.log('🧬 generateSceneTTS: Detected raw audio, triggering JIT cloning...');
+            try {
+                const cloneResult = await cloneVoiceWithQwen(voiceOrResource);
+                embeddingUrl = cloneResult.embeddingUrl;
+            } catch (e) {
+                console.warn('JIT cloning failed, falling back to treating as embedding or text:', e);
+                // Fallback: try using it as embedding anyway (maybe extension check failed)
+                embeddingUrl = voiceOrResource;
+            }
+        } else {
+            // Assume it's an embedding URL
+            embeddingUrl = voiceOrResource;
+        }
+    } else {
+        // Assume it's a voice preset name
+        voice = voiceOrResource as QwenVoice;
+    }
+
+    return await generateSpeechWithQwen(text, {
+        voice,
+        embeddingUrl
+    });
+}
