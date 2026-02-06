@@ -54,43 +54,19 @@ import {
     DbVoice,
     DbAvatar
 } from '@/lib/supabase';
+import { useSupabase } from "@/app/context/SupabaseProvider";
 import { convertToMp3, needsConversion } from '@/lib/audioConverter';
 
 export const useDashboardState = () => {
     const { user, isLoaded: isUserLoaded } = useUser();
-    const { getToken } = useAuth();
     const { checkCredits, checkCreditsWithContext } = useCredits();
 
-    // Helper to get authenticated client - single instance with token renewal
-    const supabaseClientRef = useRef<any>(null);
-    const tokenRef = useRef<string | null>(null);
+    // Get single Supabase instance from context
+    const supabaseClient = useSupabase();
 
     const getSupabase = useCallback(async () => {
-        try {
-            const token = await getToken({ template: 'supabase' });
-
-            // If we have a client and token hasn't changed, reuse it
-            if (supabaseClientRef.current && tokenRef.current === token) {
-                return supabaseClientRef.current;
-            }
-
-            // If token has changed or no client, create new one
-            if (token) {
-                console.log('[Auth] Creating new Supabase client with fresh token');
-                const client = createAuthenticatedClient(token);
-                supabaseClientRef.current = client;
-                tokenRef.current = token;
-                return client;
-            }
-
-            // Fallback to anonymous client if no token (shouldn't happen in auth flow)
-            console.warn('[Auth] No token available, using anonymous client');
-            return supabase;
-        } catch (err) {
-            console.error('[Auth] Failed to get token:', err);
-            return supabase;
-        }
-    }, [getToken]);
+        return supabaseClient;
+    }, [supabaseClient]);
 
     // Theme state
     const [isDark, setIsDark] = useState(false);
@@ -818,6 +794,8 @@ export const useDashboardState = () => {
                 storageUrl,
                 voiceName,
                 previewUrl,
+                undefined, // refText
+                undefined, // minimaxVoiceId
                 sb
             );
 
@@ -1149,7 +1127,7 @@ export const useDashboardState = () => {
                 const voiceData = await cloneVoice(voiceFile);
                 if (dbUser) {
                     const sb = await getSupabase();
-                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl, sb);
+                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl, undefined, undefined, sb);
                     if (newVoice) {
                         setSavedVoice(newVoice);
                         setAllVoices(prev => [newVoice, ...prev]);

@@ -40,6 +40,11 @@ async function cloneVoiceWithMiniMax(audioUrl: string, userId: string): Promise<
     const cloneResult = await cloneResponse.json();
     console.log('✓ MiniMax voice clone result:', cloneResult);
 
+    // Some APIs return success but with an error status in the body
+    if (cloneResult.status === 'failed' || (cloneResult.code && cloneResult.code !== 0)) {
+        throw new Error(`Voice cloning failed operation: ${JSON.stringify(cloneResult)}`);
+    }
+
     return customVoiceId;
 }
 
@@ -107,7 +112,20 @@ async function generateMiniMaxTTS(
     }
 
     const result = await response.json();
-    console.log('MiniMax TTS result:', result.status);
+    // console.log('MiniMax TTS result full:', JSON.stringify(result)); // Debug full response
+
+    // Check for API-level errors even if HTTP 200 (common in some AI APIs)
+    if (result.code && result.code !== 0 && result.msg) {
+        console.error('MiniMax TTS API error:', result);
+        throw new Error(`MiniMax TTS API error: ${result.msg} (Code: ${result.code})`);
+    }
+
+    // Check if result.status indicates failure
+    if (result.status === 'failed') {
+        throw new Error(`MiniMax TTS failed with status: ${result.status}`);
+    }
+
+    console.log('MiniMax TTS result status:', result.status || 'unknown');
 
     // Wait for completion if async
     if (result.status !== 'completed' && result.id) {
@@ -153,6 +171,12 @@ export async function POST(request: NextRequest) {
         const { userId: clerkId } = await auth();
         if (!clerkId) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        // Validate API Key
+        if (!WAVESPEED_API_KEY) {
+            console.error('WAVESPEED_API_KEY is missing');
+            return NextResponse.json({ error: 'Server configuration error: Missing API Key' }, { status: 500 });
         }
 
         const body = await request.json();
