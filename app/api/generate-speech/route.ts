@@ -160,11 +160,26 @@ async function pollWaveSpeedResult(predictionId: string): Promise<string> {
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 1000));
 
-        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}`, {
+        // Use the /result endpoint to get the status and output
+        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}/result`, {
             headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
         });
 
-        const result = await response.json();
+        // Debug response text if json fails
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error('Polling JSON parse error. Raw text:', text);
+            throw new Error(`Invalid polling response: ${text.substring(0, 100)}`);
+        }
+
+        // Handle wrapped response in polling too
+        if (result.code === 200 && result.data) {
+            result = result.data;
+        }
+
         console.log(`Polling MiniMax TTS (${i + 1}/${maxAttempts}): ${result.status}`);
 
         if (result.status === 'completed' && result.outputs?.[0]) {
