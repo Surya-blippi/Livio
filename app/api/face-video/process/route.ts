@@ -472,7 +472,7 @@ export async function POST(request: NextRequest) {
 
         const scene = scenes[currentIndex];
         // Use voiceSampleUrl for Chatterbox TTS, fall back to default if only legacy voiceId provided
-        const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+        const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
         const { audioUrl, duration } = await generateSceneTTS(scene.text, sampleUrl);
 
         if (scene.type === 'face') {

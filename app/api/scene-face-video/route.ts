@@ -20,38 +20,26 @@ interface SceneInput {
     assetUrl?: string;
 }
 
-// Chatterbox language type
-type ChatterboxLanguage = 'english' | 'arabic' | 'danish' | 'german' | 'greek' | 'spanish' | 'finnish' | 'french' | 'hebrew' | 'hindi' | 'italian' | 'japanese' | 'korean' | 'malay' | 'dutch' | 'norwegian' | 'polish' | 'portuguese' | 'russian' | 'swedish' | 'swahili' | 'turkish' | 'chinese';
-
-// Generate TTS for a single scene using Chatterbox (zero-shot voice cloning)
+// Generate TTS for a single scene using F5 TTS (zero-shot voice cloning)
 async function generateSceneTTS(
     text: string,
-    voiceSampleUrl: string,
-    language: ChatterboxLanguage = 'english'
+    voiceSampleUrl: string
 ): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..."`);
+    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with F5 TTS`);
 
-    // Chatterbox has 300 char limit, chunk if needed
-    const maxChars = 280;
-    if (text.length > maxChars) {
-        console.log(`  [TTS] Text too long (${text.length} chars), using first ${maxChars} chars`);
-        text = text.substring(0, maxChars);
-    }
-
-    const result = await fal.subscribe('fal-ai/chatterbox/text-to-speech/multilingual', {
+    const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
-            text,
-            voice: voiceSampleUrl, // Zero-shot cloning with voice sample URL
-            custom_audio_language: language,
-            exaggeration: 0.5,
-            temperature: 0.8,
-            cfg_scale: 0.5
+            gen_text: text,
+            ref_audio_url: voiceSampleUrl,  // Reference audio for voice cloning
+            ref_text: '',  // Let ASR auto-detect
+            model_type: 'F5-TTS',
+            remove_silence: true
         },
         logs: false
-    }) as unknown as { data: { audio: { url: string } } };
+    }) as unknown as { data: { audio_url: { url: string } } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from Chatterbox TTS');
+    if (!result.data?.audio_url?.url) {
+        throw new Error('No audio URL returned from F5 TTS');
     }
 
     // Estimate duration: ~150 words per minute, avg 5 chars per word
@@ -60,7 +48,7 @@ async function generateSceneTTS(
     console.log(`  [TTS] Generated ~${estimatedDuration.toFixed(2)}s audio`);
 
     return {
-        audioUrl: result.data.audio.url,
+        audioUrl: result.data.audio_url.url,
         duration: estimatedDuration
     };
 }
@@ -265,11 +253,11 @@ export async function POST(request: NextRequest) {
             } else {
                 // Legacy MiniMax voice ID - use default
                 console.warn('Legacy voice_id detected, using default voice sample');
-                sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+                sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
             }
         }
         if (!sampleUrl) {
-            sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+            sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
         }
 
         if (!scenes || scenes.length === 0 || !faceImageUrl) {

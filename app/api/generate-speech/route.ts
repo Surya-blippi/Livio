@@ -162,13 +162,13 @@ export async function POST(request: NextRequest) {
                 // Old MiniMax voice IDs won't work with Chatterbox
                 // Use default sample voice
                 console.warn('Legacy voice_id detected, using default voice sample');
-                sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+                sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
             }
         }
 
         if (!sampleUrl) {
             // Use default voice if no sample provided
-            sampleUrl = 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+            sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
         }
 
         // 1. Check credits

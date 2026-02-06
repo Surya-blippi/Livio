@@ -203,7 +203,7 @@ export async function generateSceneTTS(
     }
 
     // Use a default voice sample if none provided
-    const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+    const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
 
     // Auto-detect language from text if not explicitly provided
     const detectedLang = language || detectLanguage(text);
