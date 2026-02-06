@@ -15,7 +15,7 @@ const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinite
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
 const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 interface SceneInput {
     text: string;

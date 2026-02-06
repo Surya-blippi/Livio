@@ -6,7 +6,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const FAL_KEY = process.env.FAL_KEY;
 

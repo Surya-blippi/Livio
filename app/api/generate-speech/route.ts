@@ -8,8 +8,8 @@ import { cloneVoiceWithQwen, generateSpeechWithQwen } from '@/lib/fal';
 
 const FAL_KEY = process.env.FAL_KEY;
 
-// Allow longer timeout for JIT cloning
-export const maxDuration = 60;
+// Allow longer timeout for JIT cloning (5 mins)
+export const maxDuration = 300;
 
 
 
