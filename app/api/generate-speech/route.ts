@@ -1,135 +1,112 @@
-import { fal } from '@fal-ai/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase } from '@/lib/supabase';
 import { calculateAudioCredits } from '@/lib/credits';
 
-// Chatterbox language type
-type ChatterboxLanguage = 'english' | 'arabic' | 'danish' | 'german' | 'greek' | 'spanish' | 'finnish' | 'french' | 'hebrew' | 'hindi' | 'italian' | 'japanese' | 'korean' | 'malay' | 'dutch' | 'norwegian' | 'polish' | 'portuguese' | 'russian' | 'swedish' | 'swahili' | 'turkish' | 'chinese';
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
 
 /**
- * Chunk text for Chatterbox (max 300 chars per API call)
+ * Text chunking for long scripts
+ * MiniMax supports 10,000 chars but we chunk for safety
  */
-function chunkText(text: string, maxChars = 280): string[] {
-    if (text.length <= maxChars) return [text];
+function chunkText(text: string, maxCharsPerChunk: number = 5000): string[] {
+    if (text.length <= maxCharsPerChunk) {
+        return [text];
+    }
 
     const chunks: string[] = [];
-    let remaining = text;
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    let currentChunk = '';
 
-    while (remaining.length > 0) {
-        if (remaining.length <= maxChars) {
-            chunks.push(remaining.trim());
-            break;
-        }
-
-        let breakPoint = maxChars;
-        const sentenceEnd = remaining.slice(0, maxChars).lastIndexOf('. ');
-        const exclamEnd = remaining.slice(0, maxChars).lastIndexOf('! ');
-        const questEnd = remaining.slice(0, maxChars).lastIndexOf('? ');
-        const bestSentenceBreak = Math.max(sentenceEnd, exclamEnd, questEnd);
-
-        if (bestSentenceBreak > maxChars / 2) {
-            breakPoint = bestSentenceBreak + 1;
+    for (const sentence of sentences) {
+        if ((currentChunk + sentence).length <= maxCharsPerChunk) {
+            currentChunk += (currentChunk ? ' ' : '') + sentence;
         } else {
-            const commaBreak = remaining.slice(0, maxChars).lastIndexOf(', ');
-            if (commaBreak > maxChars / 2) {
-                breakPoint = commaBreak + 1;
-            } else {
-                const spaceBreak = remaining.slice(0, maxChars).lastIndexOf(' ');
-                if (spaceBreak > 0) breakPoint = spaceBreak;
+            if (currentChunk) {
+                chunks.push(currentChunk);
             }
+            currentChunk = sentence;
         }
+    }
 
-        chunks.push(remaining.slice(0, breakPoint).trim());
-        remaining = remaining.slice(breakPoint).trim();
+    if (currentChunk) {
+        chunks.push(currentChunk);
     }
 
     return chunks;
 }
 
 /**
- * Detect the language of text based on character patterns and Unicode ranges.
- * Returns the most likely Chatterbox-supported language.
+ * Generate TTS using MiniMax via WaveSpeed API
  */
-function detectLanguage(text: string): ChatterboxLanguage {
-    const cleanText = text.replace(/[0-9\s.,!?;:'"()-]/g, '');
-    if (cleanText.length === 0) return 'english';
+async function generateMiniMaxTTS(
+    text: string,
+    minimaxVoiceId: string
+): Promise<{ audioUrl: string }> {
+    console.log(`🎤 MiniMax TTS: "${text.substring(0, 50)}..." (voice: ${minimaxVoiceId})`);
 
-    const charCounts = {
-        arabic: 0, hebrew: 0, hindi: 0, chinese: 0,
-        japanese: 0, korean: 0, greek: 0, russian: 0, latin: 0,
-    };
+    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            text: text,
+            voice_id: minimaxVoiceId,
+            speed: 1.0,
+            vol: 1.0,
+            pitch: 0,
+            audio_sample_rate: 24000,
+            bitrate: 128000
+        })
+    });
 
-    for (const char of cleanText) {
-        const code = char.charCodeAt(0);
-        if (code >= 0x0600 && code <= 0x06FF) charCounts.arabic++;
-        else if (code >= 0x0590 && code <= 0x05FF) charCounts.hebrew++;
-        else if (code >= 0x0900 && code <= 0x097F) charCounts.hindi++;
-        else if (code >= 0x4E00 && code <= 0x9FFF) charCounts.chinese++;
-        else if ((code >= 0x3040 && code <= 0x30FF) || (code >= 0x31F0 && code <= 0x31FF)) charCounts.japanese++;
-        else if ((code >= 0xAC00 && code <= 0xD7AF) || (code >= 0x1100 && code <= 0x11FF)) charCounts.korean++;
-        else if (code >= 0x0370 && code <= 0x03FF) charCounts.greek++;
-        else if (code >= 0x0400 && code <= 0x04FF) charCounts.russian++;
-        else if (code <= 0x024F) charCounts.latin++;
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('MiniMax TTS error:', errorData);
+        throw new Error(`MiniMax TTS failed: ${JSON.stringify(errorData)}`);
     }
 
-    const total = cleanText.length;
-    const threshold = 0.3;
+    const result = await response.json();
+    console.log('MiniMax TTS result:', result.status);
 
-    if (charCounts.arabic / total > threshold) return 'arabic';
-    if (charCounts.hebrew / total > threshold) return 'hebrew';
-    if (charCounts.hindi / total > threshold) return 'hindi';
-    if (charCounts.chinese / total > threshold) return 'chinese';
-    if (charCounts.japanese / total > threshold) return 'japanese';
-    if (charCounts.korean / total > threshold) return 'korean';
-    if (charCounts.greek / total > threshold) return 'greek';
-    if (charCounts.russian / total > threshold) return 'russian';
+    // Wait for completion if async
+    if (result.status !== 'completed' && result.id) {
+        const audioUrl = await pollWaveSpeedResult(result.id);
+        return { audioUrl };
+    }
 
-    // Latin-script language detection via common words
-    const lowerText = text.toLowerCase();
-    if (/\b(el|la|los|las|es|está|que|con|por|para|como|más|pero|muy)\b/.test(lowerText)) return 'spanish';
-    if (/\b(le|la|les|est|sont|avec|pour|dans|sur|très|mais|aussi)\b/.test(lowerText)) return 'french';
-    if (/\b(der|die|das|ist|sind|mit|für|auf|sehr|aber|auch|wenn)\b/.test(lowerText)) return 'german';
-    if (/\b(o|a|os|as|é|são|com|para|em|muito|mas|também)\b/.test(lowerText)) return 'portuguese';
-    if (/\b(il|la|i|le|è|sono|con|per|in|molto|ma|anche)\b/.test(lowerText)) return 'italian';
+    if (!result.outputs?.[0]) {
+        throw new Error('No audio URL from MiniMax TTS');
+    }
 
-    return 'english';
+    return { audioUrl: result.outputs[0] };
 }
 
 /**
- * Generate TTS using F5 TTS with voice cloning
- * 
- * F5 TTS supports longer audio samples unlike Dia TTS (30s limit)
- * Uses ref_text to prevent ASR bleed (random words at start)
+ * Poll WaveSpeed for async result completion
  */
-async function generateF5TTS(
-    text: string,
-    voiceSampleUrl: string,
-    refText?: string
-): Promise<{ audioUrl: string }> {
-    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (refText: ${refText ? 'provided' : 'auto-detect'})`);
+async function pollWaveSpeedResult(predictionId: string): Promise<string> {
+    const maxAttempts = 60;
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1000));
 
-    const result = await fal.subscribe('fal-ai/f5-tts', {
-        input: {
-            gen_text: text,
-            ref_audio_url: voiceSampleUrl,
-            ref_text: refText || '',  // Empty = auto-detect via ASR
-            model_type: 'F5-TTS',
-            remove_silence: true
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-            if (update.status === 'IN_PROGRESS') {
-                console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
-            }
+        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}`, {
+            headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
+        });
+
+        const result = await response.json();
+        console.log(`Polling MiniMax TTS (${i + 1}/${maxAttempts}): ${result.status}`);
+
+        if (result.status === 'completed' && result.outputs?.[0]) {
+            return result.outputs[0];
         }
-    }) as unknown as { data: { audio_url: { url: string } } };
-
-    if (!result.data?.audio_url?.url) {
-        throw new Error('No audio URL returned from F5 TTS');
+        if (result.status === 'failed') {
+            throw new Error('MiniMax TTS generation failed');
+        }
     }
-
-    return { audioUrl: result.data.audio_url.url };
+    throw new Error('MiniMax TTS timeout');
 }
 
 export async function POST(request: NextRequest) {
@@ -141,7 +118,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { script, voiceSampleUrl, customVoiceId, language } = body;  // language is now optional
+        const { script } = body;
 
         if (!script) {
             return NextResponse.json(
@@ -150,27 +127,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Determine voice sample URL (accept either new voiceSampleUrl or legacy customVoiceId)
-        // If customVoiceId looks like a URL, use it; otherwise we need voiceSampleUrl
-        let sampleUrl = voiceSampleUrl;
-        if (!sampleUrl && customVoiceId) {
-            // Check if customVoiceId is actually a URL (for backward compatibility)
-            if (customVoiceId.startsWith('http')) {
-                sampleUrl = customVoiceId;
-            } else {
-                // Old MiniMax voice IDs won't work with Chatterbox
-                // Use default sample voice
-                console.warn('Legacy voice_id detected, using default voice sample');
-                sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
-            }
-        }
-
-        if (!sampleUrl) {
-            // Use default voice if no sample provided
-            sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
-        }
-
-        // 1. Check credits
+        // Get user
         const currentUserData = await currentUser();
         const user = await getOrCreateUser(
             clerkId,
@@ -183,6 +140,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
+        // Check credits
         const cost = calculateAudioCredits(script.length);
         const hasCredits = await hasEnoughCredits(user.id, cost);
 
@@ -193,82 +151,72 @@ export async function POST(request: NextRequest) {
             }, { status: 402 });
         }
 
-        // Auto-detect language from script if not provided
-        const detectedLang = language || detectLanguage(script);
-
-        // Look up ref_text from voices table for this user
-        // This prevents random words appearing in TTS output (ASR bleed)
-        let refText: string | undefined;
+        // Look up minimax_voice_id from voices table
         const { data: voiceData } = await supabase
             .from('voices')
-            .select('ref_text')
+            .select('minimax_voice_id')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .single();
 
-        if (voiceData?.ref_text) {
-            refText = voiceData.ref_text;
-            console.log('Using stored ref_text:', refText!.substring(0, 50) + '...');
-        } else {
-            console.warn('No ref_text found for voice - may have ASR artifacts');
+        if (!voiceData?.minimax_voice_id) {
+            return NextResponse.json({
+                error: 'No cloned voice found. Please upload a voice sample first.',
+                code: 'NO_VOICE'
+            }, { status: 400 });
         }
 
-        console.log('Generating speech with Dia TTS:', {
+        const minimaxVoiceId = voiceData.minimax_voice_id;
+        console.log('Using MiniMax voice ID:', minimaxVoiceId);
+
+        // Generate TTS with MiniMax
+        console.log('Generating speech with MiniMax TTS:', {
             scriptLength: script.length,
-            voiceSample: sampleUrl.substring(0, 50) + '...',
-            hasRefText: !!refText
+            voiceId: minimaxVoiceId
         });
 
-        // 2. Chunk text if needed and generate TTS
         const chunks = chunkText(script);
         console.log(`Text split into ${chunks.length} chunk(s)`);
 
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateF5TTS(chunks[i], sampleUrl, refText);
+            const result = await generateMiniMaxTTS(chunks[i], minimaxVoiceId);
             audioUrls.push(result.audioUrl);
         }
 
-        // For now, return the first audio URL
-        // TODO: Implement audio concatenation for multi-chunk scripts
         const audioUrl = audioUrls[0];
 
         // Estimate duration: ~150 words per minute, avg 5 chars per word
         const estimatedDurationMs = (script.length / 5 / 150) * 60 * 1000;
 
-        // 3. Deduct credits
-        await deductCredits(user.id, cost, 'Generated Speech (Chatterbox)', {
+        // Deduct credits
+        await deductCredits(user.id, cost, 'Generated Speech (MiniMax)', {
             charCount: script.length,
             chunks: chunks.length,
-            language
+            voiceId: minimaxVoiceId
         });
 
         console.log(`✅ Speech generated: ${audioUrl}`);
 
         return NextResponse.json({
             audioUrl,
-            durationMs: Math.max(estimatedDurationMs, 1000)
+            duration: estimatedDurationMs,
+            cost
         });
 
     } catch (error: unknown) {
-        console.error('Error generating speech:', error);
+        console.error('Speech generation error:', error);
 
-        let errorMessage = 'Failed to generate speech';
-        let errorDetails = null;
-
+        let errorMessage = 'Speech generation failed';
         if (error instanceof Error) {
             errorMessage = error.message;
-        }
-
-        if (typeof error === 'object' && error !== null) {
-            errorDetails = error;
         }
 
         return NextResponse.json(
             {
                 error: errorMessage,
-                details: errorDetails
+                hint: 'Please try again or re-upload your voice sample.'
             },
             { status: 500 }
         );

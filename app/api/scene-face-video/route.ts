@@ -20,27 +20,46 @@ interface SceneInput {
     assetUrl?: string;
 }
 
-// Generate TTS for a single scene using F5 TTS (voice cloning)
+// Generate TTS for a single scene using MiniMax via WaveSpeed
 async function generateSceneTTS(
     text: string,
-    voiceSampleUrl: string,
-    refText?: string
+    minimaxVoiceId: string
 ): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with F5 TTS`);
+    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with MiniMax TTS`);
 
-    const result = await fal.subscribe('fal-ai/f5-tts', {
-        input: {
-            gen_text: text,
-            ref_audio_url: voiceSampleUrl,
-            ref_text: refText || '',  // Empty = auto-detect via ASR
-            model_type: 'F5-TTS',
-            remove_silence: true
+    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+            'Content-Type': 'application/json'
         },
-        logs: false
-    }) as unknown as { data: { audio_url: { url: string } } };
+        body: JSON.stringify({
+            text: text,
+            voice_id: minimaxVoiceId,
+            speed: 1.0,
+            vol: 1.0,
+            pitch: 0,
+            audio_sample_rate: 24000,
+            bitrate: 128000
+        })
+    });
 
-    if (!result.data?.audio_url?.url) {
-        throw new Error('No audio URL returned from F5 TTS');
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('MiniMax TTS error:', errorData);
+        throw new Error(`MiniMax TTS failed: ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+
+    let audioUrl = '';
+    if (result.status === 'completed' && result.outputs?.[0]) {
+        audioUrl = result.outputs[0];
+    } else if (result.id) {
+        // Poll for completion
+        audioUrl = await pollWaveSpeedTTS(result.id);
+    } else {
+        throw new Error('No audio URL returned from MiniMax TTS');
     }
 
     // Estimate duration: ~150 words per minute, avg 5 chars per word
@@ -49,9 +68,31 @@ async function generateSceneTTS(
     console.log(`  [TTS] Generated ~${estimatedDuration.toFixed(2)}s audio`);
 
     return {
-        audioUrl: result.data.audio_url.url,
+        audioUrl,
         duration: estimatedDuration
     };
+}
+
+// Poll WaveSpeed for TTS completion
+async function pollWaveSpeedTTS(predictionId: string): Promise<string> {
+    const maxAttempts = 60;
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+
+        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}`, {
+            headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'completed' && result.outputs?.[0]) {
+            return result.outputs[0];
+        }
+        if (result.status === 'failed') {
+            throw new Error('MiniMax TTS generation failed');
+        }
+    }
+    throw new Error('MiniMax TTS timeout');
 }
 
 // Generate WaveSpeed face video and return the video URL
@@ -241,25 +282,28 @@ export async function POST(request: NextRequest) {
             scenes: SceneInput[];
             faceImageUrl: string;
             voiceId?: string; // Deprecated
-            voiceSampleUrl?: string; // New: URL to voice sample for Chatterbox
+            voiceSampleUrl?: string; // Deprecated
             enableBackgroundMusic?: boolean;
             enableCaptions?: boolean;
         };
 
-        // Determine voice sample URL (support both old voiceId and new voiceSampleUrl)
-        let sampleUrl = voiceSampleUrl;
-        if (!sampleUrl && voiceId) {
-            if (voiceId.startsWith('http')) {
-                sampleUrl = voiceId;
-            } else {
-                // Legacy MiniMax voice ID - use default
-                console.warn('Legacy voice_id detected, using default voice sample');
-                sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
-            }
+        // Look up minimax_voice_id from voices table
+        const { data: voiceData } = await supabase
+            .from('voices')
+            .select('minimax_voice_id')
+            .eq('user_id', dbUser.id)
+            .eq('is_active', true)
+            .single();
+
+        if (!voiceData?.minimax_voice_id) {
+            return NextResponse.json({
+                error: 'No cloned voice found. Please upload a voice sample first.',
+                code: 'NO_VOICE'
+            }, { status: 400 });
         }
-        if (!sampleUrl) {
-            sampleUrl = 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
-        }
+
+        const minimaxVoiceId = voiceData.minimax_voice_id;
+        console.log('Using MiniMax voice ID:', minimaxVoiceId);
 
         if (!scenes || scenes.length === 0 || !faceImageUrl) {
             return NextResponse.json(
@@ -317,8 +361,8 @@ export async function POST(request: NextRequest) {
             const scene = scenes[i];
             console.log(`\n📍 Scene ${i + 1}/${scenes.length}: ${scene.type.toUpperCase()}`);
 
-            // 1. Generate TTS for this scene using Chatterbox
-            const { audioUrl, duration } = await generateSceneTTS(scene.text, sampleUrl);
+            // 1. Generate TTS for this scene using MiniMax
+            const { audioUrl, duration } = await generateSceneTTS(scene.text, minimaxVoiceId);
 
             // 2. Generate video clip or use asset
             let clipUrl: string;

@@ -52,6 +52,7 @@ export interface DbVoice {
     preview_url?: string;
     name?: string;
     ref_text?: string;  // Transcription for F5 TTS (prevents ASR bleed)
+    minimax_voice_id?: string;  // MiniMax voice ID for TTS
     is_active: boolean;
     created_at: string;
 }
@@ -269,8 +270,9 @@ export async function saveVoice(
     voiceSampleUrl: string,
     name?: string,
     previewUrl?: string,
-    refText?: string,  // Transcription for F5 TTS
-    client: any = supabase // Use authenticated client if provided
+    refText?: string,
+    minimaxVoiceId?: string,  // MiniMax voice ID for TTS
+    client: any = supabase
 ): Promise<DbVoice | null> {
     // Validate userId is a UUID, not a Clerk ID
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -295,7 +297,8 @@ export async function saveVoice(
             voice_sample_url: voiceSampleUrl,
             preview_url: previewUrl,
             name: name || 'My Voice',
-            ref_text: refText || null,  // Store transcription for F5 TTS
+            ref_text: refText || null,
+            minimax_voice_id: minimaxVoiceId || null,  // MiniMax voice ID
             is_active: true,
         })
         .select()

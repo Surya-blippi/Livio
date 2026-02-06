@@ -5,12 +5,13 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
+
 /**
- * Voice "cloning" route - With Chatterbox, we don't need to call an external API.
- * We simply upload the voice sample to storage and return the URL.
- * The actual zero-shot cloning happens during TTS generation.
+ * Voice cloning route using WaveSpeed MiniMax.
  * 
- * This route is now FREE (no credits charged).
+ * One-time voice clone creates a reusable minimax_voice_id.
+ * This ID is saved to DB and used for all future TTS calls.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        // Get user (for userId)
+        // Get user
         const currentUserData = await currentUser();
         const user = await getOrCreateUser(
             clerkId,
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        console.log('CHECKPOINT: Starting voice upload (Chatterbox mode - no clone API call)');
+        console.log('🎤 Starting MiniMax voice cloning via WaveSpeed');
 
         let audioBuffer: Buffer;
         let originalName = 'audio.webm';
@@ -42,15 +43,10 @@ export async function POST(request: NextRequest) {
         if (request.headers.get('content-type')?.includes('application/json')) {
             const body = await request.json();
             if (body.audioUrl) {
-                console.log('Using provided audio URL:', body.audioUrl);
-                // If URL is already hosted, we can use it directly
-                // Just return the URL as-is (no need to re-upload)
-                return NextResponse.json({
-                    voiceId: null, // Not used with Chatterbox
-                    voiceSampleUrl: body.audioUrl,
-                    previewUrl: body.audioUrl,
-                    message: 'Voice sample ready for Chatterbox TTS'
-                });
+                // Download the audio from the URL
+                const audioResponse = await fetch(body.audioUrl);
+                audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+                originalName = 'audio.mp3';
             } else {
                 return NextResponse.json({ error: 'audioUrl is required in JSON body' }, { status: 400 });
             }
@@ -66,37 +62,47 @@ export async function POST(request: NextRequest) {
             originalName = audioFile.name;
         }
 
-        // 2. Upload to FAL storage to get a public URL
-        console.log('CHECKPOINT: Uploading to Fal storage...');
+        // 2. Upload to FAL storage to get a public URL for WaveSpeed
+        console.log('📤 Uploading to FAL storage...');
         const fileObj = new File([new Uint8Array(audioBuffer)], originalName, {
             type: 'audio/mpeg'
         });
         const storageUrl = await fal.storage.upload(fileObj);
-        console.log('CHECKPOINT: Audio uploaded to:', storageUrl);
+        console.log('✓ Audio uploaded to:', storageUrl);
 
-        // 3. Transcribe with Whisper to get ref_text for F5 TTS
-        // This prevents ASR bleed (random words appearing in TTS output)
-        console.log('CHECKPOINT: Transcribing voice sample with Whisper...');
-        let refText = '';
-        try {
-            const whisperResult = await fal.subscribe('fal-ai/whisper', {
-                input: {
-                    audio_url: storageUrl,
-                    task: 'transcribe',
-                    chunk_level: 'none',  // Get full transcription without timestamps
-                    version: '3'
-                },
-                logs: false
-            }) as unknown as { data: { text: string } };
+        // 3. Generate unique custom_voice_id for MiniMax
+        // Format: Must be 8+ chars, alphanumeric, start with letter
+        const customVoiceId = `v${user.id.replace(/-/g, '').substring(0, 12)}${Date.now().toString(36)}`;
+        console.log('🔑 Generated custom_voice_id:', customVoiceId);
 
-            refText = whisperResult.data?.text || '';
-            console.log('CHECKPOINT: Whisper transcription:', refText.substring(0, 100), '...');
-        } catch (whisperError) {
-            console.warn('Whisper transcription failed, will use ASR:', whisperError);
-            // Continue without ref_text - F5 TTS will use ASR fallback
+        // 4. Call WaveSpeed MiniMax voice clone API
+        console.log('🧬 Calling WaveSpeed MiniMax voice-clone API...');
+        const cloneResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/voice-clone', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                audio: storageUrl,
+                custom_voice_id: customVoiceId,
+                model: 'speech-02-hd',
+                need_noise_reduction: true,
+                language_boost: 'auto',
+                text: 'Hello! This is a preview of your cloned voice.'
+            })
+        });
+
+        if (!cloneResponse.ok) {
+            const errorData = await cloneResponse.json();
+            console.error('MiniMax clone error:', errorData);
+            throw new Error(`Voice cloning failed: ${JSON.stringify(errorData)}`);
         }
 
-        // 4. Also upload to Supabase for long-term storage backup
+        const cloneResult = await cloneResponse.json();
+        console.log('✓ MiniMax voice clone result:', cloneResult);
+
+        // 5. Also upload to Supabase for long-term storage backup
         const fileExt = originalName.split('.').pop() || 'mp3';
         const fileName = `${user.id}_${uuidv4()}.${fileExt}`;
         const filePath = `uploads/${fileName}`;
@@ -108,30 +114,28 @@ export async function POST(request: NextRequest) {
                 upsert: false
             });
 
-        let supabaseUrl = storageUrl; // Fallback to FAL URL
+        let supabaseUrl = storageUrl;
         if (!uploadError) {
             const { data } = supabase.storage.from('voices').getPublicUrl(filePath);
             supabaseUrl = data.publicUrl;
-            console.log('CHECKPOINT: Also uploaded to Supabase:', supabaseUrl);
-        } else {
-            console.warn('Supabase upload failed, using FAL URL:', uploadError);
+            console.log('✓ Also uploaded to Supabase:', supabaseUrl);
         }
 
-        console.log('✅ Voice sample uploaded successfully with transcription.');
+        console.log('✅ Voice cloned successfully with MiniMax! Voice ID:', customVoiceId);
 
         return NextResponse.json({
-            voiceId: null,
+            voiceId: customVoiceId,  // MiniMax custom_voice_id
+            minimaxVoiceId: customVoiceId,  // Explicit field
             voiceSampleUrl: storageUrl,
-            refText: refText,  // New: transcription for F5 TTS
             supabaseUrl: supabaseUrl,
-            previewUrl: storageUrl,
-            message: 'Voice sample uploaded with transcription for TTS.'
+            previewUrl: cloneResult.outputs?.[0] || storageUrl,
+            message: 'Voice cloned with MiniMax. Ready for TTS!'
         });
 
     } catch (error: unknown) {
-        console.error('Error uploading voice:', error);
+        console.error('Error cloning voice:', error);
 
-        let errorMessage = 'Failed to upload voice';
+        let errorMessage = 'Failed to clone voice';
 
         if (error instanceof Error) {
             errorMessage = error.message;
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 error: errorMessage,
-                hint: 'Voice upload requires a valid audio file.'
+                hint: 'Voice cloning requires a valid audio file.'
             },
             { status: 500 }
         );
