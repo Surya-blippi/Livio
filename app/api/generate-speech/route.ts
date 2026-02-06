@@ -112,11 +112,17 @@ async function generateMiniMaxTTS(
         throw new Error(`MiniMax TTS failed: ${JSON.stringify(errorData)}`);
     }
 
-    const result = await response.json();
-    // console.log('MiniMax TTS result full:', JSON.stringify(result)); // Debug full response
+    let result = await response.json();
+    console.log('MiniMax TTS result full:', JSON.stringify(result)); // Debug full response
+
+    // Handle wrapped response (common in WaveSpeed/MiniMax)
+    if (result.code === 200 && result.data) {
+        result = result.data;
+    }
 
     // Check for API-level errors even if HTTP 200 (common in some AI APIs)
-    if (result.code && result.code !== 0 && result.msg) {
+    // If result was NOT wrapped, checking code != 0 might still be valid
+    if (result.code && result.code !== 0 && result.code !== 200 && result.msg) {
         console.error('MiniMax TTS API error:', result);
         throw new Error(`MiniMax TTS API error: ${result.msg} (Code: ${result.code})`);
     }
@@ -135,7 +141,12 @@ async function generateMiniMaxTTS(
     }
 
     if (!result.outputs?.[0]) {
-        throw new Error('No audio URL from MiniMax TTS');
+        if (result.status === 'created' || result.status === 'processing') {
+            // If status is created/processing but no outputs yet, polling should have caught it.
+            // But if id is missing, we can't poll.
+            throw new Error(`MiniMax TTS incomplete (Status: ${result.status}), but no ID returned for polling.`);
+        }
+        throw new Error(`No audio URL from MiniMax TTS. Full result: ${JSON.stringify(result)}`);
     }
 
     return { audioUrl: result.outputs[0] };
