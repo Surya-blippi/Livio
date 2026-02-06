@@ -11,7 +11,7 @@ fal.config({
 });
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-const WAVESPEED_API_KEY = process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY!;
 const JSON2VIDEO_API_KEY = process.env.JSON2VIDEO_API_KEY!;
 
 interface SceneInput {

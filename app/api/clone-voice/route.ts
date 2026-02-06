@@ -5,7 +5,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 
-const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
 
 /**
  * Voice cloning route using WaveSpeed MiniMax.

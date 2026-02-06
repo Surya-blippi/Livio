@@ -6,7 +6,7 @@ import { calculateAudioCredits } from '@/lib/credits';
 // Need fal for JIT cloning to ensure file access if needed (though we use URL directly)
 import { fal } from '@fal-ai/client';
 
-const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
 
 /**
  * Helper: Clone voice via WaveSpeed MiniMax

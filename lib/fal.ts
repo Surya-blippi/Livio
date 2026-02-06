@@ -150,7 +150,7 @@ function detectLanguage(text: string): ChatterboxLanguage {
     return 'english';
 }
 
-const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
+const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
 
 /**
  * Generate TTS using MiniMax via WaveSpeed API
