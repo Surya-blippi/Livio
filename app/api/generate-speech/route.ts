@@ -97,27 +97,26 @@ function detectLanguage(text: string): ChatterboxLanguage {
 }
 
 /**
- * Generate TTS using Chatterbox Multilingual with zero-shot voice cloning
+ * Generate TTS using F5 TTS with zero-shot voice cloning
  * 
- * Parameter tuning for natural voice cloning:
- * - exaggeration (0.25-2.0): Controls expressiveness. 0.5 is neutral, higher = more expressive
- * - temperature (0.05-5.0): Controls variation. Higher = more varied speech patterns
- * - cfg_scale (0.0-1.0): Guidance strength. LOWER values work better for voice cloning
+ * F5 TTS provides excellent pronunciation quality with:
+ * - Zero-shot voice cloning from reference audio
+ * - Natural prosody and clear pronunciation
+ * - No character limit
  */
-async function generateChatterboxTTS(
+async function generateF5TTS(
     text: string,
-    voiceSampleUrl: string,
-    language: ChatterboxLanguage = 'english'
+    voiceSampleUrl: string
 ): Promise<{ audioUrl: string }> {
-    const result = await fal.subscribe('fal-ai/chatterbox/text-to-speech/multilingual', {
+    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (Voice: ${voiceSampleUrl.substring(0, 50)}...)`);
+
+    const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
-            text,
-            voice: voiceSampleUrl,
-            custom_audio_language: language,
-            // Tuned parameters for natural voice cloning:
-            exaggeration: 0.65,    // Slightly more expressive - less robotic
-            temperature: 0.7,      // Slightly lower variation - more consistent
-            cfg_scale: 0.15        // Much lower guidance - better voice matching
+            gen_text: text,
+            ref_audio_url: voiceSampleUrl,  // Reference audio for voice cloning
+            ref_text: '',  // Let ASR auto-detect reference text
+            model_type: 'F5-TTS',
+            remove_silence: true
         },
         logs: true,
         onQueueUpdate: (update) => {
@@ -125,13 +124,13 @@ async function generateChatterboxTTS(
                 console.log('TTS progress:', update.logs?.map((log: { message: string }) => log.message));
             }
         }
-    }) as unknown as { data: { audio: { url: string } } };
+    }) as unknown as { data: { audio_url: { url: string } } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL returned from Chatterbox TTS');
+    if (!result.data?.audio_url?.url) {
+        throw new Error('No audio URL returned from F5 TTS');
     }
 
-    return { audioUrl: result.data.audio.url };
+    return { audioUrl: result.data.audio_url.url };
 }
 
 export async function POST(request: NextRequest) {
@@ -212,7 +211,7 @@ export async function POST(request: NextRequest) {
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-            const result = await generateChatterboxTTS(chunks[i], sampleUrl, detectedLang as ChatterboxLanguage);
+            const result = await generateF5TTS(chunks[i], sampleUrl);
             audioUrls.push(result.audioUrl);
         }
 

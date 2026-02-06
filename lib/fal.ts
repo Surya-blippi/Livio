@@ -151,37 +151,35 @@ function detectLanguage(text: string): ChatterboxLanguage {
 }
 
 /**
- * Generate TTS for a single chunk using Chatterbox Multilingual
+ * Generate TTS for a single chunk using F5 TTS
  * 
- * Parameter tuning for natural voice cloning:
- * - exaggeration (0.25-2.0): Controls expressiveness. 0.5 is neutral, higher = more expressive
- * - temperature (0.05-5.0): Controls variation. Higher = more varied speech patterns
- * - cfg_scale (0.0-1.0): Guidance strength. LOWER values (0.0-0.2) work better for voice cloning
- *   as they reduce "accent inheritance" and let the voice sample shine through
+ * F5 TTS provides much better pronunciation than Chatterbox with:
+ * - Zero-shot voice cloning from reference audio
+ * - Natural prosody and clear pronunciation
+ * - No character limit
  */
-async function generateChatterboxTTS(
+async function generateF5TTS(
     text: string,
-    voiceSampleUrl: string,
-    language: ChatterboxLanguage = 'english'
+    voiceSampleUrl: string
 ): Promise<{ audioUrl: string }> {
-    const result = await fal.subscribe('fal-ai/chatterbox/text-to-speech/multilingual', {
+    console.log(`🎤 F5 TTS: "${text.substring(0, 50)}..." (Voice: ${voiceSampleUrl.substring(0, 50)}...)`);
+
+    const result = await fal.subscribe('fal-ai/f5-tts', {
         input: {
-            text,
-            voice: voiceSampleUrl, // Custom audio URL for zero-shot cloning
-            custom_audio_language: language,
-            // Tuned parameters for natural voice cloning:
-            exaggeration: 0.65,    // Slightly more expressive (was 0.5) - less robotic
-            temperature: 0.7,      // Slightly lower variation (was 0.8) - more consistent
-            cfg_scale: 0.15        // Much lower guidance (was 0.5) - better voice matching
+            gen_text: text,
+            ref_audio_url: voiceSampleUrl,  // Reference audio for voice cloning
+            ref_text: '',  // Let ASR auto-detect reference text
+            model_type: 'F5-TTS',
+            remove_silence: true
         },
         logs: false
-    }) as unknown as { data: { audio: { url: string } } };
+    }) as unknown as { data: { audio_url: { url: string } } };
 
-    if (!result.data?.audio?.url) {
-        throw new Error('No audio URL from Chatterbox TTS');
+    if (!result.data?.audio_url?.url) {
+        throw new Error('No audio URL from F5 TTS');
     }
 
-    return { audioUrl: result.data.audio.url };
+    return { audioUrl: result.data.audio_url.url };
 }
 
 /**
@@ -218,7 +216,7 @@ export async function generateSceneTTS(
 
         if (chunks.length === 1) {
             // Single chunk - simple case
-            const result = await generateChatterboxTTS(chunks[0], sampleUrl, detectedLang);
+            const result = await generateF5TTS(chunks[0], sampleUrl);
             // Estimate duration: ~150 words per minute, avg 5 chars per word
             const estimatedDuration = (text.length / 5 / 150) * 60;
             return {
@@ -231,7 +229,7 @@ export async function generateSceneTTS(
         const audioUrls: string[] = [];
         for (let i = 0; i < chunks.length; i++) {
             console.log(`  Chunk ${i + 1}/${chunks.length}: "${chunks[i].substring(0, 30)}..."`);
-            const result = await generateChatterboxTTS(chunks[i], sampleUrl, detectedLang);
+            const result = await generateF5TTS(chunks[i], sampleUrl);
             audioUrls.push(result.audioUrl);
         }
 
