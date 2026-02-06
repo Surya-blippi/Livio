@@ -5,6 +5,7 @@ import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput, Json2VideoMovie } from '@/lib/json2video';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { CREDIT_COSTS } from '@/lib/credits';
+import { cloneVoiceWithQwen, generateSpeechWithQwen } from '@/lib/fal';
 
 fal.config({
     credentials: process.env.FAL_KEY
@@ -21,113 +22,33 @@ interface SceneInput {
 }
 
 /**
- * Helper: Clone voice via WaveSpeed MiniMax
+ * Helper: Clone voice via Qwen (JIT)
  */
-async function cloneVoiceWithMiniMax(audioUrl: string, userId: string): Promise<string> {
-    const customVoiceId = `v${userId.replace(/-/g, '').substring(0, 12)}${Date.now().toString(36)}`;
-    console.log('🧬 JIT Cloning: Calling WaveSpeed MiniMax voice-clone API...');
-
-    const cloneResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/voice-clone', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            audio: audioUrl,
-            custom_voice_id: customVoiceId,
-            model: 'speech-02-hd',
-            need_noise_reduction: true,
-            language_boost: 'auto',
-            text: 'Hello! This is a preview of your cloned voice.'
-        })
-    });
-
-    if (!cloneResponse.ok) {
-        const errorData = await cloneResponse.json();
-        console.error('MiniMax clone error:', errorData);
-        throw new Error(`Voice cloning failed: ${JSON.stringify(errorData)}`);
-    }
-
-    const cloneResult = await cloneResponse.json();
-    console.log('✓ MiniMax voice clone result:', cloneResult);
-
-    return customVoiceId;
+async function cloneVoiceWithQwenForUser(audioUrl: string, userId: string): Promise<string> {
+    console.log('🧬 JIT Cloning: Calling Qwen voice-clone API...');
+    const { embeddingUrl } = await cloneVoiceWithQwen(audioUrl);
+    console.log('✓ Qwen voice clone result:', embeddingUrl);
+    return embeddingUrl;
 }
 
-// Generate TTS for a single scene using MiniMax via WaveSpeed
+// Generate TTS for a single scene using Qwen
 async function generateSceneTTS(
     text: string,
-    minimaxVoiceId: string
+    embeddingUrl: string
 ): Promise<{ audioUrl: string; duration: number }> {
-    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with MiniMax TTS`);
+    console.log(`  [TTS] Generating for: "${text.substring(0, 50)}..." with Qwen TTS`);
 
-    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            text: text,
-            voice_id: minimaxVoiceId,
-            speed: 1.0,
-            vol: 1.0,
-            pitch: 0,
-            audio_sample_rate: 24000,
-            bitrate: 128000
-        })
+    // Use lib/fal helper which handles chunking and Qwen API
+    const result = await generateSpeechWithQwen(text, {
+        embeddingUrl
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error('MiniMax TTS error:', errorData);
-        throw new Error(`MiniMax TTS failed: ${JSON.stringify(errorData)}`);
-    }
-
-    const result = await response.json();
-
-    let audioUrl = '';
-    if (result.status === 'completed' && result.outputs?.[0]) {
-        audioUrl = result.outputs[0];
-    } else if (result.id) {
-        // Poll for completion
-        audioUrl = await pollWaveSpeedTTS(result.id);
-    } else {
-        throw new Error('No audio URL returned from MiniMax TTS');
-    }
-
-    // Estimate duration: ~150 words per minute, avg 5 chars per word
-    const estimatedDuration = Math.max((text.length / 5 / 150) * 60, 1);
-
-    console.log(`  [TTS] Generated ~${estimatedDuration.toFixed(2)}s audio`);
+    console.log(`  [TTS] Generated ~${result.duration.toFixed(2)}s audio`);
 
     return {
-        audioUrl,
-        duration: estimatedDuration
+        audioUrl: result.audioUrl,
+        duration: result.duration
     };
-}
-
-// Poll WaveSpeed for TTS completion
-async function pollWaveSpeedTTS(predictionId: string): Promise<string> {
-    const maxAttempts = 60;
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-
-        const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${predictionId}`, {
-            headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'completed' && result.outputs?.[0]) {
-            return result.outputs[0];
-        }
-        if (result.status === 'failed') {
-            throw new Error('MiniMax TTS generation failed');
-        }
-    }
-    throw new Error('MiniMax TTS timeout');
 }
 
 // Generate WaveSpeed face video and return the video URL
@@ -322,37 +243,37 @@ export async function POST(request: NextRequest) {
             enableCaptions?: boolean;
         };
 
-        // Look up minimax_voice_id AND voice_sample_url from voices table
+        // Look up qwen_embedding_url using voice_sample_url
         const { data: voiceData } = await supabase
             .from('voices')
-            .select('minimax_voice_id, voice_sample_url')
+            .select('qwen_embedding_url, voice_sample_url')
             .eq('user_id', dbUser.id)
             .eq('is_active', true)
             .single();
 
-        let minimaxVoiceId = voiceData?.minimax_voice_id;
+        let embeddingUrl = voiceData?.qwen_embedding_url;
 
-        // JIT Cloning Logic: If we have a sample URL but no MiniMax ID, clone it now!
-        if (!minimaxVoiceId && voiceData?.voice_sample_url) {
-            console.log('⚠️ No MiniMax ID found, but voice sample exists. Triggering JIT cloning...');
+        // JIT Cloning Logic: If we have a sample URL but no Qwen embedding, clone it now!
+        if (!embeddingUrl && voiceData?.voice_sample_url) {
+            console.log('⚠️ No Qwen embedding found, but voice sample exists. Triggering JIT cloning...');
             try {
-                minimaxVoiceId = await cloneVoiceWithMiniMax(voiceData.voice_sample_url, dbUser.id);
+                embeddingUrl = await cloneVoiceWithQwenForUser(voiceData.voice_sample_url, dbUser.id);
 
                 // Save the new ID to the database so we don't clone again
                 await supabase
                     .from('voices')
-                    .update({ minimax_voice_id: minimaxVoiceId })
+                    .update({ qwen_embedding_url: embeddingUrl })
                     .eq('user_id', dbUser.id)
                     .eq('is_active', true);
 
-                console.log('✅ JIT Cloning successful. Saved new ID:', minimaxVoiceId);
+                console.log('✅ JIT Cloning successful. Saved new embedding:', embeddingUrl);
             } catch (cloneError) {
                 console.error('❌ JIT Cloning failed:', cloneError);
                 // Fall through to error
             }
         }
 
-        if (!minimaxVoiceId) {
+        if (!embeddingUrl) {
             return NextResponse.json({
                 error: 'No cloned voice found. Please upload a voice sample first.',
                 code: 'NO_VOICE'
@@ -415,8 +336,8 @@ export async function POST(request: NextRequest) {
             const scene = scenes[i];
             console.log(`\n📍 Scene ${i + 1}/${scenes.length}: ${scene.type.toUpperCase()}`);
 
-            // 1. Generate TTS for this scene using MiniMax
-            const { audioUrl, duration } = await generateSceneTTS(scene.text, minimaxVoiceId);
+            // 1. Generate TTS for this scene using Qwen
+            const { audioUrl, duration } = await generateSceneTTS(scene.text, embeddingUrl);
 
             // 2. Generate video clip or use asset
             let clipUrl: string;

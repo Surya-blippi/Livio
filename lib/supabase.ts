@@ -57,9 +57,7 @@ export interface DbVoice {
     preview_url?: string;
     name?: string;
     ref_text?: string;  // Transcription for F5 TTS (prevents ASR bleed)
-    minimax_voice_id?: string;  // MiniMax voice ID for TTS
     qwen_embedding_url?: string;  // Qwen 3 TTS speaker embedding URL
-    tts_provider?: 'minimax' | 'qwen';  // TTS provider preference
     is_active: boolean;
     created_at: string;
 }
@@ -279,9 +277,7 @@ export async function saveVoice(
     previewUrl?: string,
     refText?: string,
     options: {
-        minimaxVoiceId?: string;
         qwenEmbeddingUrl?: string;
-        ttsProvider?: 'minimax' | 'qwen';
     } = {},
     client: any = supabase
 ): Promise<DbVoice | null> {
@@ -309,9 +305,7 @@ export async function saveVoice(
             preview_url: previewUrl,
             name: name || 'My Voice',
             ref_text: refText || null,
-            minimax_voice_id: options.minimaxVoiceId || null,
             qwen_embedding_url: options.qwenEmbeddingUrl || null,
-            tts_provider: options.ttsProvider || null,
             is_active: true,
         })
         .select()
@@ -406,14 +400,12 @@ export async function updateVoiceId(
 // Update Qwen embedding URL for a voice
 export async function updateQwenEmbedding(
     voiceId: string,
-    embeddingUrl: string,
-    ttsProvider: 'qwen' = 'qwen'
+    embeddingUrl: string
 ): Promise<DbVoice | null> {
     const { data, error } = await supabase
         .from('voices')
         .update({
-            qwen_embedding_url: embeddingUrl,
-            tts_provider: ttsProvider
+            qwen_embedding_url: embeddingUrl
         })
         .eq('id', voiceId)
         .select()
@@ -427,25 +419,7 @@ export async function updateQwenEmbedding(
     return data;
 }
 
-// Update voice TTS provider preference
-export async function updateVoiceProvider(
-    voiceId: string,
-    provider: 'minimax' | 'qwen'
-): Promise<DbVoice | null> {
-    const { data, error } = await supabase
-        .from('voices')
-        .update({ tts_provider: provider })
-        .eq('id', voiceId)
-        .select()
-        .single();
 
-    if (error) {
-        console.error('Error updating voice provider:', error);
-        return null;
-    }
-
-    return data;
-}
 
 export async function deleteVoice(voiceId: string): Promise<void> {
     await supabase.from('voices').delete().eq('id', voiceId);

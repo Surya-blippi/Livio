@@ -4,195 +4,10 @@ import { getOrCreateUser, hasEnoughCredits, deductCredits, supabase, updateQwenE
 import { calculateAudioCredits } from '@/lib/credits';
 import { cloneVoiceWithQwen, generateSpeechWithQwen } from '@/lib/fal';
 
-const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
+
 const FAL_KEY = process.env.FAL_KEY;
 
-/**
- * Helper: Clone voice via WaveSpeed MiniMax
- */
-async function cloneVoiceWithMiniMax(audioUrl: string, userId: string): Promise<string> {
-    const customVoiceId = `v${userId.replace(/-/g, '').substring(0, 12)}${Date.now().toString(36)}`;
-    console.log('🧬 JIT Cloning: Calling WaveSpeed MiniMax voice-clone API...');
 
-    const cloneResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/voice-clone', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            audio: audioUrl,
-            custom_voice_id: customVoiceId,
-            model: 'speech-02-hd',
-            need_noise_reduction: true,
-            language_boost: 'auto',
-            text: 'Hello! This is a preview of your cloned voice.'
-        })
-    });
-
-    if (!cloneResponse.ok) {
-        const errorData = await cloneResponse.json();
-        console.error('MiniMax clone error:', errorData);
-        throw new Error(`Voice cloning failed: ${JSON.stringify(errorData)}`);
-    }
-
-    const cloneResult = await cloneResponse.json();
-    console.log('✓ MiniMax voice clone result:', cloneResult);
-
-    // Some APIs return success but with an error status in the body
-    // WaveSpeed/MiniMax returns code: 200 for success
-    if (cloneResult.status === 'failed' || (cloneResult.code && cloneResult.code !== 0 && cloneResult.code !== 200)) {
-        throw new Error(`Voice cloning failed operation: ${JSON.stringify(cloneResult)}`);
-    }
-
-    return customVoiceId;
-}
-
-/**
- * Text chunking for long scripts
- * MiniMax supports 10,000 chars but we chunk for safety
- */
-function chunkText(text: string, maxCharsPerChunk: number = 5000): string[] {
-    if (text.length <= maxCharsPerChunk) {
-        return [text];
-    }
-
-    const chunks: string[] = [];
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    let currentChunk = '';
-
-    for (const sentence of sentences) {
-        if ((currentChunk + sentence).length <= maxCharsPerChunk) {
-            currentChunk += (currentChunk ? ' ' : '') + sentence;
-        } else {
-            if (currentChunk) {
-                chunks.push(currentChunk);
-            }
-            currentChunk = sentence;
-        }
-    }
-
-    if (currentChunk) {
-        chunks.push(currentChunk);
-    }
-
-    return chunks;
-}
-
-/**
- * Generate TTS using MiniMax via WaveSpeed API
- */
-async function generateMiniMaxTTS(
-    text: string,
-    minimaxVoiceId: string
-): Promise<{ audioUrl: string }> {
-    console.log(`🎤 MiniMax TTS: "${text.substring(0, 50)}..." (voice: ${minimaxVoiceId})`);
-
-    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            text: text,
-            voice_id: minimaxVoiceId,
-            speed: 1.0,
-            vol: 1.0,
-            pitch: 0,
-            audio_sample_rate: 24000,
-            bitrate: 128000
-        })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error('MiniMax TTS error:', errorData);
-        throw new Error(`MiniMax TTS failed: ${JSON.stringify(errorData)}`);
-    }
-
-    let result = await response.json();
-    console.log('MiniMax TTS result full:', JSON.stringify(result)); // Debug full response
-
-    // Handle wrapped response (common in WaveSpeed/MiniMax)
-    if (result.code === 200 && result.data) {
-        result = result.data;
-    }
-
-    // Check for API-level errors even if HTTP 200 (common in some AI APIs)
-    // If result was NOT wrapped, checking code != 0 might still be valid
-    if (result.code && result.code !== 0 && result.code !== 200 && result.msg) {
-        console.error('MiniMax TTS API error:', result);
-        throw new Error(`MiniMax TTS API error: ${result.msg} (Code: ${result.code})`);
-    }
-
-    // Check if result.status indicates failure
-    if (result.status === 'failed') {
-        throw new Error(`MiniMax TTS failed with status: ${result.status}`);
-    }
-
-    console.log('MiniMax TTS result status:', result.status || 'unknown');
-
-    // Wait for completion if async
-    if (result.status !== 'completed' && result.id) {
-        // Use the explicit polling URL from the response if available, otherwise construct it
-        const pollingUrl = result.urls?.get || `https://api.wavespeed.ai/api/v3/predictions/${result.id}/result`;
-        console.log('Polling WaveSpeed at:', pollingUrl);
-        const audioUrl = await pollWaveSpeedResult(pollingUrl);
-        return { audioUrl };
-    }
-
-    if (!result.outputs?.[0]) {
-        if (result.status === 'created' || result.status === 'processing') {
-            // If status is created/processing but no outputs yet, polling should have caught it.
-            // But if id is missing, we can't poll.
-            throw new Error(`MiniMax TTS incomplete (Status: ${result.status}), but no ID returned for polling.`);
-        }
-        throw new Error(`No audio URL from MiniMax TTS. Full result: ${JSON.stringify(result)}`);
-    }
-
-    return { audioUrl: result.outputs[0] };
-}
-
-/**
- * Poll WaveSpeed for async result completion
- */
-async function pollWaveSpeedResult(pollingUrl: string): Promise<string> {
-    const maxAttempts = 60;
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-
-        // Use the /result endpoint to get the status and output
-        const response = await fetch(pollingUrl, {
-            headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` }
-        });
-
-        // Debug response text if json fails
-        const text = await response.text();
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error('Polling JSON parse error. Raw text:', text);
-            throw new Error(`Invalid polling response: ${text.substring(0, 100)}`);
-        }
-
-        // Handle wrapped response in polling too
-        if (result.code === 200 && result.data) {
-            result = result.data;
-        }
-
-        console.log(`Polling MiniMax TTS (${i + 1}/${maxAttempts}): ${result.status}`);
-
-        if (result.status === 'completed' && result.outputs?.[0]) {
-            return result.outputs[0];
-        }
-        if (result.status === 'failed') {
-            throw new Error('MiniMax TTS generation failed');
-        }
-    }
-    throw new Error('MiniMax TTS timeout');
-}
 
 async function generateQwenTTS(
     text: string,
@@ -222,7 +37,7 @@ async function cloneVoiceWithQwenForUser(
 
     const embeddingResult = await cloneVoiceWithQwen(audioUrl, referenceText);
 
-    await updateQwenEmbedding(voiceRecordId, embeddingResult.embeddingUrl, 'qwen');
+    await updateQwenEmbedding(voiceRecordId, embeddingResult.embeddingUrl);
 
     console.log('✅ Qwen embedding saved:', embeddingResult.embeddingUrl);
 
@@ -237,9 +52,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        // Validate API Key
-        if (!WAVESPEED_API_KEY) {
-            console.error('WAVESPEED_API_KEY is missing');
+        if (!FAL_KEY) {
+            console.error('FAL_KEY is missing');
             return NextResponse.json({ error: 'Server configuration error: Missing API Key' }, { status: 500 });
         }
 
@@ -279,102 +93,51 @@ export async function POST(request: NextRequest) {
 
         const { data: voiceData } = await supabase
             .from('voices')
-            .select('id, minimax_voice_id, qwen_embedding_url, voice_sample_url, ref_text, tts_provider')
+            .select('id, qwen_embedding_url, voice_sample_url, ref_text')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .single();
 
-        const ttsProvider = voiceData?.tts_provider || 'minimax';
+        const ttsProvider = 'qwen';
         let audioUrl: string;
         let duration: number;
 
-        if (ttsProvider === 'qwen') {
-            if (!voiceData?.qwen_embedding_url && voiceData?.voice_sample_url) {
-                console.log('⚠️ No Qwen embedding found, but voice sample exists. Triggering JIT cloning...');
-                try {
-                    const embeddingUrl = await cloneVoiceWithQwenForUser(
-                        voiceData.voice_sample_url,
-                        user.id,
-                        voiceData.id,
-                        voiceData.ref_text || undefined
-                    );
-                    voiceData.qwen_embedding_url = embeddingUrl;
-                } catch (cloneError) {
-                    console.error('❌ Qwen JIT Cloning failed:', cloneError);
-                }
+        // Force Qwen logic
+        if (!voiceData?.qwen_embedding_url && voiceData?.voice_sample_url) {
+            console.log('⚠️ No Qwen embedding found, but voice sample exists. Triggering JIT cloning...');
+            try {
+                const embeddingUrl = await cloneVoiceWithQwenForUser(
+                    voiceData.voice_sample_url,
+                    user.id,
+                    voiceData.id,
+                    voiceData.ref_text || undefined
+                );
+                voiceData.qwen_embedding_url = embeddingUrl;
+            } catch (cloneError) {
+                console.error('❌ Qwen JIT Cloning failed:', cloneError);
             }
+        }
 
-            if (!voiceData?.qwen_embedding_url) {
-                return NextResponse.json({
-                    error: 'No cloned voice found. Please upload a voice sample first.',
-                    code: 'NO_VOICE'
-                }, { status: 400 });
-            }
-
-            console.log('🎙️ Using Qwen 3 TTS for speech generation');
-            const qwenResult = await generateQwenTTS(
-                script,
-                voiceData.qwen_embedding_url,
-                voiceData.ref_text || undefined
-            );
-            audioUrl = qwenResult.audioUrl;
-            duration = qwenResult.duration;
-
-            await deductCredits(user.id, cost, 'Generated Speech (Qwen)', {
-                charCount: script.length,
-                embedding_url: voiceData.qwen_embedding_url
-            });
-        } else if (ttsProvider === 'minimax' || !voiceData?.qwen_embedding_url) {
-            let minimaxVoiceId = voiceData?.minimax_voice_id;
-
-            if (!minimaxVoiceId && voiceData?.voice_sample_url) {
-                console.log('⚠️ No MiniMax ID found, but voice sample exists. Triggering JIT cloning...');
-                try {
-                    minimaxVoiceId = await cloneVoiceWithMiniMax(voiceData.voice_sample_url, user.id);
-                    await supabase
-                        .from('voices')
-                        .update({ minimax_voice_id: minimaxVoiceId })
-                        .eq('user_id', user.id)
-                        .eq('is_active', true);
-                    console.log('✅ JIT Cloning successful. Saved new ID:', minimaxVoiceId);
-                } catch (cloneError) {
-                    console.error('❌ JIT Cloning failed:', cloneError);
-                }
-            }
-
-            if (!minimaxVoiceId) {
-                return NextResponse.json({
-                    error: 'No cloned voice found. Please upload a voice sample first.',
-                    code: 'NO_VOICE'
-                }, { status: 400 });
-            }
-
-            console.log('Using MiniMax voice ID:', minimaxVoiceId);
-
-            const chunks = chunkText(script);
-            console.log(`Text split into ${chunks.length} chunk(s)`);
-
-            const audioUrls: string[] = [];
-            for (let i = 0; i < chunks.length; i++) {
-                console.log(`Generating chunk ${i + 1}/${chunks.length}`);
-                const result = await generateMiniMaxTTS(chunks[i], minimaxVoiceId);
-                audioUrls.push(result.audioUrl);
-            }
-
-            audioUrl = audioUrls[0];
-            duration = (script.length / 5 / 150) * 60 * 1000;
-
-            await deductCredits(user.id, cost, 'Generated Speech (MiniMax)', {
-                charCount: script.length,
-                chunks: chunks.length,
-                voiceId: minimaxVoiceId
-            });
-        } else {
+        if (!voiceData?.qwen_embedding_url) {
             return NextResponse.json({
-                error: 'No valid TTS configuration found. Please re-upload your voice sample.',
+                error: 'No cloned voice found. Please upload a voice sample first.',
                 code: 'NO_VOICE'
             }, { status: 400 });
         }
+
+        console.log('🎙️ Using Qwen 3 TTS for speech generation');
+        const qwenResult = await generateQwenTTS(
+            script,
+            voiceData.qwen_embedding_url,
+            voiceData.ref_text || undefined
+        );
+        audioUrl = qwenResult.audioUrl;
+        duration = qwenResult.duration;
+
+        await deductCredits(user.id, cost, 'Generated Speech (Qwen)', {
+            charCount: script.length,
+            embedding_url: voiceData.qwen_embedding_url
+        });
 
         console.log(`✅ Speech generated: ${audioUrl}`);
 

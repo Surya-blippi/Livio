@@ -1,17 +1,17 @@
 import { fal } from '@fal-ai/client';
+import { cloneVoiceWithQwen } from '@/lib/fal';
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 
-const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY || process.env.NEXT_PUBLIC_WAVESPEED_API_KEY;
+const FAL_KEY = process.env.FAL_KEY;
 
 /**
- * Voice cloning route using WaveSpeed MiniMax.
+ * Voice cloning route using Qwen (Replacing MiniMax).
  * 
- * One-time voice clone creates a reusable minimax_voice_id.
- * This ID is saved to DB and used for all future TTS calls.
+ * Creates a speaker embedding from audio and saves to DB.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -34,16 +34,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        console.log('🎤 Starting MiniMax voice cloning via WaveSpeed');
+        console.log('🎤 Starting Qwen voice cloning');
 
         let audioBuffer: Buffer;
         let originalName = 'audio.webm';
+        let audioUrlForCloning: string = '';
 
         // 1. Determine input source (JSON URL or FormData File)
         if (request.headers.get('content-type')?.includes('application/json')) {
             const body = await request.json();
             if (body.audioUrl) {
-                // Download the audio from the URL
+                audioUrlForCloning = body.audioUrl;
+                // We might need to download it just to upload to Supabase backup?
+                // For Qwen, we can pass the URL directly if it's public.
+                // But let's assume we want to backup to 'voices' buckets.
                 const audioResponse = await fetch(body.audioUrl);
                 audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
                 originalName = 'audio.mp3';
@@ -62,50 +66,27 @@ export async function POST(request: NextRequest) {
             originalName = audioFile.name;
         }
 
-        // 2. Upload to FAL storage to get a public URL for WaveSpeed
+        // 2. Upload to FAL storage to get a public URL for Qwen (if not already a URL)
+        // Even if we have a URL, uploading to Fal ensures it's accessible to Fal services
         console.log('📤 Uploading to FAL storage...');
         const fileObj = new File([new Uint8Array(audioBuffer)], originalName, {
             type: 'audio/mpeg'
         });
         const storageUrl = await fal.storage.upload(fileObj);
         console.log('✓ Audio uploaded to:', storageUrl);
+        audioUrlForCloning = storageUrl;
 
-        // 3. Generate unique custom_voice_id for MiniMax
-        // Format: Must be 8+ chars, alphanumeric, start with letter
-        const customVoiceId = `v${user.id.replace(/-/g, '').substring(0, 12)}${Date.now().toString(36)}`;
-        console.log('🔑 Generated custom_voice_id:', customVoiceId);
+        // 3. Call Qwen Voice Clone
+        console.log('🧬 Calling Qwen voice-clone API...');
+        const { embeddingUrl, fileName, fileSize } = await cloneVoiceWithQwen(audioUrlForCloning);
 
-        // 4. Call WaveSpeed MiniMax voice clone API
-        console.log('🧬 Calling WaveSpeed MiniMax voice-clone API...');
-        const cloneResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/voice-clone', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                audio: storageUrl,
-                custom_voice_id: customVoiceId,
-                model: 'speech-02-hd',
-                need_noise_reduction: true,
-                language_boost: 'auto',
-                text: 'Hello! This is a preview of your cloned voice.'
-            })
-        });
+        console.log('✅ Qwen voice cloned:', embeddingUrl);
 
-        if (!cloneResponse.ok) {
-            const errorData = await cloneResponse.json();
-            console.error('MiniMax clone error:', errorData);
-            throw new Error(`Voice cloning failed: ${JSON.stringify(errorData)}`);
-        }
-
-        const cloneResult = await cloneResponse.json();
-        console.log('✓ MiniMax voice clone result:', cloneResult);
-
-        // 5. Also upload to Supabase for long-term storage backup
+        // 4. Save to DB (set as active voice)
+        // Upload audio backup to Supabase
         const fileExt = originalName.split('.').pop() || 'mp3';
-        const fileName = `${user.id}_${uuidv4()}.${fileExt}`;
-        const filePath = `uploads/${fileName}`;
+        const backupFileName = `${user.id}_${uuidv4()}.${fileExt}`;
+        const filePath = `uploads/${backupFileName}`;
 
         const { error: uploadError } = await supabase.storage
             .from('voices')
@@ -118,25 +99,50 @@ export async function POST(request: NextRequest) {
         if (!uploadError) {
             const { data } = supabase.storage.from('voices').getPublicUrl(filePath);
             supabaseUrl = data.publicUrl;
-            console.log('✓ Also uploaded to Supabase:', supabaseUrl);
         }
 
-        console.log('✅ Voice cloned successfully with MiniMax! Voice ID:', customVoiceId);
+        // Update voices table
+        // We look for an existing 'pending' or active voice to update, or insert new
+        // For simplicity, we'll insert a new active voice and deactivate others (handled by saveVoice usually, but here manual)
+
+        // Deactivate others
+        await supabase
+            .from('voices')
+            .update({ is_active: false })
+            .eq('user_id', user.id);
+
+        const customVoiceId = `v${Date.now().toString(36)}`; // Dummy ID for client compatibility
+
+        const { data: newVoice, error: dbError } = await supabase
+            .from('voices')
+            .insert({
+                user_id: user.id,
+                voice_id: customVoiceId,
+                voice_sample_url: supabaseUrl, // Backup URL
+                qwen_embedding_url: embeddingUrl,
+                tts_provider: 'qwen', // Still setting it for clarity in DB even if unused in code
+                is_active: true,
+                name: 'Cloned Voice (Qwen)'
+            })
+            .select()
+            .single();
+
+        if (dbError) {
+            console.error('Failed to save voice to DB:', dbError);
+            // Non-fatal?
+        }
 
         return NextResponse.json({
-            voiceId: customVoiceId,  // MiniMax custom_voice_id
-            minimaxVoiceId: customVoiceId,  // Explicit field
-            voiceSampleUrl: storageUrl,
+            voiceId: customVoiceId,
+            previewUrl: storageUrl, // Use audio as preview
             supabaseUrl: supabaseUrl,
-            previewUrl: cloneResult.outputs?.[0] || storageUrl,
-            message: 'Voice cloned with MiniMax. Ready for TTS!'
+            message: 'Voice cloned with Qwen.'
         });
 
     } catch (error: unknown) {
         console.error('Error cloning voice:', error);
 
         let errorMessage = 'Failed to clone voice';
-
         if (error instanceof Error) {
             errorMessage = error.message;
         }
