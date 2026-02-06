@@ -264,6 +264,17 @@ export async function POST(request: NextRequest) {
         // Fetch job
         const { data: job, error: fetchErr } = await supabase.from('video_jobs').select('*').eq('id', jobId).single();
         if (fetchErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+
+        // CRITICAL: Only process face/faceless jobs, NOT typography
+        // Typography jobs have different input structure and use different render pipeline
+        if (job.job_type === 'typography') {
+            console.log(`⚠️ Skipping typography job ${jobId} - wrong endpoint`);
+            return NextResponse.json({
+                skipped: true,
+                reason: 'Typography jobs use /api/render-typography, not face-video/process'
+            });
+        }
+
         if (job.status === 'completed' || job.status === 'failed') {
             return NextResponse.json({ message: `Already ${job.status}`, status: job.status });
         }
