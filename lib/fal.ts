@@ -205,28 +205,43 @@ export async function cloneVoiceWithQwen(
 ): Promise<{ embeddingUrl: string; fileName: string; fileSize: number }> {
     console.log(`🎙️ Qwen 3 TTS: Cloning voice from ${audioUrl}`);
 
-    const result = await fal.subscribe(
-        'fal-ai/qwen-3-tts/clone-voice/1.7b',
-        {
-            input: {
-                audio_url: audioUrl,
-                reference_text: referenceText || undefined
-            },
-            logs: true
+    try {
+        console.log('Sending request to fal-ai/qwen-3-tts/clone-voice/1.7b...');
+        const result = await fal.subscribe(
+            'fal-ai/qwen-3-tts/clone-voice/1.7b',
+            {
+                input: {
+                    audio_url: audioUrl,
+                    reference_text: referenceText || undefined
+                },
+                logs: true,
+                onQueueUpdate: (update) => {
+                    if (update.status === 'IN_PROGRESS') {
+                        update.logs.map((log) => log.message).forEach(console.log);
+                    }
+                }
+            }
+        ) as { speaker_embedding?: QwenSpeakerEmbedding };
+
+        if (!result.speaker_embedding?.url) {
+            console.error('Qwen Response missing embedding:', result);
+            throw new Error('No speaker embedding URL returned from Qwen API');
         }
-    ) as { speaker_embedding?: QwenSpeakerEmbedding };
 
-    if (!result.speaker_embedding?.url) {
-        throw new Error('No speaker embedding URL returned from Qwen API');
+        console.log('✅ Qwen voice cloned:', result.speaker_embedding.url);
+
+        return {
+            embeddingUrl: result.speaker_embedding.url,
+            fileName: result.speaker_embedding.file_name || 'embedding.safetensors',
+            fileSize: result.speaker_embedding.file_size || 0
+        };
+    } catch (error: any) {
+        console.error('❌ Qwen Cloning Error:', error);
+        if (error.body) {
+            console.error('Error Body:', error.body);
+        }
+        throw error;
     }
-
-    console.log('✅ Qwen voice cloned:', result.speaker_embedding.url);
-
-    return {
-        embeddingUrl: result.speaker_embedding.url,
-        fileName: result.speaker_embedding.file_name || 'embedding.safetensors',
-        fileSize: result.speaker_embedding.file_size || 0
-    };
 }
 
 function chunkTextForQwen(text: string, maxChars: number = 800): string[] {
