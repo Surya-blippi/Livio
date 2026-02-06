@@ -199,13 +199,18 @@ export async function generateSceneTTS(
     voiceSampleUrl: string,
     language?: ChatterboxLanguage
 ): Promise<{ audioUrl: string; duration: number }> {
-    // Auto-detect language from text if not explicitly provided
-    const detectedLang = language || detectLanguage(text);
-
-    console.log(`🎤 TTS: "${text.substring(0, 30)}..." (Voice: ${voiceSampleUrl.substring(0, 50)}..., Lang: ${detectedLang})`);
+    // Null safety: validate inputs
+    if (!text || typeof text !== 'string') {
+        throw new Error('TTS Error: text is required and must be a string');
+    }
 
     // Use a default voice sample if none provided
     const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/chatterbox-demo-samples/prompts/male_old_movie.flac';
+
+    // Auto-detect language from text if not explicitly provided
+    const detectedLang = language || detectLanguage(text);
+
+    console.log(`🎤 TTS: "${text.substring(0, 30)}..." (Voice: ${sampleUrl.substring(0, 50)}..., Lang: ${detectedLang})`);
 
     try {
         const chunks = chunkText(text);

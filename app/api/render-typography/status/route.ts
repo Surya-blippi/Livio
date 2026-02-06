@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
             console.log('[Typography Status] Updating job to completed with videoUrl:', outputUrl);
 
-            const { data: updatedJob, error: updateError } = await supabase
+            const { error: updateError } = await supabase
                 .from('video_jobs')
                 .update({
                     status: 'completed',
@@ -95,15 +95,13 @@ export async function POST(request: NextRequest) {
                         completedAt: new Date().toISOString(),
                     }
                 })
-                .eq('id', jobId)
-                .select()
-                .single();
+                .eq('id', jobId);
 
             if (updateError) {
                 console.error('[Typography Status] Failed to update job completion:', updateError);
                 // Still return success to frontend - the video was rendered, just DB update failed
             } else {
-                console.log('[Typography Status] Job marked as completed in DB:', updatedJob?.id, updatedJob?.status);
+                console.log('[Typography Status] Job marked as completed in DB:', jobId);
             }
 
             // Note: The 'saveVideo' (inserting to public.videos) was typically done by Frontend upon receiving success.
