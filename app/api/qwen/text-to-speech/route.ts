@@ -109,10 +109,13 @@ export async function POST(request: NextRequest) {
                 {
                     input: {
                         text: chunks[i],
-                        voice: voice || 'Vivian',
-                        language: language || 'Auto',
-                        speaker_voice_embedding_file_url: embedding_url || undefined,
-                        reference_text: reference_text || undefined
+                        // IMPORTANT: Only pass voice if NOT using embedding URL
+                        // The API requires EITHER voice OR speaker_voice_embedding_file_url
+                        ...(embedding_url
+                            ? { speaker_voice_embedding_file_url: embedding_url, reference_text: reference_text || undefined }
+                            : { voice: voice || 'Vivian' }
+                        ),
+                        language: language || 'Auto'
                     },
                     logs: false
                 }

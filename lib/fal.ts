@@ -316,10 +316,13 @@ export async function generateSpeechWithQwen(
             {
                 input: {
                     text: chunks[i],
-                    voice: voice || 'Vivian',
-                    language: language || 'Auto',
-                    speaker_voice_embedding_file_url: embeddingUrl || undefined,
-                    reference_text: referenceText || undefined
+                    // IMPORTANT: Only pass voice if NOT using embedding URL
+                    // The API requires EITHER voice OR speaker_voice_embedding_file_url
+                    ...(embeddingUrl
+                        ? { speaker_voice_embedding_file_url: embeddingUrl, reference_text: referenceText || undefined }
+                        : { voice: voice || 'Vivian' }
+                    ),
+                    language: language || 'Auto'
                 },
                 logs: false
             }
