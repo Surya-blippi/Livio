@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
-import { supabase, getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
+import { getOrCreateUser, getUserCredits, deductCredits } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { CREDIT_COSTS } from '@/lib/credits';
 
@@ -167,7 +168,7 @@ Requirements:
             const imageBuffer = await imageResponse.arrayBuffer();
             const buffer = Buffer.from(imageBuffer);
 
-            const adminSupabase = supabase; // Use the admin client from lib/supabase (which uses service key if env set correctly, or need to ensure write access)
+            const supabaseAdmin = getSupabaseAdmin(); // Use admin client for storage and DB operations
             // Ideally use service role key for storage uploads if user token doesn't allow it, 
             // but here we are in API route context.
             // Let's assume standard client works if RLS allows, otherwise might need admin client. 
@@ -176,7 +177,7 @@ Requirements:
 
             const fileName = `studio-avatars/${dbUser.id}/studio_${Date.now()}.png`;
 
-            const { error: uploadError } = await adminSupabase.storage
+            const { error: uploadError } = await supabaseAdmin.storage
                 .from('avatars') // Using 'avatars' bucket which likely exists or 'videos'
                 .upload(fileName, buffer, {
                     contentType: 'image/png',
@@ -188,7 +189,7 @@ Requirements:
                 console.warn('[Studio Ready] Failed to upload to avatars bucket:', uploadError);
 
                 // Fallback to 'videos' bucket just in case
-                const { error: videoUploadError } = await adminSupabase.storage
+                const { error: videoUploadError } = await supabaseAdmin.storage
                     .from('videos')
                     .upload(fileName, buffer, {
                         contentType: 'image/png',
@@ -199,16 +200,16 @@ Requirements:
                     console.error('[Studio Ready] Failed to upload to storage:', videoUploadError);
                     // Fallback to original URL if upload fails, though it will expire
                 } else {
-                    const { data } = adminSupabase.storage.from('videos').getPublicUrl(fileName);
+                    const { data } = supabaseAdmin.storage.from('videos').getPublicUrl(fileName);
                     finalStudioUrl = data.publicUrl;
                 }
             } else {
-                const { data } = adminSupabase.storage.from('avatars').getPublicUrl(fileName);
+                const { data } = supabaseAdmin.storage.from('avatars').getPublicUrl(fileName);
                 finalStudioUrl = data.publicUrl;
             }
 
             // 2. Persist to DB immediately
-            const { error: dbError } = await adminSupabase
+            const { error: dbError } = await supabaseAdmin
                 .from('avatars')
                 .insert({
                     user_id: dbUser.id,
@@ -225,7 +226,7 @@ Requirements:
                 console.log('[Studio Ready] Saved to DB successfully');
 
                 // Unset other defaults for this user to ensure only one is default
-                await adminSupabase
+                await supabaseAdmin
                     .from('avatars')
                     .update({ is_default: false })
                     .eq('user_id', dbUser.id)

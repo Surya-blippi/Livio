@@ -95,9 +95,9 @@ export const regenerateScenes = async (script: string, duration: number = 30): P
 };
 
 /**
- * Clone voice using MiniMax FAL (returns voice ID for tracking)
+ * Clone voice using Qwen (returns voice ID and saved voice object)
  */
-export const cloneVoice = async (audioInput: File | string): Promise<{ voiceId: string; previewUrl: string; audioBase64: string }> => {
+export const cloneVoice = async (audioInput: File | string): Promise<{ voiceId: string; previewUrl: string; audioBase64: string; savedVoice?: any }> => {
     let response;
     let audioBase64 = '';
 
@@ -135,7 +135,8 @@ export const cloneVoice = async (audioInput: File | string): Promise<{ voiceId: 
     return {
         voiceId: response.data.voiceId,
         previewUrl: response.data.previewUrl || '',
-        audioBase64: audioBase64
+        audioBase64: audioBase64,
+        savedVoice: response.data.savedVoice // Include the saved voice object from API
     };
 };
 

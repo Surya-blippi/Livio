@@ -766,51 +766,29 @@ export const useDashboardState = () => {
             const storageUrl = await uploadVoiceSample(dbUser.id, fileToUpload);
             if (!storageUrl) throw new Error('Failed to upload voice sample');
 
-            // 2. Clone the voice IMMEDIATELY
-            // logic moved from handleCreateVideo to here
-            let voiceId = 'pending';
-            let previewUrl = storageUrl;
+            // 2. Clone the voice - the API now saves to DB and returns the voice object
+            setProcessingMessage('Cloning your voice...');
+            const voiceData = await cloneVoice(storageUrl);
 
-            try {
-                // Pass the URL instead of the file for faster/reliable cloning
-                const voiceData = await cloneVoice(storageUrl);
-                voiceId = voiceData.voiceId;
-                previewUrl = voiceData.previewUrl; // Use generated preview if available
-            } catch (cloneError) {
-                console.error('Immediate cloning failed, saving as pending:', cloneError);
-                // Fallback: save as pending if cloning service is down, so we don't lose the upload
-            }
-
-            // 3. Save to DB
-            // Generate a unique name
-            const voiceCount = allVoices.length + 1;
-            const voiceName = `Voice ${voiceCount}`;
-
-            // Use authenticated client for RLS
-            const sb = await getSupabase();
-            const newVoice = await saveVoice(
-                dbUser.id,
-                voiceId,
-                storageUrl,
-                voiceName,
-                previewUrl,
-                undefined, // refText
-                undefined, // minimaxVoiceId
-                sb
-            );
-
-            if (newVoice) {
-                // 4. Select it and clear pending file
-                await setActiveVoice(dbUser.id, newVoice.id, sb);
+            // The clone-voice API now saves the voice and returns it
+            if (voiceData.savedVoice) {
+                // Voice was saved by the API, use it directly
+                const newVoice = voiceData.savedVoice;
                 setSavedVoice(newVoice);
-                setAllVoices(prev => [newVoice, ...prev]);
+                setAllVoices(prev => [newVoice, ...prev.filter(v => v.id !== newVoice.id)]);
                 setVoiceFile(null); // Clear pending file as it is now saved
+            } else {
+                // Fallback: voice cloning succeeded but no saved voice returned
+                // This shouldn't happen with the updated API, but handle gracefully
+                console.warn('Voice cloned but not saved to DB by API');
+                setVoiceFile(null);
             }
         } catch (error) {
             console.error('Failed to confirm voice:', error);
             setError('Failed to save voice. Please try again.');
         } finally {
             setIsConfirmingVoice(false);
+            setProcessingMessage('');
         }
     };
 

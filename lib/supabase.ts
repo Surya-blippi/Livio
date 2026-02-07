@@ -432,21 +432,27 @@ export async function deleteVoice(voiceId: string): Promise<void> {
 
 
 export async function uploadAvatarImage(userId: string, file: File): Promise<string | null> {
-    const fileExt = file.name.split('.').pop() || 'png';
-    const fileName = `${userId}_${Date.now()}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
 
-    const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+        const response = await fetch('/api/avatar/upload', {
+            method: 'POST',
+            body: formData
+        });
 
-    if (uploadError) {
-        console.error('Error uploading avatar image:', uploadError);
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error uploading avatar image:', errorData);
+            return null;
+        }
+
+        const data = await response.json();
+        return data.url;
+    } catch (error) {
+        console.error('Error uploading avatar image:', error);
         return null;
     }
-
-    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    return data.publicUrl;
 }
 
 export async function saveAvatar(

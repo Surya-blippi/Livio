@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getOrCreateUser } from '@/lib/supabase';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export const maxDuration = 300;
 
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
         }
 
         console.log('🎤 Starting Qwen voice cloning');
+
+        // Get admin client for DB operations (bypasses RLS)
+        const supabaseAdmin = getSupabaseAdmin();
 
         let audioBuffer: Buffer;
         let originalName = 'audio.webm';
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
         const backupFileName = `${user.id}_${uuidv4()}.${fileExt}`;
         const filePath = `uploads/${backupFileName}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabaseAdmin.storage
             .from('voices')
             .upload(filePath, audioBuffer, {
                 contentType: 'audio/mpeg',
@@ -99,7 +102,7 @@ export async function POST(request: NextRequest) {
 
         let supabaseUrl = storageUrl;
         if (!uploadError) {
-            const { data } = supabase.storage.from('voices').getPublicUrl(filePath);
+            const { data } = supabaseAdmin.storage.from('voices').getPublicUrl(filePath);
             supabaseUrl = data.publicUrl;
         }
 
@@ -108,14 +111,14 @@ export async function POST(request: NextRequest) {
         // For simplicity, we'll insert a new active voice and deactivate others (handled by saveVoice usually, but here manual)
 
         // Deactivate others
-        await supabase
+        await supabaseAdmin
             .from('voices')
             .update({ is_active: false })
             .eq('user_id', user.id);
 
         const customVoiceId = `v${Date.now().toString(36)}`; // Dummy ID for client compatibility
 
-        const { data: newVoice, error: dbError } = await supabase
+        const { data: newVoice, error: dbError } = await supabaseAdmin
             .from('voices')
             .insert({
                 user_id: user.id,
@@ -138,6 +141,7 @@ export async function POST(request: NextRequest) {
             voiceId: customVoiceId,
             previewUrl: storageUrl, // Use audio as preview
             supabaseUrl: supabaseUrl,
+            savedVoice: newVoice, // Include the saved voice object for client use
             message: 'Voice cloned with Qwen.'
         });
 
