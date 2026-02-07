@@ -31,14 +31,11 @@ import { CREDIT_COSTS, estimateTotalCredits, calculateFacelessVideoCredits, calc
 import {
     getOrCreateUser,
     getAllVoices,
-    saveVoice,
-    setActiveVoice,
     updateVoiceId,
     getVideos,
     getVideoById,
     saveVideo,
     deleteVideo,
-    saveAvatar,
     getAvatars,
     deleteAvatar,
     deleteVoice,
@@ -47,8 +44,6 @@ import {
     uploadVoiceSample,
     uploadAvatarImage,
     getActiveVideoJobs,
-    supabase,
-    createAuthenticatedClient,
     DbUser,
     DbVideo,
     DbVoice,
@@ -356,10 +351,15 @@ export const useDashboardState = () => {
                 setUseStudioImage(false); // Reset studio mode for new upload
 
                 if (dbUser) {
-                    const sb = await getSupabase();
-                    const saved = await saveAvatar(dbUser.id, publicUrl, 'Original Upload', false, sb);
-                    if (saved) {
-                        setSavedAvatars(prev => [saved, ...prev]);
+                    // Save avatar via API route (bypasses RLS)
+                    const saveRes = await fetch('/api/avatar/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ imageUrl: publicUrl, name: 'Original Upload', isDefault: false })
+                    });
+                    const saveData = await saveRes.json();
+                    if (saveData.savedAvatar) {
+                        setSavedAvatars(prev => [saveData.savedAvatar, ...prev]);
                     }
                 }
             }
@@ -486,20 +486,19 @@ export const useDashboardState = () => {
                 if (publicUrl) {
                     inputUrl = publicUrl;
 
-                    // Save Original to DB
-                    const savedOriginal = await saveAvatar(
-                        dbUser.id,
-                        publicUrl,
-                        'My Photo',
-                        false, // isDefault
-                        sb
-                    );
+                    // Save Original to DB via API route (bypasses RLS)
+                    const saveRes = await fetch('/api/avatar/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ imageUrl: publicUrl, name: 'My Photo', isDefault: false })
+                    });
+                    const saveData = await saveRes.json();
 
-                    if (savedOriginal) {
+                    if (saveData.savedAvatar) {
                         setSavedAvatars(prev => {
                             // Deduplicate
-                            const exists = prev.some(a => a.image_url === savedOriginal.image_url);
-                            return exists ? prev : [savedOriginal, ...prev];
+                            const exists = prev.some(a => a.image_url === saveData.savedAvatar.image_url);
+                            return exists ? prev : [saveData.savedAvatar, ...prev];
                         });
                         // Update preview to use the remote URL
                         setPhotoPreview(publicUrl);
@@ -794,9 +793,18 @@ export const useDashboardState = () => {
 
     const onVoiceSelect = async (voice: DbVoice) => {
         if (dbUser) {
-            const sb = await getSupabase();
-            await setActiveVoice(dbUser.id, voice.id, sb);
-            setSavedVoice(voice);
+            // Set active voice via API route (bypasses RLS)
+            const response = await fetch('/api/voice/set-active', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voiceId: voice.id })
+            });
+            const data = await response.json();
+            if (data.voice) {
+                setSavedVoice(data.voice);
+            } else {
+                setSavedVoice(voice);
+            }
             setVoiceFile(null); // Clear recorded/uploaded voice to ensure this selection is used
             setAllVoices(prev => prev.map(v => ({ ...v, is_active: v.id === voice.id })));
         }
@@ -1103,13 +1111,10 @@ export const useDashboardState = () => {
             if (voiceFile) {
                 setProcessingMessage('Cloning your new voice...');
                 const voiceData = await cloneVoice(voiceFile);
-                if (dbUser) {
-                    const sb = await getSupabase();
-                    const newVoice = await saveVoice(dbUser.id, voiceData.voiceId, voiceData.audioBase64, 'My Voice', voiceData.previewUrl, undefined, undefined, sb);
-                    if (newVoice) {
-                        setSavedVoice(newVoice);
-                        setAllVoices(prev => [newVoice, ...prev]);
-                    }
+                // Voice is saved by the clone-voice API, use the returned savedVoice
+                if (voiceData.savedVoice) {
+                    setSavedVoice(voiceData.savedVoice);
+                    setAllVoices(prev => [voiceData.savedVoice, ...prev]);
                 }
                 setProcessingStep(2);
                 setProcessingMessage('Generating speech...');
@@ -1217,7 +1222,16 @@ export const useDashboardState = () => {
             setProcessingMessage('Preparing scene-based video...');
 
             if (photoPreview && dbUser) {
-                await saveAvatar(dbUser.id, useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview, 'Avatar', true);
+                // Save avatar via API route (bypasses RLS)
+                await fetch('/api/avatar/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageUrl: useStudioImage && studioReadyUrl ? studioReadyUrl : photoPreview,
+                        name: 'Avatar',
+                        isDefault: true
+                    })
+                });
             }
 
             // Determine image URL
