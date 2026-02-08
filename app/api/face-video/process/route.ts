@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
-import { generateSceneTTS } from '@/lib/fal';
+import { generateSceneTTS, cloneVoiceWithQwen } from '@/lib/fal';
 import { getWavespeedApiKey, getJson2VideoApiKey } from '@/lib/config';
 
 // Timeout for serverless function
@@ -305,6 +305,42 @@ export async function POST(request: NextRequest) {
 
         console.log(`State: ${currentIndex}/${totalScenes}, pending: ${pendingScene?.predictionId || 'none'}, render: ${pendingRender?.projectId || 'none'}`);
 
+        // ======== FETCH VOICE EMBEDDING ========
+        // Look up qwen_embedding_url from voices table (instead of using raw voiceSampleUrl)
+        const userId = freshJob.user_uuid || freshJob.user_id;
+        const { data: voiceData } = await supabase
+            .from('voices')
+            .select('qwen_embedding_url, voice_sample_url')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .single();
+
+        let embeddingUrl = voiceData?.qwen_embedding_url;
+
+        // JIT Cloning: If we have a sample URL but no Qwen embedding, clone it now
+        if (!embeddingUrl && voiceData?.voice_sample_url) {
+            console.log('⚠️ No Qwen embedding found, triggering JIT cloning...');
+            try {
+                const { embeddingUrl: newUrl } = await cloneVoiceWithQwen(voiceData.voice_sample_url);
+                embeddingUrl = newUrl;
+                // Save the embedding to DB so we don't clone again
+                await supabase.from('voices')
+                    .update({ qwen_embedding_url: embeddingUrl })
+                    .eq('user_id', userId)
+                    .eq('is_active', true);
+                console.log('✅ JIT Cloning successful:', embeddingUrl);
+            } catch (cloneError) {
+                console.error('❌ JIT Cloning failed:', cloneError);
+            }
+        }
+
+        // Fail early if no voice
+        if (!embeddingUrl) {
+            throw new Error('No cloned voice found. Please upload a voice sample first.');
+        }
+
+        console.log(`🎤 Using voice embedding: ${embeddingUrl.substring(0, 60)}...`);
+
         // ======== CASE A: Pending render - poll JSON2Video ========
         if (pendingRender) {
             console.log(`\n📽️ CHECKING PENDING RENDER: ${pendingRender.projectId}`);
@@ -471,9 +507,8 @@ export async function POST(request: NextRequest) {
         }).eq('id', jobId);
 
         const scene = scenes[currentIndex];
-        // Use voiceSampleUrl for Chatterbox TTS, fall back to default if only legacy voiceId provided
-        const sampleUrl = voiceSampleUrl || 'https://storage.googleapis.com/falserverless/example_inputs/reference_audio.wav';
-        const { audioUrl, duration } = await generateSceneTTS(scene.text, sampleUrl);
+        // Use the qwen_embedding_url fetched earlier (with JIT cloning fallback)
+        const { audioUrl, duration } = await generateSceneTTS(scene.text, embeddingUrl);
 
         if (scene.type === 'face') {
             const imageDataUrl = await prepareFaceImage(faceImageUrl);
