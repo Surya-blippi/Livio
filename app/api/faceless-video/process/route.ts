@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { generateImage, generateSceneTTS } from '@/lib/fal';
+import { generateImage, generateSceneTTS, cloneVoiceWithQwen } from '@/lib/fal';
 import {
     startJson2VideoRender,
     pollJson2Video,
@@ -427,6 +427,44 @@ export async function POST(request: NextRequest) {
 
         console.log(`Status: Scene ${currentIndex + 1}/${totalScenes}`);
 
+        // ======== FETCH VOICE EMBEDDING ========
+        // Look up qwen_embedding_url from voices table (instead of using voiceId directly)
+        const userId = freshJob.user_uuid || freshJob.user_id;
+        const { data: voiceData } = await supabase
+            .from('voices')
+            .select('qwen_embedding_url, voice_sample_url')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .single();
+
+        let embeddingUrl = voiceData?.qwen_embedding_url;
+
+        // JIT Cloning: If we have a sample URL but no Qwen embedding, clone it now
+        if (!embeddingUrl && voiceData?.voice_sample_url) {
+            console.log('⚠️ No Qwen embedding found, triggering JIT cloning...');
+            try {
+                const { embeddingUrl: newUrl } = await cloneVoiceWithQwen(voiceData.voice_sample_url);
+                embeddingUrl = newUrl;
+                // Save the embedding to DB so we don't clone again
+                await supabase.from('voices')
+                    .update({ qwen_embedding_url: embeddingUrl })
+                    .eq('user_id', userId)
+                    .eq('is_active', true);
+                console.log('✅ JIT Cloning successful:', embeddingUrl);
+            } catch (cloneError) {
+                console.error('❌ JIT Cloning failed:', cloneError);
+            }
+        }
+
+        // Fail early if no voice
+        if (!embeddingUrl) {
+            const errorMsg = 'No cloned voice found. Please upload a voice sample first.';
+            await updateJob(jobId, { status: 'failed', error: errorMsg, is_processing: false });
+            return NextResponse.json({ error: errorMsg }, { status: 400 });
+        }
+
+        console.log(`🎤 Using voice embedding: ${embeddingUrl.substring(0, 60)}...`);
+
         // CHECK PENDING RENDER
         if (input.pendingRender) {
             const { projectId } = input.pendingRender;
@@ -547,7 +585,7 @@ export async function POST(request: NextRequest) {
 
                 // 2. Generate TTS
                 console.log('  🎤 Generating TTS...');
-                const { audioUrl, duration } = await generateSceneTTS(sceneInput.text, input.voiceId);
+                const { audioUrl, duration } = await generateSceneTTS(sceneInput.text, embeddingUrl);
 
                 // 3. Save processed scene
                 processedScenes.push({
