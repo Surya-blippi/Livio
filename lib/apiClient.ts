@@ -335,18 +335,19 @@ export const generateFacelessSpeech = async (
     };
 };
 
+// Helper to estimate syllables for timing (moved up for use in estimateWordTimings)
+function estimateSyllables(word: string): number {
+    const cleaned = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    if (cleaned.length <= 2) return 1;
+    const vowelGroups = cleaned.match(/[aeiouy]+/gi);
+    return Math.max(1, vowelGroups ? vowelGroups.length : Math.ceil(cleaned.length / 3));
+}
+
 // Fallback estimation function (used when Whisper fails)
 function estimateWordTimings(script: string, duration?: number): WordTiming[] {
     const words = script.split(/\s+/).filter(w => w.length > 0);
 
-    const estimateSyllablesLocal = (word: string): number => {
-        const cleaned = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
-        if (cleaned.length <= 2) return 1;
-        const vowelGroups = cleaned.match(/[aeiouy]+/gi);
-        return Math.max(1, vowelGroups ? vowelGroups.length : Math.ceil(cleaned.length / 3));
-    };
-
-    const wordSyllables = words.map(estimateSyllablesLocal);
+    const wordSyllables = words.map(estimateSyllables);
     const totalSyllables = wordSyllables.reduce((a, b) => a + b, 0);
 
     const finalDuration = duration || (totalSyllables / 3.5);
@@ -372,14 +373,6 @@ function estimateWordTimings(script: string, duration?: number): WordTiming[] {
 async function blobToBase64(blob: Blob): Promise<string> {
     const buffer = await blob.arrayBuffer();
     return Buffer.from(buffer).toString('base64');
-}
-
-// Helper to estimate syllables for timing
-function estimateSyllables(word: string): number {
-    const cleaned = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
-    if (cleaned.length <= 2) return 1;
-    const vowelGroups = cleaned.match(/[aeiouy]+/gi);
-    return Math.max(1, vowelGroups ? vowelGroups.length : Math.ceil(cleaned.length / 3));
 }
 
 /**

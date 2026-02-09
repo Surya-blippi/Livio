@@ -15,10 +15,25 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+    const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [error, setError] = useState('');
     const [mode, setMode] = useState<'record' | 'upload'>('record');
     const [audioDuration, setAudioDuration] = useState<number>(0);
+
+    // Cleanup object URL to prevent memory leaks
+    useEffect(() => {
+        if (audioBlob) {
+            const url = URL.createObjectURL(audioBlob);
+            setAudioPreviewUrl(url);
+            return () => {
+                URL.revokeObjectURL(url);
+                setAudioPreviewUrl(null);
+            };
+        } else {
+            setAudioPreviewUrl(null);
+        }
+    }, [audioBlob]);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
@@ -246,7 +261,7 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                         <div>
                                             <audio
                                                 ref={audioPreviewRef}
-                                                src={URL.createObjectURL(audioBlob)}
+                                                src={audioPreviewUrl || ''}
                                                 controls
                                                 className="w-full mb-4"
                                             />

@@ -373,10 +373,16 @@ export default function Dashboard() {
                                     </button>
                                 ))}
 
-                                <button className="aspect-[3/4] border-2 border-dashed border-[var(--border-subtle)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-3)]">
+                                <label className="aspect-[3/4] border-2 border-dashed border-[var(--border-subtle)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-3)] cursor-pointer transition-colors">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={state.handlePhotoUpload}
+                                    />
                                     <ImageIcon />
                                     <span className="text-sm mt-2">Upload New</span>
-                                </button>
+                                </label>
                             </div>
                         </motion.div>
                     </motion.div>
