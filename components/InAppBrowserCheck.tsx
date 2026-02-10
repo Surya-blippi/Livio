@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { showToast } from "@/lib/toast";
 
 export function InAppBrowserCheck({ children }: { children: React.ReactNode }) {
     const [isInAppBrowser, setIsInAppBrowser] = useState(false);
@@ -26,6 +27,15 @@ export function InAppBrowserCheck({ children }: { children: React.ReactNode }) {
             }
         }
     }, []);
+
+    const copyCurrentUrl = async (message: string) => {
+        try {
+            await navigator.clipboard.writeText(currentUrl);
+            showToast({ type: 'success', message });
+        } catch {
+            showToast({ type: 'error', message: 'Unable to copy link. Please copy it manually.' });
+        }
+    };
 
     if (!mounted) {
         // Return null or partial content to avoid hydration mismatch if possible, 
@@ -53,10 +63,7 @@ export function InAppBrowserCheck({ children }: { children: React.ReactNode }) {
                     </p>
 
                     <div className="bg-gray-50 border-2 border-black rounded-xl p-4 mb-6 relative group cursor-pointer"
-                        onClick={() => {
-                            navigator.clipboard.writeText(currentUrl);
-                            alert("Link copied!");
-                        }}>
+                        onClick={() => copyCurrentUrl('Link copied. Open it in Chrome or Safari.')}>
                         <p className="font-mono text-sm break-all text-left text-gray-500 line-clamp-2">
                             {currentUrl}
                         </p>
@@ -66,10 +73,7 @@ export function InAppBrowserCheck({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(currentUrl);
-                            alert("Link copied to clipboard! Open Chrome or Safari and paste it.");
-                        }}
+                        onClick={() => copyCurrentUrl('Link copied. Open Chrome or Safari and paste it.')}
                         className="w-full py-4 bg-[var(--brand-primary)] border-2 border-black rounded-xl text-xl font-black uppercase tracking-wide shadow-[4px_4px_0px_#000] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000] transition-all active:translate-y-[4px] active:shadow-none"
                     >
                         Copy Link

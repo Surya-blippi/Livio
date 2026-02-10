@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { showToast } from '@/lib/toast';
 
 export function PaymentVerification() {
     const searchParams = useSearchParams();
@@ -25,13 +26,20 @@ export function PaymentVerification() {
                     if (res.ok) {
                         const data = await res.json();
                         if (data.added) {
-                            alert(`Success! Added ${data.added} credits to your account.`);
+                            showToast({
+                                type: 'success',
+                                message: `Added ${data.added} credits to your account.`,
+                            });
                             // Trigger credit refresh
                             window.dispatchEvent(new Event('credits-updated'));
                         }
                     }
                 } catch (error) {
                     console.error('Error verifying payment:', error);
+                    showToast({
+                        type: 'error',
+                        message: 'Could not verify payment. Refresh and try again.',
+                    });
                 } finally {
                     // Clean URL
                     router.replace('/dashboard');

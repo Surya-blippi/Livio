@@ -49,10 +49,10 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
             <button
                 onClick={() => setShowDropdown(!showDropdown)}
                 className={`flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full transition-all duration-200 ${hasClonedVoice || voiceFile
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20'
+                    ? 'bg-[var(--brand-primary)] text-black border border-black'
                     : 'bg-[var(--surface-1)] border border-dashed border-[var(--text-tertiary)] hover:border-[var(--text-secondary)]'}`}
             >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${hasClonedVoice || voiceFile ? 'bg-emerald-500 text-white shadow-sm' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${hasClonedVoice || voiceFile ? 'bg-black text-[var(--brand-primary)] shadow-sm' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                     <MicIcon />
                 </div>
                 <span className={`text-sm font-semibold ${hasClonedVoice || voiceFile ? '' : 'text-[var(--text-secondary)]'}`}>
@@ -70,21 +70,21 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                                 {allVoices.map((voice) => (
                                     <div key={voice.id}
                                         onClick={() => { onVoiceSelect(voice); setShowDropdown(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] text-left transition-all cursor-pointer group ${voice.is_active ? 'bg-emerald-500/10 dark:bg-emerald-500/20' : 'hover:bg-[var(--surface-3)]'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] text-left transition-all cursor-pointer group ${voice.is_active ? 'bg-[var(--brand-primary)]/30 border border-[var(--brand-primary)]' : 'hover:bg-[var(--surface-3)]'}`}
                                     >
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-500 text-white text-xs shrink-0"><MicIcon /></div>
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-black text-[var(--brand-primary)] text-xs shrink-0"><MicIcon /></div>
                                         <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate text-[var(--text-primary)]">{voice.name || 'My Voice'}</p></div>
 
                                         {voice.preview_url && (
                                             <button
                                                 onClick={(e) => handlePlayVoice(e, voice.preview_url!, voice.id)}
-                                                className={`p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${playingVoiceId === voice.id ? 'text-emerald-500' : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'}`}
+                                                className={`p-1.5 rounded-full hover:bg-black/10 transition-colors ${playingVoiceId === voice.id ? 'text-black' : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'}`}
                                             >
                                                 {playingVoiceId === voice.id ? <PauseIcon /> : <PlayIcon />}
                                             </button>
                                         )}
 
-                                        {voice.is_active && <span className="text-emerald-500">✓</span>}
+                                        {voice.is_active && <span className="text-black">✓</span>}
                                     </div>
                                 ))}
                                 <div className="my-2 h-px bg-[var(--border-subtle)]" />

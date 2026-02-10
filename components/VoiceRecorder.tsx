@@ -184,7 +184,7 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                 <h2 className="text-3xl font-bold mb-2 gradient-text text-center">
                     Record Your Voice
                 </h2>
-                <p className="text-gray-400 text-center mb-8">
+                <p className="text-[var(--text-secondary)] text-center mb-8">
                     We'll clone your voice to narrate the script
                 </p>
 
@@ -193,8 +193,8 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                     <button
                         onClick={() => setMode('record')}
                         className={`px-6 py-2 rounded-md transition-all ${mode === 'record'
-                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                            : 'text-gray-400 hover:text-white'
+                            ? 'bg-[var(--brand-primary)] text-black border-2 border-black shadow-[2px_2px_0px_#000]'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                             }`}
                     >
                         🎤 Record
@@ -202,8 +202,8 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                     <button
                         onClick={() => setMode('upload')}
                         className={`px-6 py-2 rounded-md transition-all ${mode === 'upload'
-                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                            : 'text-gray-400 hover:text-white'
+                            ? 'bg-[var(--brand-primary)] text-black border-2 border-black shadow-[2px_2px_0px_#000]'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                             }`}
                     >
                         📁 Upload
@@ -222,10 +222,10 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                 {/* Recording interface */}
                                 <div className="text-center">
                                     <div className="mb-6">
-                                        <div className={`mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center ${isRecording ? 'pulse-recording' : ''
+                                        <div className={`mx-auto w-24 h-24 rounded-full bg-black border-2 border-[var(--brand-primary)] flex items-center justify-center ${isRecording ? 'pulse-recording' : ''
                                             }`}>
                                             <svg
-                                                className="w-12 h-12 text-white"
+                                                className="w-12 h-12 text-[var(--brand-primary)]"
                                                 fill="currentColor"
                                                 viewBox="0 0 20 20"
                                             >
@@ -242,7 +242,7 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                         {formatTime(recordingTime)}
                                     </div>
 
-                                    <p className="text-sm text-gray-400 mb-6">
+                                    <p className="text-sm text-[var(--text-secondary)] mb-6">
                                         {isRecording
                                             ? isRecordingValidLength
                                                 ? '✓ Minimum duration reached'
@@ -276,17 +276,17 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                                 >
                                                     🔄 Re-record
                                                 </button>
-                                                <button
-                                                    onClick={handleRecordedAudioConfirm}
-                                                    disabled={!isRecordingValidLength || isProcessing}
-                                                    className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {isProcessing ? (
-                                                        <>
-                                                            <div className="spinner inline-block mr-2 w-5 h-5" />
-                                                            Processing...
-                                                        </>
-                                                    ) : (
+                                            <button
+                                                onClick={handleRecordedAudioConfirm}
+                                                disabled={!isRecordingValidLength || isProcessing}
+                                                className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isProcessing ? (
+                                                    <>
+                                                        <div className="spinner inline-block mr-2 w-5 h-5" />
+                                                        Processing...
+                                                    </>
+                                                ) : (
                                                         'Continue →'
                                                     )}
                                                 </button>
@@ -306,7 +306,7 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                 {!audioFile ? (
                                     <div
                                         {...getRootProps()}
-                                        className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-purple-500 bg-purple-500/10' : 'border-gray-600'
+                                        className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-[var(--brand-primary)] bg-[var(--surface-2)]' : 'border-[var(--border-subtle)]'
                                             }`}
                                     >
                                         <input {...getInputProps()} />
@@ -328,7 +328,7 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                         </div>
 
                                         {isDragActive ? (
-                                            <p className="text-xl text-purple-400 font-medium">
+                                            <p className="text-xl text-[var(--text-primary)] font-medium">
                                                 Drop your audio file here
                                             </p>
                                         ) : (
@@ -367,17 +367,17 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                                             >
                                                 🔄 Choose Different File
                                             </button>
-                                            <button
-                                                onClick={handleUploadedAudioConfirm}
-                                                disabled={!isUploadValidLength || isProcessing}
-                                                className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProcessing ? (
-                                                    <>
-                                                        <div className="spinner inline-block mr-2 w-5 h-5" />
-                                                        Processing...
-                                                    </>
-                                                ) : (
+                                                <button
+                                                    onClick={handleUploadedAudioConfirm}
+                                                    disabled={!isUploadValidLength || isProcessing}
+                                                    className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {isProcessing ? (
+                                                        <>
+                                                            <div className="spinner inline-block mr-2 w-5 h-5" />
+                                                            Processing...
+                                                        </>
+                                                    ) : (
                                                     'Continue →'
                                                 )}
                                             </button>
@@ -399,8 +399,8 @@ export default function VoiceRecorder({ onVoiceReady, isProcessing = false }: Vo
                     )}
 
                     {/* Info box */}
-                    <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                        <p className="text-sm text-blue-300">
+                    <div className="mt-6 p-4 bg-[var(--surface-2)] border-2 border-black rounded-lg">
+                        <p className="text-sm text-[var(--text-secondary)]">
                             <strong>💡 Tip:</strong> For best results, speak clearly in a quiet environment.
                             The audio must be at least {minDuration} seconds long.
                         </p>

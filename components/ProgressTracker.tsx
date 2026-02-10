@@ -45,19 +45,19 @@ export default function ProgressTracker({ currentStep, steps }: ProgressTrackerP
                                 <div className="flex flex-col items-center text-center">
                                     <div
                                         className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-2 transition-all duration-300 ${isCompleted
-                                                ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg'
+                                                ? 'bg-[var(--brand-primary)] text-black border-2 border-black shadow-[3px_3px_0px_#000]'
                                                 : isCurrent
-                                                    ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg animate-pulse-slow'
-                                                    : 'bg-gray-700 text-gray-500'
+                                                    ? 'bg-black text-[var(--brand-primary)] border-2 border-black shadow-[3px_3px_0px_#000] animate-pulse-slow'
+                                                    : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] border-2 border-[var(--border-subtle)]'
                                             }`}
                                     >
                                         {isCompleted ? '✓' : step.number}
                                     </div>
 
-                                    <div className={`${isCurrent ? 'text-white font-semibold' : 'text-gray-400'}`}>
+                                    <div className={`${isCurrent ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>
                                         <p className="text-xs mb-1">{step.title}</p>
                                         {isCurrent && (
-                                            <p className="text-[10px] text-gray-500">{step.description}</p>
+                                            <p className="text-[10px] text-[var(--text-tertiary)]">{step.description}</p>
                                         )}
                                     </div>
                                 </div>

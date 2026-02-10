@@ -826,7 +826,7 @@ export const MobileOverlays: React.FC<MobileOverlaysProps> = ({
                                                     controls
                                                     autoPlay
                                                     className="w-full max-w-sm rounded-2xl shadow-2xl"
-                                                    style={{ aspectRatio: '9/16' }}
+                                                    style={{ aspectRatio: aspectRatio.replace(':', '/') }}
                                                 />
                                                 {/* Download Button */}
                                                 <button

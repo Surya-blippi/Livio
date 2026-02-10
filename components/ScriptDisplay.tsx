@@ -52,14 +52,14 @@ export default function ScriptDisplay({
                 <h2 className="text-3xl font-bold mb-2 gradient-text text-center">
                     Your Script is Ready!
                 </h2>
-                <p className="text-gray-400 text-center mb-8">
+                <p className="text-[var(--text-secondary)] text-center mb-8">
                     Review and edit if needed
                 </p>
 
                 <div className="glass-strong p-8">
                     {/* Topic display */}
-                    <div className="mb-6 pb-6 border-b border-gray-700">
-                        <span className="text-sm text-gray-500">Topic:</span>
+                    <div className="mb-6 pb-6 border-b border-[var(--border-subtle)]">
+                        <span className="text-sm text-[var(--text-tertiary)]">Topic:</span>
                         <p className="text-lg font-medium mt-1">{topic}</p>
                     </div>
 
@@ -71,7 +71,7 @@ export default function ScriptDisplay({
                             </label>
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
-                                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                             >
                                 {isEditing ? '✓ Done Editing' : '✏️ Edit'}
                             </button>
@@ -85,18 +85,18 @@ export default function ScriptDisplay({
                                     setScript(e.target.value);
                                     setError('');
                                 }}
-                                className="w-full px-4 py-3 bg-black/30 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-white placeholder-gray-500 min-h-[150px] resize-y"
+                                className="w-full px-4 py-3 bg-[var(--surface-1)] border-2 border-[var(--border-subtle)] rounded-lg focus:outline-none focus:border-[var(--border-strong)] transition-all text-[var(--text-primary)] min-h-[150px] resize-y"
                                 maxLength={2000}
                             />
                         ) : (
-                            <div className="px-4 py-3 bg-black/30 border border-gray-700 rounded-lg min-h-[150px] text-gray-200 leading-relaxed">
+                            <div className="px-4 py-3 bg-[var(--surface-2)] border-2 border-[var(--border-subtle)] rounded-lg min-h-[150px] text-[var(--text-primary)] leading-relaxed">
                                 {script}
                             </div>
                         )}
                     </div>
 
                     {/* Stats */}
-                    <div className="flex gap-6 text-sm text-gray-400 mb-6">
+                    <div className="flex gap-6 text-sm text-[var(--text-secondary)] mb-6">
                         <div>
                             <span className="font-medium">{wordCount}</span> words
                         </div>
@@ -127,7 +127,7 @@ export default function ScriptDisplay({
                         >
                             {isRegenerating ? (
                                 <>
-                                    <div className="spinner border-white border-t-purple-300 w-5 h-5" />
+                                    <div className="spinner w-5 h-5" />
                                     Regenerating...
                                 </>
                             ) : (

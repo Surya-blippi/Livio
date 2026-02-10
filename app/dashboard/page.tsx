@@ -61,6 +61,7 @@ export default function Dashboard() {
                     return;
                 }
                 console.error('Enhance failed:', data.error);
+                state.setError(data.error || 'Could not enhance script right now.');
                 return;
             }
             if (data.script) {
@@ -72,6 +73,7 @@ export default function Dashboard() {
             }
         } catch (err) {
             console.error('Enhance failed:', err);
+            state.setError('Could not enhance script right now.');
         } finally {
             setIsEnhancing(false);
         }
@@ -86,6 +88,7 @@ export default function Dashboard() {
             state.setPreviewMode('assets');
         } catch (error) {
             console.error(error);
+            state.setError('Could not collect assets right now.');
         } finally {
             setIsCollectingAssets(false);
         }
@@ -131,6 +134,20 @@ export default function Dashboard() {
             <Suspense fallback={null}>
                 <PaymentVerification />
             </Suspense>
+            {state.error && (
+                <div className="fixed top-3 left-1/2 z-[80] w-[min(92vw,640px)] -translate-x-1/2">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-red-700 shadow-[4px_4px_0px_#ef4444]">
+                        <p className="text-sm font-bold leading-snug">{state.error}</p>
+                        <button
+                            onClick={() => state.setError('')}
+                            className="text-xs font-black opacity-80 hover:opacity-100"
+                            aria-label="Dismiss error"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
             <StudioLayout
                 // Desktop panels
                 resourcePanel={

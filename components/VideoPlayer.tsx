@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { showToast } from '@/lib/toast';
 
 interface VideoPlayerProps {
     videoUrl: string;
@@ -28,11 +29,16 @@ export default function VideoPlayer({ videoUrl, onCreateNew }: VideoPlayerProps)
                 });
             } catch (err) {
                 console.log('Error sharing:', err);
+                showToast({ type: 'warning', message: 'Share canceled.' });
             }
         } else {
             // Fallback: copy to clipboard
-            navigator.clipboard.writeText(videoUrl);
-            alert('Video link copied to clipboard!');
+            try {
+                await navigator.clipboard.writeText(videoUrl);
+                showToast({ type: 'success', message: 'Video link copied to clipboard.' });
+            } catch {
+                showToast({ type: 'error', message: 'Unable to copy video link.' });
+            }
         }
     };
 
@@ -45,9 +51,9 @@ export default function VideoPlayer({ videoUrl, onCreateNew }: VideoPlayerProps)
             >
                 <div className="text-center mb-8">
                     <h2 className="text-4xl font-bold mb-3">
-                        <span className="gradient-text">Your Video is Ready! 🎉</span>
+                        <span className="text-[var(--text-primary)]">Your Video is Ready! 🎉</span>
                     </h2>
-                    <p className="text-gray-400 text-lg">
+                    <p className="text-[var(--text-secondary)] text-lg">
                         Download, share, or create another one
                     </p>
                 </div>
@@ -111,7 +117,7 @@ export default function VideoPlayer({ videoUrl, onCreateNew }: VideoPlayerProps)
 
                         <button
                             onClick={onCreateNew}
-                            className="btn-primary bg-gradient-to-r from-green-600 to-emerald-600 flex items-center justify-center gap-2"
+                            className="btn-primary flex items-center justify-center gap-2"
                         >
                             <svg
                                 className="w-5 h-5"
@@ -131,8 +137,8 @@ export default function VideoPlayer({ videoUrl, onCreateNew }: VideoPlayerProps)
                     </div>
 
                     {/* Stats or info */}
-                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg">
-                        <p className="text-sm text-center text-gray-300">
+                    <div className="mt-6 p-4 bg-[var(--surface-2)] border-2 border-black rounded-lg">
+                        <p className="text-sm text-center text-[var(--text-secondary)]">
                             ✨ <strong>Pro Tip:</strong> Share your creation on social media using #PocketInfluencer
                         </p>
                     </div>

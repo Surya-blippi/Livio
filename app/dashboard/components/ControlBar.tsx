@@ -135,14 +135,14 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                 {/* Toggles */}
                 <button
                     onClick={() => setEnableCaptions(!enableCaptions)}
-                    className={`p-2.5 rounded-[var(--radius-md)] transition-all ${enableCaptions ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                    className={`p-2.5 rounded-[var(--radius-md)] transition-all ${enableCaptions ? 'bg-[var(--brand-primary)] border border-black text-black' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                     title="Captions"
                 >
                     <span className="text-lg">📝</span>
                 </button>
                 <button
                     onClick={() => setEnableBackgroundMusic(!enableBackgroundMusic)}
-                    className={`p-2.5 rounded-[var(--radius-md)] transition-all ${enableBackgroundMusic ? 'bg-pink-100 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                    className={`p-2.5 rounded-[var(--radius-md)] transition-all ${enableBackgroundMusic ? 'bg-[var(--brand-primary)] border border-black text-black' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                     title="Background Music"
                 >
                     <span className="text-lg">🎵</span>
@@ -154,7 +154,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                     disabled={!canGenerate}
                     whileHover={canGenerate ? { scale: 1.05 } : {}}
                     whileTap={canGenerate ? { scale: 0.95 } : {}}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-[var(--radius-md)] font-bold text-sm shadow-lg shadow-orange-500/20 transition-all ${canGenerate ? 'bg-[var(--brand-gradient)] text-white' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] cursor-not-allowed'}`}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-[var(--radius-md)] font-bold text-sm transition-all ${canGenerate ? 'bg-[var(--brand-primary)] border-2 border-black text-black shadow-[3px_3px_0px_#000]' : 'bg-[var(--surface-3)] text-[var(--text-tertiary)] cursor-not-allowed'}`}
                 >
                     <span>Create Video</span>
                     <span className="text-lg">✨</span>

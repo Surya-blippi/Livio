@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 import { SupabaseProvider } from "@/app/context/SupabaseProvider";
 import { InAppBrowserCheck } from "@/components/InAppBrowserCheck";
+import { GlobalToast } from "@/components/GlobalToast";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,6 +26,7 @@ export default function RootLayout({
                         <InAppBrowserCheck>
                             {children}
                         </InAppBrowserCheck>
+                        <GlobalToast />
                     </SupabaseProvider>
                 </body>
             </html>

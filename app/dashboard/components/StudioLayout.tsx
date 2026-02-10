@@ -227,22 +227,22 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         <button
                             onClick={() => setActiveSheet('script')}
                             className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasScript
-                                ? 'bg-gradient-to-r from-purple-500 to-purple-600 border-black shadow-[3px_3px_0px_#000]'
-                                : 'bg-white border-purple-200 hover:border-purple-400'
+                                ? 'bg-[var(--brand-primary)] border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-[var(--border-subtle)] hover:border-black'
                                 }`}
                         >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasScript ? 'bg-white/20' : 'bg-purple-50'}`}>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasScript ? 'bg-black/10' : 'bg-[var(--surface-2)]'}`}>
                                 ✨
                             </div>
                             <div className="flex-1">
-                                <p className={`font-black text-sm ${hasScript ? 'text-white' : 'text-gray-600'}`}>Script</p>
-                                <p className={`text-xs ${hasScript ? 'text-white/80' : 'text-gray-400'}`}>
+                                <p className={`font-black text-sm ${hasScript ? 'text-black' : 'text-[var(--text-secondary)]'}`}>Script</p>
+                                <p className={`text-xs ${hasScript ? 'text-black/70' : 'text-[var(--text-tertiary)]'}`}>
                                     {hasScript ? 'Tap to edit' : 'Write or generate'}
                                 </p>
                             </div>
                             {/* Edit/Pencil Icon */}
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasScript ? 'bg-white/20' : 'bg-purple-100'}`}>
-                                <svg className={`w-4 h-4 ${hasScript ? 'text-white' : 'text-purple-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasScript ? 'bg-black/10' : 'bg-[var(--surface-3)]'}`}>
+                                <svg className={`w-4 h-4 ${hasScript ? 'text-black' : 'text-[var(--text-secondary)]'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                 </svg>
                             </div>
@@ -252,22 +252,22 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                         <button
                             onClick={() => setActiveSheet('assets')}
                             className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasAssets
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-black shadow-[3px_3px_0px_#000]'
-                                : 'bg-white border-blue-200 hover:border-blue-400'
+                                ? 'bg-[var(--brand-primary)] border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-[var(--border-subtle)] hover:border-black'
                                 }`}
                         >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasAssets ? 'bg-white/20' : 'bg-blue-50'}`}>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasAssets ? 'bg-black/10' : 'bg-[var(--surface-2)]'}`}>
                                 🖼️
                             </div>
                             <div className="flex-1">
-                                <p className={`font-black text-sm ${hasAssets ? 'text-white' : 'text-gray-600'}`}>Assets</p>
-                                <p className={`text-xs ${hasAssets ? 'text-white/80' : 'text-gray-400'}`}>
+                                <p className={`font-black text-sm ${hasAssets ? 'text-black' : 'text-[var(--text-secondary)]'}`}>Assets</p>
+                                <p className={`text-xs ${hasAssets ? 'text-black/70' : 'text-[var(--text-tertiary)]'}`}>
                                     {hasAssets ? `${assets.length} images` : 'Upload images'}
                                 </p>
                             </div>
                             {/* Upload Icon */}
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasAssets ? 'bg-white/20' : 'bg-blue-100'}`}>
-                                <svg className={`w-4 h-4 ${hasAssets ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasAssets ? 'bg-black/10' : 'bg-[var(--surface-3)]'}`}>
+                                <svg className={`w-4 h-4 ${hasAssets ? 'text-black' : 'text-[var(--text-secondary)]'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
                             </div>
@@ -278,19 +278,19 @@ export const StudioLayout: React.FC<StudioLayoutProps> = ({
                             onClick={() => hasStoryboard && setActiveSheet('storyboard')}
                             disabled={!hasStoryboard}
                             className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${hasStoryboard
-                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 border-black shadow-[3px_3px_0px_#000]'
-                                : 'bg-white border-gray-100 opacity-50'
+                                ? 'bg-[var(--brand-primary)] border-black shadow-[3px_3px_0px_#000]'
+                                : 'bg-white border-[var(--border-subtle)] opacity-50'
                                 }`}
                         >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasStoryboard ? 'bg-white/20' : 'bg-gray-100'}`}>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl ${hasStoryboard ? 'bg-black/10' : 'bg-[var(--surface-2)]'}`}>
                                 🎬
                             </div>
                             <div className="flex-1">
-                                <p className={`font-black text-sm ${hasStoryboard ? 'text-white' : 'text-gray-400'}`}>Scenes</p>
-                                <p className={`text-xs ${hasStoryboard ? 'text-white/80' : 'text-gray-300'}`}>Video storyboard</p>
+                                <p className={`font-black text-sm ${hasStoryboard ? 'text-black' : 'text-[var(--text-secondary)]'}`}>Scenes</p>
+                                <p className={`text-xs ${hasStoryboard ? 'text-black/70' : 'text-[var(--text-tertiary)]'}`}>Video storyboard</p>
                             </div>
                             {hasStoryboard && (
-                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
                             )}

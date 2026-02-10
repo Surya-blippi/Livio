@@ -49,7 +49,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ videos, onDelete }) 
                         >
                             <div className="flex gap-4">
                                 {/* Thumbnail Placeholder */}
-                                <div className="relative w-24 aspect-[9/16] rounded-[var(--radius-sm)] overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 shrink-0 shadow-sm group-hover:shadow-md transition-shadow flex items-center justify-center">
+                                <div className="relative w-24 aspect-[9/16] rounded-[var(--radius-sm)] overflow-hidden bg-[var(--surface-2)] border border-[var(--border-subtle)] shrink-0 shadow-sm group-hover:shadow-md transition-shadow flex items-center justify-center">
                                     <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -60,7 +60,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ videos, onDelete }) 
                                 <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
                                     <div>
                                         <div className="flex items-center gap-2 mb-1.5 self-start flex-wrap">
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${video.mode === 'face' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-400'}`}>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${video.mode === 'face' ? 'bg-[var(--surface-3)] text-[var(--text-primary)] border border-[var(--border-subtle)]' : 'bg-[var(--brand-primary)] text-black border border-black'}`}>
                                                 {video.mode === 'face' ? 'Face' : 'Faceless'}
                                             </span>
                                         </div>
@@ -81,7 +81,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ videos, onDelete }) 
                             </div>
 
                             {/* Actions Overlay */}
-                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 p-1 rounded-lg backdrop-blur-sm">
+                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white p-1 rounded-lg border border-[var(--border-subtle)]">
                                 <button
                                     onClick={() => onDelete(video.id)}
                                     className="p-1.5 rounded-md hover:bg-red-500 hover:text-white text-[var(--text-secondary)] transition-colors"

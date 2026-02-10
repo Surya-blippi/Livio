@@ -21,9 +21,9 @@ export default function ProcessingStatus({ message, progress, subMessage }: Proc
                 {/* Animated spinner */}
                 <div className="mb-8 flex justify-center">
                     <div className="relative">
-                        <div className="spinner border-purple-500 border-t-pink-500 w-20 h-20" />
+                        <div className="spinner w-20 h-20" />
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full opacity-20 animate-ping" />
+                            <div className="w-16 h-16 bg-[var(--brand-primary)] rounded-full opacity-20 animate-ping" />
                         </div>
                     </div>
                 </div>
@@ -34,7 +34,7 @@ export default function ProcessingStatus({ message, progress, subMessage }: Proc
                 </h3>
 
                 {subMessage && (
-                    <p className="text-gray-400 mb-6">
+                    <p className="text-[var(--text-secondary)] mb-6">
                         {subMessage}
                     </p>
                 )}
@@ -48,13 +48,13 @@ export default function ProcessingStatus({ message, progress, subMessage }: Proc
                                 style={{ width: `${progress}%` }}
                             />
                         </div>
-                        <p className="text-sm text-gray-500 mt-2">{progress}% complete</p>
+                        <p className="text-sm text-[var(--text-secondary)] mt-2">{progress}% complete</p>
                     </div>
                 )}
 
                 {/* Fun facts or tips while waiting */}
-                <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                    <p className="text-sm text-blue-300">
+                <div className="mt-8 p-4 bg-[var(--surface-2)] border-2 border-black rounded-lg">
+                    <p className="text-sm text-[var(--text-secondary)]">
                         <strong>Did you know?</strong> AI can now clone voices with just 10 seconds of audio!
                     </p>
                 </div>

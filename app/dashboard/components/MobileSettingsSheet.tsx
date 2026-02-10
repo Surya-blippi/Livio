@@ -67,7 +67,7 @@ export const MobileSettingsSheet: React.FC<MobileSettingsSheetProps> = ({
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                        className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-50 max-h-[85vh] overflow-hidden"
+                        className="fixed bottom-0 left-0 right-0 bg-[var(--surface-1)] border-t-2 border-black rounded-t-[32px] z-50 max-h-[85vh] overflow-hidden"
                     >
                         {/* Handle */}
                         <div className="flex justify-center py-3">
@@ -75,11 +75,11 @@ export const MobileSettingsSheet: React.FC<MobileSettingsSheetProps> = ({
                         </div>
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 pb-4 border-b border-gray-100">
+                        <div className="flex items-center justify-between px-6 pb-4 border-b-2 border-[var(--border-subtle)]">
                             <h2 className="text-xl font-black">Settings</h2>
                             <button
                                 onClick={onClose}
-                                className="p-2 rounded-full hover:bg-gray-100"
+                                className="p-2 rounded-full hover:bg-[var(--surface-2)]"
                             >
                                 <CloseIcon className="w-5 h-5" />
                             </button>
@@ -90,60 +90,60 @@ export const MobileSettingsSheet: React.FC<MobileSettingsSheetProps> = ({
 
                             {/* Mode Selection */}
                             <section>
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Video Mode</h3>
+                                <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Video Mode</h3>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={() => setMode('faceless')}
                                         className={`p-4 rounded-2xl border-2 transition-all ${mode === 'faceless'
                                                 ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                                : 'border-[var(--border-subtle)] hover:border-black'
                                             }`}
                                     >
-                                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <svg className="w-6 h-6 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[var(--surface-3)] flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                 <circle cx="12" cy="12" r="10" />
                                                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                                             </svg>
                                         </div>
                                         <p className="font-bold text-center">Faceless</p>
-                                        <p className="text-xs text-gray-500 text-center">Images only</p>
+                                        <p className="text-xs text-[var(--text-secondary)] text-center">Images only</p>
                                     </button>
 
                                     <button
                                         onClick={() => { setMode('face'); onSelectFace(); }}
                                         className={`p-4 rounded-2xl border-2 transition-all ${mode === 'face'
                                                 ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                                : 'border-[var(--border-subtle)] hover:border-black'
                                             }`}
                                     >
-                                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center overflow-hidden">
+                                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[var(--brand-primary)] border border-black flex items-center justify-center overflow-hidden">
                                             {avatarUrl ? (
                                                 <img src={avatarUrl} className="w-full h-full object-cover" />
                                             ) : (
-                                                <span className="text-white text-lg">👤</span>
+                                                <span className="text-black text-lg">👤</span>
                                             )}
                                         </div>
                                         <p className="font-bold text-center">Face</p>
-                                        <p className="text-xs text-gray-500 text-center">With avatar</p>
+                                        <p className="text-xs text-[var(--text-secondary)] text-center">With avatar</p>
                                     </button>
                                 </div>
                             </section>
 
                             {/* Voice Selection */}
                             <section>
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Voice</h3>
+                                <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Voice</h3>
                                 <button
                                     onClick={onSelectVoice}
-                                    className="w-full p-4 rounded-2xl border-2 border-gray-200 hover:border-gray-300 flex items-center gap-4 transition-all"
+                                    className="w-full p-4 rounded-2xl border-2 border-[var(--border-subtle)] hover:border-black flex items-center gap-4 transition-all"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 flex items-center justify-center">
-                                        <MicIcon className="w-5 h-5 text-white" />
+                                    <div className="w-12 h-12 rounded-full bg-[var(--brand-primary)] border border-black flex items-center justify-center">
+                                        <MicIcon className="w-5 h-5 text-black" />
                                     </div>
                                     <div className="flex-1 text-left">
                                         <p className="font-bold">{voiceName}</p>
-                                        <p className="text-sm text-gray-500">Tap to change</p>
+                                        <p className="text-sm text-[var(--text-secondary)]">Tap to change</p>
                                     </div>
-                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                     </svg>
                                 </button>
@@ -151,15 +151,15 @@ export const MobileSettingsSheet: React.FC<MobileSettingsSheetProps> = ({
 
                             {/* Duration */}
                             <section>
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Duration</h3>
+                                <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Duration</h3>
                                 <div className="flex gap-3">
                                     {durations.map((d) => (
                                         <button
                                             key={d}
                                             onClick={() => setDuration(d)}
                                             className={`flex-1 py-4 rounded-2xl border-2 font-bold transition-all ${duration === d
-                                                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-black'
-                                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                                    ? 'border-black bg-[var(--brand-primary)] text-black shadow-[2px_2px_0px_#000]'
+                                                    : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-black'
                                                 }`}
                                         >
                                             {d}s
@@ -170,21 +170,21 @@ export const MobileSettingsSheet: React.FC<MobileSettingsSheetProps> = ({
 
                             {/* Aspect Ratio */}
                             <section>
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Aspect Ratio</h3>
+                                <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Aspect Ratio</h3>
                                 <div className="grid grid-cols-3 gap-3">
                                     {aspectRatios.map((ar) => (
                                         <button
                                             key={ar.value}
                                             onClick={() => setAspectRatio(ar.value)}
                                             className={`p-4 rounded-2xl border-2 transition-all ${aspectRatio === ar.value
-                                                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                                    ? 'border-black bg-[var(--surface-2)]'
+                                                    : 'border-[var(--border-subtle)] hover:border-black'
                                                 }`}
                                         >
                                             <div className={`mx-auto mb-2 border-2 border-current ${ar.value === '9:16' ? 'w-6 h-10' :
                                                     ar.value === '16:9' ? 'w-10 h-6' :
                                                         'w-8 h-8'
-                                                } rounded ${aspectRatio === ar.value ? 'border-[var(--brand-primary)]' : 'border-gray-400'}`} />
+                                                } rounded ${aspectRatio === ar.value ? 'border-black' : 'border-[var(--text-tertiary)]'}`} />
                                             <p className="text-xs font-bold text-center">{ar.label}</p>
                                         </button>
                                     ))}

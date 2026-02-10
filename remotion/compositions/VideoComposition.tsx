@@ -25,8 +25,12 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
     scenes,
     captions,
     enableCaptions,
+    captionStyle,
     backgroundColor = '#000000'
 }) => {
+    const supportedCaptionStyles = new Set(['bold-classic', 'modern-pop', 'minimal', 'vibrant']);
+    const resolvedCaptionStyle = supportedCaptionStyles.has(captionStyle) ? captionStyle as 'bold-classic' | 'modern-pop' | 'minimal' | 'vibrant' : 'bold-classic';
+
     // Calculate frame offsets for each scene
     let currentFrame = 0;
     const sceneFrameStarts: number[] = [];
@@ -72,7 +76,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
 
             {/* Captions overlay - rendered on top of all scenes */}
             {enableCaptions && captions.length > 0 && (
-                <Captions words={captions} />
+                <Captions words={captions} style={resolvedCaptionStyle} />
             )}
         </AbsoluteFill>
     );

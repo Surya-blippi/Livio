@@ -51,6 +51,7 @@ import {
 } from '@/lib/supabase';
 import { useSupabase } from "@/app/context/SupabaseProvider";
 import { convertToMp3, needsConversion } from '@/lib/audioConverter';
+import { showToast } from '@/lib/toast';
 
 export const useDashboardState = () => {
     const { user, isLoaded: isUserLoaded } = useUser();
@@ -297,6 +298,11 @@ export const useDashboardState = () => {
     };
 
     const hasClonedVoice = !!savedVoice?.voice_id;
+
+    const confirmDeletion = (message: string) => {
+        if (typeof window === 'undefined') return true;
+        return window.confirm(message);
+    };
 
     // HANDLERS
 
@@ -626,32 +632,59 @@ export const useDashboardState = () => {
     };
 
     const handleDeleteVideo = async (videoId: string) => {
-        await deleteVideo(videoId);
-        await refreshVideoHistory();
-        // Clear selected video if it was deleted
-        if (selectedVideo?.id === videoId) {
-            setSelectedVideo(null);
+        if (!confirmDeletion('Delete this project permanently? This cannot be undone.')) return;
+
+        try {
+            await deleteVideo(videoId);
+            await refreshVideoHistory();
+            // Clear selected video if it was deleted
+            if (selectedVideo?.id === videoId) {
+                setSelectedVideo(null);
+            }
+            showToast({ type: 'success', message: 'Project deleted.' });
+        } catch (err) {
+            console.error('Delete video failed:', err);
+            setError('Failed to delete project.');
+            showToast({ type: 'error', message: 'Failed to delete project.' });
         }
     };
 
     // Delete avatar handler
     const handleDeleteAvatar = async (avatarId: string) => {
-        await deleteAvatar(avatarId);
-        setSavedAvatars(prev => prev.filter(a => a.id !== avatarId));
-        // Clear photo preview if the deleted avatar was selected
-        const deletedAvatar = savedAvatars.find(a => a.id === avatarId);
-        if (deletedAvatar && photoPreview === deletedAvatar.image_url) {
-            setPhotoPreview('');
+        if (!confirmDeletion('Delete this avatar permanently?')) return;
+
+        try {
+            await deleteAvatar(avatarId);
+            setSavedAvatars(prev => prev.filter(a => a.id !== avatarId));
+            // Clear photo preview if the deleted avatar was selected
+            const deletedAvatar = savedAvatars.find(a => a.id === avatarId);
+            if (deletedAvatar && photoPreview === deletedAvatar.image_url) {
+                setPhotoPreview('');
+            }
+            showToast({ type: 'success', message: 'Avatar deleted.' });
+        } catch (err) {
+            console.error('Delete avatar failed:', err);
+            setError('Failed to delete avatar.');
+            showToast({ type: 'error', message: 'Failed to delete avatar.' });
         }
     };
 
     // Delete voice handler
     const handleDeleteVoice = async (voiceDbId: string) => {
-        await deleteVoice(voiceDbId);
-        setAllVoices(prev => prev.filter(v => v.id !== voiceDbId));
-        // Clear selected voice if it was deleted
-        if (savedVoice?.id === voiceDbId) {
-            setSavedVoice(null);
+        if (!confirmDeletion('Delete this voice permanently?')) return;
+
+        try {
+            await deleteVoice(voiceDbId);
+            setAllVoices(prev => prev.filter(v => v.id !== voiceDbId));
+            // Clear selected voice if it was deleted
+            if (savedVoice?.id === voiceDbId) {
+                setSavedVoice(null);
+            }
+            showToast({ type: 'success', message: 'Voice deleted.' });
+        } catch (err) {
+            console.error('Delete voice failed:', err);
+            setError('Failed to delete voice.');
+            showToast({ type: 'error', message: 'Failed to delete voice.' });
         }
     };
 

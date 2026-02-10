@@ -83,12 +83,12 @@ export default function SocialBonusCard({ userId, initialStatus = 'idle' }: Soci
 
     if (status === 'approved') {
         return (
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-green-700 font-bold text-lg mb-1">
+            <div className="bg-[var(--surface-2)] border-2 border-black rounded-xl p-4 shadow-[3px_3px_0px_#000]">
+                <div className="flex items-center gap-2 text-[var(--text-primary)] font-bold text-lg mb-1">
                     <CheckIcon />
                     Bonus Unlocked!
                 </div>
-                <div className="text-green-600 text-sm">
+                <div className="text-[var(--text-secondary)] text-sm">
                     You earned 500 credits for sharing.
                 </div>
             </div>
@@ -96,18 +96,18 @@ export default function SocialBonusCard({ userId, initialStatus = 'idle' }: Soci
     }
 
     return (
-        <div className="border border-indigo-100 bg-indigo-50/50 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-indigo-700 font-bold text-lg mb-2">
+        <div className="border-2 border-black bg-[var(--surface-1)] rounded-xl p-5 shadow-[4px_4px_0px_#000]">
+            <div className="flex items-center gap-2 text-[var(--text-primary)] font-bold text-lg mb-2">
                 <ShareIcon />
                 Get 500 Free Credits
             </div>
 
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
                 Post about <strong>Pocket Influencer</strong> on LinkedIn or Twitter/X to earn credits.
             </p>
 
             <div className="space-y-4">
-                <div className="text-sm text-slate-600 space-y-1">
+                <div className="text-sm text-[var(--text-secondary)] space-y-1">
                     <p>1. Write a post sharing your experience.</p>
                     <p>2. Paste the link to your post below.</p>
                 </div>
@@ -119,7 +119,7 @@ export default function SocialBonusCard({ userId, initialStatus = 'idle' }: Soci
                 )}
 
                 {status === 'pending' ? (
-                    <div className="p-3 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 text-sm flex items-center gap-2">
+                    <div className="p-3 bg-[var(--surface-2)] text-[var(--text-primary)] rounded-md border-2 border-black text-sm flex items-center gap-2">
                         <LoaderIcon />
                         Verification in progress...
                     </div>
@@ -129,7 +129,7 @@ export default function SocialBonusCard({ userId, initialStatus = 'idle' }: Soci
                         placeholder="https://linkedin.com/posts/..."
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                        className="w-full px-3 py-2 rounded-lg border-2 border-[var(--border-subtle)] focus:outline-none focus:border-black bg-white text-sm"
                     />
                 )}
             </div>
@@ -138,7 +138,7 @@ export default function SocialBonusCard({ userId, initialStatus = 'idle' }: Soci
                 <button
                     onClick={handleSubmit}
                     disabled={loading || !url}
-                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-[var(--brand-primary)] text-black border-2 border-black rounded-lg font-bold transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#000] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                     {loading && <LoaderIcon />}
                     Claim 500 Credits

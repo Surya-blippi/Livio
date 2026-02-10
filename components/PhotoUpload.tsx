@@ -60,13 +60,13 @@ export default function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploa
                 <h2 className="text-3xl font-bold mb-2 gradient-text text-center">
                     Upload Your Photo
                 </h2>
-                <p className="text-gray-400 text-center mb-8">
+                <p className="text-[var(--text-secondary)] text-center mb-8">
                     Choose a clear photo where your face is visible
                 </p>
 
                 <div
                     {...getRootProps()}
-                    className={`glass-strong p-8 border-2 border-dashed transition-all duration-300 cursor-pointer card-hover ${isDragActive ? 'border-purple-500 bg-purple-500/10' : 'border-gray-600'
+                    className={`glass-strong p-8 border-2 border-dashed transition-all duration-300 cursor-pointer card-hover ${isDragActive ? 'border-[var(--brand-primary)] bg-[var(--surface-2)]' : 'border-[var(--border-subtle)]'
                         }`}
                 >
                     <input {...getInputProps()} />
@@ -113,7 +113,7 @@ export default function PhotoUpload({ onPhotoSelect, selectedPhoto }: PhotoUploa
                             </div>
 
                             {isDragActive ? (
-                                <p className="text-xl text-purple-400 font-medium">
+                                <p className="text-xl text-[var(--text-primary)] font-medium">
                                     Drop your photo here
                                 </p>
                             ) : (
