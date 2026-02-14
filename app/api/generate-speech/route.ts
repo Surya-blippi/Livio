@@ -25,6 +25,56 @@ async function generateQwenTTS(
         referenceText
     });
 
+    // If there are multiple audio chunks, concatenate them into a single file
+    if (result.audioUrls && result.audioUrls.length > 1) {
+        console.log(`🔗 Concatenating ${result.audioUrls.length} audio chunks into single file...`);
+        try {
+            // Download all audio chunks
+            const audioBuffers: Buffer[] = [];
+            for (let i = 0; i < result.audioUrls.length; i++) {
+                const response = await fetch(result.audioUrls[i]);
+                const arrayBuffer = await response.arrayBuffer();
+                audioBuffers.push(Buffer.from(arrayBuffer));
+                console.log(`  ✅ Downloaded chunk ${i + 1}/${result.audioUrls.length} (${audioBuffers[i].length} bytes)`);
+            }
+
+            // Concatenate all buffers (MP3 concatenation works for same-codec files)
+            const combinedBuffer = Buffer.concat(audioBuffers);
+            console.log(`  📦 Combined audio: ${combinedBuffer.length} bytes`);
+
+            // Upload to Supabase Storage
+            const fileName = `tts-combined/${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`;
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+
+            const { error: uploadError } = await adminClient.storage
+                .from('videos')
+                .upload(fileName, combinedBuffer, {
+                    contentType: 'audio/mpeg',
+                    upsert: true
+                });
+
+            if (uploadError) {
+                console.warn('⚠️ Failed to upload combined audio, using first chunk:', uploadError);
+                return { audioUrl: result.audioUrl, duration: result.duration };
+            }
+
+            const { data: urlData } = adminClient.storage.from('videos').getPublicUrl(fileName);
+            console.log(`  ✅ Combined audio uploaded: ${urlData.publicUrl}`);
+
+            return {
+                audioUrl: urlData.publicUrl,
+                duration: result.duration
+            };
+        } catch (concatError) {
+            console.warn('⚠️ Audio concatenation failed, using first chunk:', concatError);
+            return { audioUrl: result.audioUrl, duration: result.duration };
+        }
+    }
+
     return {
         audioUrl: result.audioUrl,
         duration: result.duration
