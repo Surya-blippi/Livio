@@ -76,13 +76,17 @@ export async function POST(request: NextRequest) {
             const outputUrl = progress.outputFile || '';
 
             // Update Job to Completed
-            // CRITICAL: Use admin 'supabase' client (not authClient) to bypass RLS for UPDATE
+            // CRITICAL: Use admin client to bypass RLS for UPDATE
             // Store videoUrl in result_data since output_url column doesn't exist
             const existingResultData = (job.result_data as Record<string, unknown>) || {};
 
             console.log('[Typography Status] Updating job to completed with videoUrl:', outputUrl);
 
-            const { error: updateError } = await supabase
+            // Use service role client
+            const { getSupabaseAdmin } = await import('@/lib/supabase-admin');
+            const supabaseAdmin = getSupabaseAdmin();
+
+            const { error: updateError } = await supabaseAdmin
                 .from('video_jobs')
                 .update({
                     status: 'completed',
