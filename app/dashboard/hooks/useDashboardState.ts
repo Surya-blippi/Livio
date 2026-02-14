@@ -907,10 +907,23 @@ export const useDashboardState = () => {
         }
         // ----------------------------------------
 
-        // --- AUTO-PARSE SCENES IF EMPTY ---
+        // --- AUTO-PARSE SCENES IF EMPTY OR STALE ---
         // If user has script but no scenes (didn't click Research), parse script into scenes
+        // Also re-parse if user edited the script after scenes were generated
         let workingScenes = scenes;
-        if (scenes.length === 0 && inputText.trim().length > 0) {
+
+        // Check if scenes are stale (user edited inputText after scene generation)
+        if (scenes.length > 0 && inputText.trim().length > 0) {
+            const scenesText = scenes.map(s => s.text).join(' ').trim();
+            const currentText = inputText.trim();
+            // If the concatenated scene text differs from inputText, scenes are stale
+            if (scenesText !== currentText) {
+                console.log('[Video] Script was edited after scenes were generated — re-parsing scenes from current text');
+                workingScenes = []; // Force re-parse below
+            }
+        }
+
+        if (workingScenes.length === 0 && inputText.trim().length > 0) {
             // Split script by sentences (periods, ! or ?) into individual scenes
             // Split script by sentences (periods, ! or ?) or newlines into individual scenes
             const sentences = inputText
