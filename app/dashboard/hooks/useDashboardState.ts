@@ -221,6 +221,19 @@ export const useDashboardState = () => {
                 // Determine job type (from job_type field or by checking input_data)
                 const jobType = job.job_type || (job.input_data?.faceImageUrl ? 'face' : 'faceless');
 
+                // If the job has been stuck (not updated in >60s), explicitly retrigger the process endpoint
+                const lastUpdated = new Date(job.updated_at).getTime();
+                const staleMs = Date.now() - lastUpdated;
+                if (staleMs > 60000 && (job.status === 'pending' || job.status === 'processing')) {
+                    console.log(`[Resume] Job ${job.id} is stale (${Math.round(staleMs / 1000)}s), retriggering process...`);
+                    const endpoint = jobType === 'face' ? '/api/face-video/process' : '/api/faceless-video/process';
+                    fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jobId: job.id })
+                    }).catch(err => console.error('[Resume] Retrigger failed:', err));
+                }
+
                 // Set UI to processing state
                 setIsProcessing(true);
                 setProcessingMessage(job.progress_message || 'Resuming video generation...');
@@ -1120,22 +1133,9 @@ export const useDashboardState = () => {
 
                 setVideoUrl(videoResult.videoUrl);
 
+                // Video is saved server-side by faceless-video/process.
+                // Just refresh the history list.
                 if (dbUser) {
-                    // Get FRESH token before saving - original token may have expired during long video generation
-                    const freshSb = await getSupabase();
-                    await saveVideo(
-                        dbUser.id,
-                        videoResult.videoUrl,
-                        inputText, // Use global state 'inputText'
-                        'faceless',
-                        30, // Approx
-                        !!enableCaptions,
-                        !!enableBackgroundMusic,
-                        undefined,
-                        'Faceless Video', // Default topic
-                        collectedAssets,
-                        freshSb // Pass authenticated client with fresh token
-                    );
                     await refreshVideoHistory();
                 }
                 // Reset processing state after faceless video is done
@@ -1446,33 +1446,9 @@ export const useDashboardState = () => {
             const finalVideoUrl = sceneResult.videoUrl;
             setVideoUrl(finalVideoUrl);
 
-            // Save video with clip assets from WaveSpeed (Fallback for webhook)
+            // Video is saved server-side by face-video/process.
+            // Just refresh the history list.
             if (dbUser) {
-                // Merge existing collected assets with new clip assets
-                const allAssets = [
-                    ...collectedAssets,
-                    ...(sceneResult.clipAssets || [])
-                ];
-
-                // Get FRESH token before saving - original token may have expired during long video generation
-                const freshSb = await getSupabase();
-
-                // Extract plain text script from scene inputs (not JSON)
-                const scriptText = sceneInputs.map(s => s.text).join('\n\n');
-
-                await saveVideo(
-                    dbUser.id,
-                    finalVideoUrl,
-                    scriptText, // Plain text script, not JSON
-                    'face',
-                    sceneResult.duration || 0,
-                    !!enableCaptions,
-                    !!enableBackgroundMusic,
-                    undefined,
-                    undefined, // Let saveVideo auto-generate topic from script
-                    allAssets,
-                    freshSb // Pass authenticated client with fresh token
-                );
                 await refreshVideoHistory();
             }
             setIsProcessing(false);
