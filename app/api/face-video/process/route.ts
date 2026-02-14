@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { addCredits } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
 import { generateSceneTTS, cloneVoiceWithQwen } from '@/lib/fal';
 import { getWavespeedApiKey, getJson2VideoApiKey } from '@/lib/config';
@@ -11,8 +12,35 @@ export const maxDuration = 55;
 // Configuration
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_TIME_MS = 45000; // 45 seconds max polling
+const INTERNAL_RETRY_DELAY_MS = 5000;
 
 const WAVESPEED_API_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+
+function getAppBaseUrl(request: NextRequest): string {
+    const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    if (configured) {
+        return configured.replace(/\/$/, '');
+    }
+    return request.nextUrl.origin.replace(/\/$/, '');
+}
+
+function queueNextFaceProcess(request: NextRequest, jobId: string): void {
+    const baseUrl = getAppBaseUrl(request);
+    const url = `${baseUrl}/api/face-video/process`;
+
+    void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+        cache: 'no-store'
+    })
+        .then(() => {
+            console.log(`🔁 [AutoQueue] Triggered next face-process tick for job ${jobId}`);
+        })
+        .catch((err) => {
+            console.error(`❌ [AutoQueue] Failed to trigger next face-process tick for job ${jobId}:`, err);
+        });
+}
 
 interface SceneInput {
     text: string;
@@ -51,8 +79,30 @@ interface JobInputData {
     voiceSampleUrl?: string;  // New - for Chatterbox TTS
     enableBackgroundMusic: boolean;
     enableCaptions: boolean;
+    creditsCharged?: number;
     pendingScene?: PendingSceneState | null;
     pendingRender?: PendingRenderState | null;  // NEW
+}
+
+// Refund credits when a job fails
+async function refundCreditsForJob(jobId: string, userId: string, creditsCharged: number | undefined) {
+    if (!creditsCharged || creditsCharged <= 0) {
+        console.log(`[Refund] No credits to refund for job ${jobId}`);
+        return;
+    }
+    try {
+        const result = await addCredits(userId, creditsCharged, 'refund', `Refund for failed face video job`, {
+            jobId,
+            reason: 'job_failed'
+        });
+        if (result.success) {
+            console.log(`💰 [Refund] Refunded ${creditsCharged} credits to user ${userId} for job ${jobId}`);
+        } else {
+            console.error(`❌ [Refund] Failed to refund credits for job ${jobId}`);
+        }
+    } catch (err) {
+        console.error(`❌ [Refund] Error refunding credits for job ${jobId}:`, err);
+    }
 }
 
 // Start WaveSpeed
@@ -244,6 +294,8 @@ async function prepareFaceImage(url: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
     let jobId: string | null = null;
+    let userId: string | null = null;
+    let creditsCharged: number | undefined;
 
     try {
         const { jobId: reqJobId } = await request.json();
@@ -299,6 +351,7 @@ export async function POST(request: NextRequest) {
 
         const inputData = freshJob.input_data as JobInputData;
         const { scenes, faceImageUrl, voiceId, voiceSampleUrl, enableBackgroundMusic, enableCaptions, pendingScene, pendingRender } = inputData;
+        creditsCharged = inputData.creditsCharged;
         const totalScenes = scenes.length;
         const currentIndex = freshJob.current_scene_index || 0;
         let processedScenes: ProcessedScene[] = freshJob.processed_scenes || [];
@@ -307,7 +360,7 @@ export async function POST(request: NextRequest) {
 
         // ======== FETCH VOICE EMBEDDING ========
         // Look up qwen_embedding_url from voices table (instead of using raw voiceSampleUrl)
-        const userId = freshJob.user_uuid || freshJob.user_id;
+        userId = freshJob.user_uuid || freshJob.user_id;
         const { data: voiceData } = await supabase
             .from('voices')
             .select('qwen_embedding_url, voice_sample_url')
@@ -345,6 +398,8 @@ export async function POST(request: NextRequest) {
         if (pendingRender) {
             console.log(`\n📽️ CHECKING PENDING RENDER: ${pendingRender.projectId}`);
 
+            // Throttle provider polling to avoid tight recursive loops.
+            await new Promise(resolve => setTimeout(resolve, INTERNAL_RETRY_DELAY_MS));
             const result = await pollJson2Video(pendingRender.projectId);
 
             if (result.completed && result.videoUrl) {
@@ -405,6 +460,7 @@ export async function POST(request: NextRequest) {
                     is_processing: false,
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
+                queueNextFaceProcess(request, jobId);
                 return NextResponse.json({ retry: true });
             }
 
@@ -425,6 +481,7 @@ export async function POST(request: NextRequest) {
                 }).eq('id', jobId);
             }
 
+            queueNextFaceProcess(request, jobId);
             return NextResponse.json({ stillRendering: true, status: result.status });
         }
 
@@ -452,6 +509,7 @@ export async function POST(request: NextRequest) {
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
 
+                queueNextFaceProcess(request, jobId);
                 return NextResponse.json({ sceneCompleted: currentIndex + 1 });
             }
 
@@ -462,6 +520,7 @@ export async function POST(request: NextRequest) {
                     is_processing: false,
                     updated_at: new Date().toISOString()
                 }).eq('id', jobId);
+                queueNextFaceProcess(request, jobId);
                 return NextResponse.json({ retry: true });
             }
 
@@ -470,6 +529,7 @@ export async function POST(request: NextRequest) {
                 is_processing: false,
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
+            queueNextFaceProcess(request, jobId);
             return NextResponse.json({ stillProcessing: true });
         }
 
@@ -493,6 +553,7 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
+            queueNextFaceProcess(request, jobId);
             return NextResponse.json({ renderStarted: true, projectId });
         }
 
@@ -521,6 +582,7 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
+            queueNextFaceProcess(request, jobId);
             return NextResponse.json({ sceneStarted: currentIndex + 1 });
         } else {
             processedScenes.push({
@@ -538,6 +600,7 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             }).eq('id', jobId);
 
+            queueNextFaceProcess(request, jobId);
             return NextResponse.json({ sceneCompleted: currentIndex + 1 });
         }
 
@@ -556,6 +619,10 @@ export async function POST(request: NextRequest) {
                 }).eq('id', jobId);
             } catch (e2) {
                 console.error("Failed to update job status to failed", e2);
+            }
+            // Refund credits when job fails
+            if (userId) {
+                await refundCreditsForJob(jobId, userId, creditsCharged);
             }
         }
         return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown' }, { status: 500 });

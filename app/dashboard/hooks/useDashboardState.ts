@@ -877,6 +877,14 @@ export const useDashboardState = () => {
         // --- PRE-FLIGHT CHECKS FOR FACELESS MODE ---
         // Skip for typography mode which doesn't need assets
         if (mode === 'faceless' && editType !== 'typography') {
+            // Check if voice is set (faceless also needs TTS)
+            const hasVoice = voiceFile || hasClonedVoice;
+            if (!hasVoice) {
+                setPreviewMode('voice');
+                setError("🎤 Let's clone your voice first! Record or upload a voice sample.");
+                return;
+            }
+
             // Check if assets are collected
             if (collectedAssets.length === 0) {
                 setPreviewMode('assets');

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { addCredits } from '@/lib/supabase';
 import { generateImage, generateSceneTTS, cloneVoiceWithQwen } from '@/lib/fal';
 import {
     startJson2VideoRender,
@@ -11,6 +12,33 @@ import {
 
 // Timeout for serverless function
 export const maxDuration = 55;
+const INTERNAL_RETRY_DELAY_MS = 5000;
+
+function getAppBaseUrl(request: NextRequest): string {
+    const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    if (configured) {
+        return configured.replace(/\/$/, '');
+    }
+    return request.nextUrl.origin.replace(/\/$/, '');
+}
+
+function queueNextFacelessProcess(request: NextRequest, jobId: string): void {
+    const baseUrl = getAppBaseUrl(request);
+    const url = `${baseUrl}/api/faceless-video/process`;
+
+    void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+        cache: 'no-store'
+    })
+        .then(() => {
+            console.log(`🔁 [AutoQueue] Triggered next faceless-process tick for job ${jobId}`);
+        })
+        .catch((err) => {
+            console.error(`❌ [AutoQueue] Failed to trigger next faceless-process tick for job ${jobId}:`, err);
+        });
+}
 
 interface FacelessSceneInput {
     text: string;
@@ -33,6 +61,7 @@ interface FacelessJobInputData {
     enableBackgroundMusic: boolean;
     enableCaptions: boolean;
     backgroundMusicUrl?: string;
+    creditsCharged?: number;
     // State managed during processing
     processedScenes?: ProcessedScene[];
     currentSceneIndex?: number;
@@ -48,6 +77,27 @@ async function updateJob(jobId: string, updates: Record<string, unknown>) {
         .update(updates)
         .eq('id', jobId);
     if (error) console.error(`Failed to update job ${jobId}: `, error);
+}
+
+// Refund credits when a job fails
+async function refundCreditsForJob(jobId: string, userId: string, creditsCharged: number | undefined) {
+    if (!creditsCharged || creditsCharged <= 0) {
+        console.log(`[Refund] No credits to refund for job ${jobId}`);
+        return;
+    }
+    try {
+        const result = await addCredits(userId, creditsCharged, 'refund', `Refund for failed faceless video job`, {
+            jobId,
+            reason: 'job_failed'
+        });
+        if (result.success) {
+            console.log(`💰 [Refund] Refunded ${creditsCharged} credits to user ${userId} for job ${jobId}`);
+        } else {
+            console.error(`❌ [Refund] Failed to refund credits for job ${jobId}`);
+        }
+    } catch (err) {
+        console.error(`❌ [Refund] Error refunding credits for job ${jobId}:`, err);
+    }
 }
 
 // Upload base64 image to Supabase and return public URL
@@ -460,6 +510,7 @@ export async function POST(request: NextRequest) {
         if (!embeddingUrl) {
             const errorMsg = 'No cloned voice found. Please upload a voice sample first.';
             await updateJob(jobId, { status: 'failed', error: errorMsg, is_processing: false });
+            await refundCreditsForJob(jobId, userId, input.creditsCharged);
             return NextResponse.json({ error: errorMsg }, { status: 400 });
         }
 
@@ -470,6 +521,8 @@ export async function POST(request: NextRequest) {
             const { projectId } = input.pendingRender;
             console.log(`Checking render: ${projectId}`);
 
+            // Throttle provider polling to avoid tight recursive loops.
+            await new Promise(resolve => setTimeout(resolve, INTERNAL_RETRY_DELAY_MS));
             const status = await pollJson2Video(projectId);
 
             if (status.completed) {
@@ -529,6 +582,7 @@ export async function POST(request: NextRequest) {
             } else if (status.failed) {
                 console.error(`❌ Render failed: ${status.status}`);
                 await updateJob(jobId, { status: 'failed', error: status.status, is_processing: false });
+                await refundCreditsForJob(jobId, userId, input.creditsCharged);
                 return NextResponse.json({ failed: true, error: status.status });
             } else {
                 console.log('⏳ Still rendering...');
@@ -536,6 +590,7 @@ export async function POST(request: NextRequest) {
                     is_processing: false,
                     progress_message: status.status ? `Rendering: ${status.status}` : 'Rendering final video...'
                 });
+                queueNextFacelessProcess(request, jobId);
                 return NextResponse.json({ completed: false, status: status.status });
             }
         }
@@ -612,11 +667,13 @@ export async function POST(request: NextRequest) {
                 });
 
                 console.log(`✅ Scene ${currentIndex + 1} processed`);
+                queueNextFacelessProcess(request, jobId);
                 return NextResponse.json({ processed: true, sceneIndex: currentIndex });
 
             } catch (err) {
                 console.error(`❌ Scene ${currentIndex} failed:`, err);
                 await updateJob(jobId, { status: 'failed', error: String(err), is_processing: false });
+                await refundCreditsForJob(jobId, userId, input.creditsCharged);
                 return NextResponse.json({ error: String(err) }, { status: 500 });
             }
         }
@@ -670,6 +727,7 @@ export async function POST(request: NextRequest) {
                         progress_message: `Sanitizing assets (${input.allAssets.length - dirtyIndices.length + batch.length}/${input.allAssets.length})...`,
                         is_processing: false
                     });
+                    queueNextFacelessProcess(request, jobId);
                     return NextResponse.json({ sanitized: true, count: batch.length });
                 }
             }
@@ -703,6 +761,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Trigger an immediate check
+        queueNextFacelessProcess(request, jobId);
         return NextResponse.json({ rendering: true, projectId });
 
     } catch (e) {

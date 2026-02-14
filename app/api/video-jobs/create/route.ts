@@ -1,9 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { auth } from '@clerk/nextjs/server';
-import { getUserCredits, deductCredits } from '@/lib/supabase';
+import { getUserCredits, deductCredits, addCredits } from '@/lib/supabase';
 import { CREDIT_COSTS } from '@/lib/credits';
 import crypto from 'crypto';
+
+function getAppBaseUrl(req: NextRequest): string {
+    const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    if (configured) {
+        return configured.replace(/\/$/, '');
+    }
+    return req.nextUrl.origin.replace(/\/$/, '');
+}
+
+function triggerBackgroundJobProcessing(req: NextRequest, jobId: string, jobType: string): void {
+    const endpoint = jobType === 'face'
+        ? '/api/face-video/process'
+        : jobType === 'faceless'
+            ? '/api/faceless-video/process'
+            : null;
+
+    if (!endpoint) return;
+
+    const url = `${getAppBaseUrl(req)}${endpoint}`;
+    void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+        cache: 'no-store'
+    })
+        .then(() => {
+            console.log(`[video-jobs/create] Triggered background processing for job ${jobId} (${jobType})`);
+        })
+        .catch((err) => {
+            console.error(`[video-jobs/create] Failed to trigger background processing for job ${jobId}:`, err);
+        });
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -95,7 +127,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 5. Insert the job as Admin
+        // 5. Insert the job as Admin (include creditsCharged for refund on failure)
         const { data: job, error: insertError } = await supabase
             .from('video_jobs')
             .insert({
@@ -104,7 +136,7 @@ export async function POST(req: NextRequest) {
                 user_uuid: user_id,
                 job_type,
                 status: 'pending',
-                input_data,
+                input_data: { ...input_data, creditsCharged: creditCost },
                 progress: 0,
                 progress_message: 'Initializing...'
             })
@@ -113,10 +145,18 @@ export async function POST(req: NextRequest) {
 
         if (insertError) {
             console.error('Error creating job:', insertError);
-            // Note: Credits already deducted - consider refund logic in production
+            // Refund credits if they were deducted
+            if (creditCost > 0) {
+                console.log(`[video-jobs/create] Refunding ${creditCost} credits due to failed job insert`);
+                await addCredits(user_id, creditCost, 'refund', `Refund: failed to create ${job_type} video job`, {
+                    jobId,
+                    reason: 'job_insert_failed'
+                });
+            }
             return NextResponse.json({ error: 'Failed to create job', details: insertError }, { status: 400 });
         }
 
+        triggerBackgroundJobProcessing(req, job.id, job_type);
         console.log(`[video-jobs/create] Job created successfully: ${job.id}, charged ${creditCost} credits`);
         return NextResponse.json({ job, creditsCharged: creditCost });
     } catch (e: any) {
