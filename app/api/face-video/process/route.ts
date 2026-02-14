@@ -3,7 +3,7 @@ import axios from 'axios';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { addCredits } from '@/lib/supabase';
 import { convertFaceVideoToJson2VideoFormat, FaceSceneInput } from '@/lib/json2video';
-import { generateSceneTTS, cloneVoiceWithQwen } from '@/lib/fal';
+import { generateSceneTTS, cloneVoiceWithQwen, generateImage } from '@/lib/fal';
 import { getWavespeedApiKey, getJson2VideoApiKey } from '@/lib/config';
 
 // Timeout for serverless function
@@ -569,7 +569,74 @@ export async function POST(request: NextRequest) {
 
         const scene = scenes[currentIndex];
         // Use the qwen_embedding_url fetched earlier (with JIT cloning fallback)
-        const { audioUrl, duration } = await generateSceneTTS(scene.text, embeddingUrl);
+        const { audioUrl, audioUrls, duration } = await generateSceneTTS(scene.text, embeddingUrl);
+
+        // ======== AUTO-SPLIT: If TTS produced multiple audio chunks for a face scene ========
+        // Qwen TTS has a ~15s output cap. Long text gets chunked into ~200-char segments,
+        // each producing a separate audio file. We need to split this single scene into
+        // multiple sub-scenes (alternating face/asset) so each WaveSpeed call gets short audio.
+        if (scene.type === 'face' && audioUrls && audioUrls.length > 1) {
+            console.log(`🔀 AUTO-SPLIT: Scene has ${audioUrls.length} audio chunks. Splitting into alternating face/asset sub-scenes...`);
+
+            await supabase.from('video_jobs').update({
+                progress_message: `Splitting long scene into ${audioUrls.length} sub-scenes...`,
+                updated_at: new Date().toISOString()
+            }).eq('id', jobId);
+
+            // Build new sub-scenes to replace the current scene in the scenes array
+            const subScenes: SceneInput[] = [];
+            // Estimate per-chunk duration
+            const perChunkDuration = duration / audioUrls.length;
+
+            // Split the text proportionally for display/logging
+            // (the audio is already split by Qwen, text is just for metadata)
+            const words = scene.text.split(/\s+/);
+            const wordsPerChunk = Math.ceil(words.length / audioUrls.length);
+
+            for (let k = 0; k < audioUrls.length; k++) {
+                const chunkWords = words.slice(k * wordsPerChunk, (k + 1) * wordsPerChunk);
+                const chunkText = chunkWords.join(' ');
+
+                if (k % 2 === 0) {
+                    // Face scene (odd sub-scenes: 1st, 3rd, 5th...)
+                    subScenes.push({ text: chunkText, type: 'face' });
+                } else {
+                    // Asset scene (even sub-scenes: 2nd, 4th, 6th...)
+                    // Generate an AI image for this asset scene
+                    let assetUrl = faceImageUrl; // Fallback to face image
+                    try {
+                        console.log(`  🎨 Generating AI image for sub-scene ${k + 1}...`);
+                        const imagePrompt = `Create a photorealistic, cinematic vertical image. Scene content: "${chunkText}". Requirements: Vertical 9:16 aspect ratio, photorealistic, high-quality, vibrant colors, no text or watermarks, professional broadcast quality.`;
+                        assetUrl = await generateImage(imagePrompt, '9:16');
+                        console.log(`  ✅ AI image generated for sub-scene ${k + 1}`);
+                    } catch (imgErr) {
+                        console.warn(`  ⚠️ AI image generation failed for sub-scene ${k + 1}, using face image fallback:`, imgErr);
+                    }
+                    subScenes.push({ text: chunkText, type: 'asset', assetUrl });
+                }
+            }
+
+            // Replace the current single scene with the expanded sub-scenes
+            const updatedScenes = [
+                ...scenes.slice(0, currentIndex),
+                ...subScenes,
+                ...scenes.slice(currentIndex + 1)
+            ];
+
+            console.log(`🔀 AUTO-SPLIT complete: ${scenes.length} scenes → ${updatedScenes.length} scenes`);
+
+            // Save the expanded scenes back to the job and restart processing from currentIndex
+            await supabase.from('video_jobs').update({
+                input_data: { ...inputData, scenes: updatedScenes },
+                progress_message: `Split into ${updatedScenes.length} scenes. Processing...`,
+                is_processing: false,
+                updated_at: new Date().toISOString()
+            }).eq('id', jobId);
+
+            // Queue next tick to process the first sub-scene
+            queueNextFaceProcess(request, jobId);
+            return NextResponse.json({ autoSplit: true, newSceneCount: updatedScenes.length });
+        }
 
         if (scene.type === 'face') {
             const imageDataUrl = await prepareFaceImage(faceImageUrl);

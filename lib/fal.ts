@@ -246,7 +246,7 @@ export async function cloneVoiceWithQwen(
     }
 }
 
-function chunkTextForQwen(text: string, maxChars: number = 800): string[] {
+function chunkTextForQwen(text: string, maxChars: number = 200): string[] {
     if (text.length <= maxChars) {
         return [text];
     }
@@ -352,11 +352,12 @@ export async function generateSpeechWithQwen(
 /**
  * Helper to generate TTS for a scene, compatible with legacy calls.
  * Smartly handles Qwen embeddings vs raw audio samples (JIT cloning).
+ * Returns audioUrls array when text is split into multiple chunks.
  */
 export async function generateSceneTTS(
     text: string,
     voiceOrResource: string
-): Promise<{ audioUrl: string; duration: number }> {
+): Promise<{ audioUrl: string; audioUrls?: string[]; duration: number }> {
     let embeddingUrl: string | undefined;
     let voice: QwenVoice | undefined;
 
@@ -386,8 +387,14 @@ export async function generateSceneTTS(
         voice = voiceOrResource as QwenVoice;
     }
 
-    return await generateSpeechWithQwen(text, {
+    const result = await generateSpeechWithQwen(text, {
         voice,
         embeddingUrl
     });
+
+    return {
+        audioUrl: result.audioUrl,
+        audioUrls: result.audioUrls,
+        duration: result.duration
+    };
 }
