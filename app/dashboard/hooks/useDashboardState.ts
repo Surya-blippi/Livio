@@ -219,12 +219,13 @@ export const useDashboardState = () => {
                 console.log(`[Resume] Found active job: ${job.id}, status: ${job.status}, type: ${job.job_type}`);
 
                 // Determine job type (from job_type field or by checking input_data)
-                const jobType = job.job_type || (job.input_data?.faceImageUrl ? 'face' : 'faceless');
+                const jobType = job.job_type || (job.input_data?.faceImageUrl ? 'face' : 'faceless') as 'face' | 'faceless' | 'typography';
 
                 // If the job has been stuck (not updated in >60s), explicitly retrigger the process endpoint
+                // Typography jobs use Remotion Lambda with frontend polling — they don't have a process endpoint
                 const lastUpdated = new Date(job.updated_at).getTime();
                 const staleMs = Date.now() - lastUpdated;
-                if (staleMs > 60000 && (job.status === 'pending' || job.status === 'processing')) {
+                if (staleMs > 60000 && (job.status === 'pending' || job.status === 'processing') && jobType !== 'typography') {
                     console.log(`[Resume] Job ${job.id} is stale (${Math.round(staleMs / 1000)}s), retriggering process...`);
                     const endpoint = jobType === 'face' ? '/api/face-video/process' : '/api/faceless-video/process';
                     fetch(endpoint, {

@@ -450,6 +450,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: `Already ${job.status}`, status: job.status });
         }
 
+        // Guard: Only process faceless jobs — typography and face have their own endpoints
+        if (job.job_type && job.job_type !== 'faceless') {
+            console.log(`⚠️ Skipping ${job.job_type} job ${jobId} — wrong endpoint (faceless-video/process)`);
+            return NextResponse.json({
+                skipped: true,
+                reason: `${job.job_type} jobs use their own processing endpoint`
+            });
+        }
+
         // Lock check
         const lockAge = Date.now() - new Date(job.updated_at).getTime();
         if (job.is_processing && lockAge < 60000) {
