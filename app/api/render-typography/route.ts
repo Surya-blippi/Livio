@@ -106,10 +106,12 @@ export async function POST(request: NextRequest) {
                         status: 'processing',
                         input_data: {
                             jobType: 'typography',
+                            script: body.script || '', // Store script for history
                             audioUrl,
                             animationStyle,
                             aspectRatio,
-                            wordCount: wordTimings?.length || 0
+                            wordCount: wordTimings?.length || 0,
+                            wordTimings // Store timings for debugging/re-render if needed
                         },
                         progress: 0,
                         progress_message: 'Starting typography render...'
@@ -263,7 +265,8 @@ export async function POST(request: NextRequest) {
                         renderId: renderResult.renderId,
                         bucketName: renderResult.bucketName,
                         region: REMOTION_AWS_REGION,
-                        functionName: FUNCTION_NAME
+                        functionName: FUNCTION_NAME,
+                        duration: durationInFrames / fps
                     }
                 })
                 .eq('id', dbJobId);

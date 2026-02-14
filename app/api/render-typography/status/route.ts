@@ -106,6 +106,38 @@ export async function POST(request: NextRequest) {
                 // Still return success to frontend - the video was rendered, just DB update failed
             } else {
                 console.log('[Typography Status] Job marked as completed in DB:', jobId);
+
+                // Save to history (videos table) using admin client
+                // This ensures it shows up even if user closes tab
+                const inputData = job.input_data as any || {};
+                const resultData = job.result_data as any || {}; // Contains duration from start
+                const script = inputData.script || inputData.text || ''; // Fallback to text if script empty
+
+                if (script) {
+                    const duration = resultData.duration || 0;
+                    // Auto-generate topic
+                    const topic = script.split(/\s+/).slice(0, 5).join(' ') + (script.length > 30 ? '...' : '');
+
+                    const { error: videoInsertError } = await supabaseAdmin
+                        .from('videos')
+                        .insert({
+                            user_id: job.user_uuid || job.user_id, // Prefer UUID
+                            video_url: outputUrl,
+                            script,
+                            topic,
+                            mode: 'faceless', // Typography is subset of faceless in schema
+                            duration: Math.round(duration),
+                            has_captions: false, // Text is burned in
+                            has_music: false, // For now
+                            created_at: new Date().toISOString()
+                        });
+
+                    if (videoInsertError) {
+                        console.error('[Typography Status] Failed to save video history:', videoInsertError);
+                    } else {
+                        console.log('[Typography Status] Video saved to history');
+                    }
+                }
             }
 
             // Note: The 'saveVideo' (inserting to public.videos) was typically done by Frontend upon receiving success.

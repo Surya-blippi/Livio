@@ -565,6 +565,7 @@ export const createTypographyVideo = async (
         wordsPerGroup?: number;
         animationStyle?: 'pop' | 'slide' | 'fade' | 'typewriter';
         aspectRatio?: '9:16' | '16:9' | '1:1';
+        script?: string;
     } = {}
 ): Promise<{
     videoUrl: string;
@@ -574,7 +575,8 @@ export const createTypographyVideo = async (
     const {
         wordsPerGroup = 3,
         animationStyle = 'pop',
-        aspectRatio = '9:16'
+        aspectRatio = '9:16',
+        script = ''
     } = options;
 
     let finalAudioUrl = '';
@@ -598,6 +600,7 @@ export const createTypographyVideo = async (
         audioBase64: finalAudioBase64, // Send empty if uploaded
         audioUrl: finalAudioUrl,       // Send URL if uploaded
         wordTimings,
+        script,
         wordsPerGroup,
         animationStyle,
         aspectRatio

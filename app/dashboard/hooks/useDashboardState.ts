@@ -1033,28 +1033,16 @@ export const useDashboardState = () => {
                 const videoResult = await createTypographyVideo(audioBase64, wordTimings, {
                     wordsPerGroup: 3,
                     animationStyle: 'pop',
-                    aspectRatio: aspectRatio as '9:16' | '16:9' | '1:1'
+                    aspectRatio: aspectRatio as '9:16' | '16:9' | '1:1',
+                    script: inputText
                 });
 
                 setVideoUrl(videoResult.videoUrl);
 
-                // Save to history
+                // Video is saved to history by the backend status endpoint
                 if (dbUser) {
-                    const freshSb = await getSupabase();
-                    await saveVideo(
-                        dbUser.id,
-                        videoResult.videoUrl,
-                        inputText,
-                        'faceless', // Use faceless for db schema compatibility
-                        videoResult.duration,
-                        false, // No captions overlay needed (text is the video)
-                        enableBackgroundMusic,
-                        undefined,
-                        'Typography Video',
-                        [],
-                        freshSb
-                    );
-                    await refreshVideoHistory();
+                    // Small delay to ensure DB propagation
+                    setTimeout(() => refreshVideoHistory(), 1000);
                 }
 
                 setIsProcessing(false);
